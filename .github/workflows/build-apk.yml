@@ -96,7 +96,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
-      - name: Render V1.12.1 artwork UI
+      - name: Render V1.12.2 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -163,6 +163,7 @@ jobs:
           python3 .github/scripts/patch-v1114.py
           python3 .github/scripts/patch-v1120.py
           python3 .github/scripts/patch-v1121.py
+          python3 .github/scripts/patch-v1122.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
@@ -178,13 +179,13 @@ jobs:
           test "$TOTAL" -eq 126
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.12.1-yardage-focus-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.12.2-map-pin-focus-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.12.1-yardage-focus-debug-apk
-          path: HokkaidoGolfGPS-v1.12.1-yardage-focus-debug.apk
+          name: HokkaidoGolfGPS-v1.12.2-map-pin-focus-debug-apk
+          path: HokkaidoGolfGPS-v1.12.2-map-pin-focus-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -207,7 +208,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.12.1-yardage-focus-preview-screenshots
+          name: HokkaidoGolfGPS-v1.12.2-map-pin-focus-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

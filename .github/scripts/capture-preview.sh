@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="HokkaidoGolfGPS-v1.6-debug.apk"
+APK="HokkaidoGolfGPS-v1.6.1-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 OUT="preview"
@@ -21,12 +21,12 @@ sleep 5
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
 adb exec-out screencap -p > "$OUT/01-home.png"
 
-# Kamishihoro Champions H4 preview: capture readiness + official-guide hazards.
+# Kamishihoro Champions H4 preview: field GPS + Bunker/Water capture.
 adb shell input tap 540 1840
 sleep 3
 adb shell input tap 610 1160
 sleep 2
-adb exec-out screencap -p > "$OUT/02-field-capture.png"
+adb exec-out screencap -p > "$OUT/02-hazard-gps-capture.png"
 
 adb shell input tap 415 2290
 sleep 2
@@ -38,7 +38,7 @@ adb exec-out screencap -p > "$OUT/04-scorecard-contained.png"
 
 adb shell input tap 910 2290
 sleep 2
-adb exec-out screencap -p > "$OUT/05-round-summary.png"
+adb exec-out screencap -p > "$OUT/05-fieldpack-backup.png"
 
-printf 'V1.6 field GPS capture screenshots captured:\n'
+printf 'V1.6.1 hazard GPS + Field Pack screenshots captured:\n'
 ls -lh "$OUT"/*.png

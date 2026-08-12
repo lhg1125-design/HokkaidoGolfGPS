@@ -12,6 +12,12 @@ if anchor not in s:
     raise SystemExit('v1.8 bitmap field anchor missing')
 s=s.replace(anchor,anchor+'\n        private Bitmap v18CourseArt;\n        private int v18CourseArtIndex=-99;',1)
 
+# Build-only/emulator preview can jump directly to the requested screen without
+# changing production behavior.
+preview_anchor='selected=((Activity)ctx).getIntent().getIntExtra("previewCourse",0); variant=((Activity)ctx).getIntent().getIntExtra("previewVariant",0); hole=((Activity)ctx).getIntent().getIntExtra("previewHole",selected>=3?1:4);'
+if preview_anchor in s:
+    s=s.replace(preview_anchor,preview_anchor+' screen=((Activity)ctx).getIntent().getIntExtra("previewScreen",0);',1)
+
 # Add premium image helpers before Korea renderer. Artwork is visual; factual
 # yardage/PAR/GPS data stays in the structured model and overlays.
 marker='        private void roundKorea(Canvas c){'

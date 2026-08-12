@@ -8,8 +8,8 @@ android {
         applicationId = "com.hokkaidogolf.trip"
         minSdk = 26
         targetSdk = 35
-        versionCode = 31
-        versionName = "1.10.0-field-beta"
+        versionCode = 32
+        versionName = "1.10.1-field-yardage-safe"
     }
 
     buildTypes {

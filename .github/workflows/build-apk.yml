@@ -66,7 +66,7 @@ jobs:
       - name: Fetch premium course reference imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
 
-      - name: Render V1.8.3 artwork UI
+      - name: Render V1.9.0 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -118,18 +118,19 @@ jobs:
           python3 .github/scripts/patch-v181.py
           python3 .github/scripts/patch-v182.py
           python3 .github/scripts/patch-v183.py
+          python3 .github/scripts/patch-v190.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.8.3-clean-yardage-ux-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.9.0-actual-yardage-pack-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.8.3-clean-yardage-ux-debug-apk
-          path: HokkaidoGolfGPS-v1.8.3-clean-yardage-ux-debug.apk
+          name: HokkaidoGolfGPS-v1.9.0-actual-yardage-pack-debug-apk
+          path: HokkaidoGolfGPS-v1.9.0-actual-yardage-pack-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -147,12 +148,12 @@ jobs:
           profile: pixel_6
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
-          script: bash .github/scripts/capture-preview-v18.sh
+          script: bash .github/scripts/capture-preview-v19.sh
 
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.8.3-clean-yardage-ux-preview-screenshots
+          name: HokkaidoGolfGPS-v1.9.0-actual-yardage-pack-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

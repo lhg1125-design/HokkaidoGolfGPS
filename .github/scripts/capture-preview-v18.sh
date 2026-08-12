@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.8.2-yardage-ux-debug.apk"
+APK="HokkaidoGolfGPS-v1.8.3-clean-yardage-ux-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 OUT="preview"
@@ -49,7 +49,7 @@ launch_screen(){
 
 shot_round(){
   local course="$1" variant="$2" hole="$3" file="$4"
-  echo "===== YARDAGE ROUND course=$course variant=$variant hole=$hole file=$file ====="
+  echo "===== CLEAN YARDAGE course=$course variant=$variant hole=$hole file=$file ====="
   launch_screen "$course" "$variant" "$hole" 1
   echo "FOCUS: $(adb shell dumpsys window | grep -m1 'mCurrentFocus' || true)"
   echo "APP PID: $(adb shell pidof "$PKG" || true)"
@@ -65,12 +65,39 @@ shot_round 2 0 1 "05-sahoro-h1-yardage.png"
 shot_round 3 0 1 "06-naepo-h1-yardage.png"
 shot_round 4 0 1 "07-royallinks-h1-yardage.png"
 
-# Open the player setup dialog from the score-input screen to verify the 3/4
-# segmented control and keyboard-safe name fields.
+# Verify score input itself before opening settings.
 launch_screen 0 0 2 2
-adb shell input tap 890 225
-sleep 2
-adb exec-out screencap -p > "$OUT/08-player-setup-3-4-toggle.png"
+adb exec-out screencap -p > "$OUT/08-score-input-clean.png"
 
-printf 'V1.8.2 yardage/UX screenshots:\n'
+# ADB y includes the status bar; tap near the visual center of the player setup
+# button rather than the View-local coordinate.
+adb shell input tap 885 315
+sleep 2
+adb exec-out screencap -p > "$OUT/09-player-setup-3-4-toggle.png"
+
+# Focus the first real EditText using accessibility bounds, then capture with
+# the IME visible. This proves the active name entry is not hidden/cropped.
+adb shell uiautomator dump /sdcard/window.xml >/dev/null || true
+adb pull /sdcard/window.xml /tmp/window.xml >/dev/null 2>&1 || true
+python3 - <<'PY' > /tmp/edit_tap.txt
+import re
+from pathlib import Path
+p=Path('/tmp/window.xml')
+if not p.exists():
+    print('540 900'); raise SystemExit
+s=p.read_text(errors='ignore')
+m=re.search(r'class="android\.widget\.EditText"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',s)
+if not m:
+    m=re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*class="android\.widget\.EditText"',s)
+if m:
+    x1,y1,x2,y2=map(int,m.groups()); print((x1+x2)//2,(y1+y2)//2)
+else:
+    print('540 900')
+PY
+read EX EY < /tmp/edit_tap.txt
+adb shell input tap "$EX" "$EY"
+sleep 2
+adb exec-out screencap -p > "$OUT/10-player-name-keyboard-visible.png"
+
+printf 'V1.8.3 clean yardage/UX screenshots:\n'
 ls -lh "$OUT"/*.png

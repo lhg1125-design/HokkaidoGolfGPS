@@ -14,7 +14,7 @@ adb shell settings put global show_first_crash_dialog 0 || true
 shot(){
   local course="$1" variant="$2" hole="$3" screen="$4" file="$5"
   adb shell am force-stop "$PKG" || true
-  adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen "$screen" >/dev/null
+  adb shell am start -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen "$screen" >/dev/null
   sleep 4
   adb exec-out screencap -p > "$OUT/$file"
 }

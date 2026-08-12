@@ -39,11 +39,16 @@ jobs:
           from pathlib import Path
           path = Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
           s = path.read_text()
-          old = 'new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p)'
-          new = 'new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r)'
-          if old not in s:
-              raise SystemExit('expected RectF typo not found')
-          path.write_text(s.replace(old, new))
+          bad1 = 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p));'
+          bad2 = 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r));'
+          good = 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);'
+          if bad1 in s:
+              s = s.replace(bad1, good)
+          elif bad2 in s:
+              s = s.replace(bad2, good)
+          else:
+              raise SystemExit('expected drawOval typo not found')
+          path.write_text(s)
           PY
 
       - name: Build debug APK

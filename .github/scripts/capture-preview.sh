@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="HokkaidoGolfGPS-v0.8.1-debug.apk"
+APK="HokkaidoGolfGPS-v0.9-debug.apk"
 PKG="com.hokkaidogolf.trip"
-ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV08Activity"
+ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 OUT="preview"
 
 mkdir -p "$OUT"
@@ -24,15 +24,13 @@ sleep 2
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
 adb exec-out screencap -p > "$OUT/01-home.png"
 
-# Start round from preselected Kamishihoro / Champions.
-adb shell input tap 300 1715
-sleep 1
+# Start round; preview opens Kamishihoro Champions H11 so the official strategy card is visible.
 adb shell input tap 540 2020
 sleep 4
-adb exec-out screencap -p > "$OUT/02-round.png"
+adb exec-out screencap -p > "$OUT/02-round-strategy.png"
 
-# Tap the schematic once so the attack-distance bubble is visible.
-adb shell input tap 600 1100
+# Touch the course to show the schematic attack-distance bubble.
+adb shell input tap 600 1080
 sleep 1
 adb exec-out screencap -p > "$OUT/03-target.png"
 
@@ -41,5 +39,5 @@ adb shell input tap 690 2240
 sleep 2
 adb exec-out screencap -p > "$OUT/04-score.png"
 
-printf 'V0.8.1 preview screenshots captured:\n'
+printf 'V0.9 preview screenshots captured:\n'
 ls -lh "$OUT"/*.png

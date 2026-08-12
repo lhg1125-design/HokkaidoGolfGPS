@@ -8,8 +8,8 @@ android {
         applicationId = "com.hokkaidogolf.trip"
         minSdk = 26
         targetSdk = 35
-        versionCode = 46
-        versionName = "1.12.3-max-map"
+        versionCode = 47
+        versionName = "1.12.4-hole-step-buttons"
     }
 
     buildTypes {

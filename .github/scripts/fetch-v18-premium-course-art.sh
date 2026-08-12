@@ -3,7 +3,7 @@ set -u
 RAW=.github/tmp/v18
 RES=app/src/main/res/drawable-nodpi
 mkdir -p "$RAW" "$RES"
-UA='Mozilla/5.0 (Linux; Android 15; HokkaidoGolfGPS/1.10.3) AppleWebKit/537.36'
+UA='Mozilla/5.0 (Linux; Android 15; HokkaidoGolfGPS/1.10.4) AppleWebKit/537.36'
 
 fetch_img(){
   local url="$1"
@@ -56,11 +56,48 @@ for h in $(seq -w 1 18); do
   fetch_img "https://www.royallinks.co.kr/images/course/b/${h}.jpg" "$RES/yardage_royallinks_kings${h}.jpg" 180 180
 done
 
-# Sahoro: GDO publishes a per-hole layout, but URLs can move. Discover candidates
-# without pretending an unverified asset is authoritative. Until a stable source
-# is confirmed the UI explicitly labels Sahoro as SCHEMATIC FULL HOLE.
+# Sahoro discovery pass. GDO blocks generic CI requests, so also inspect the
+# Rakuten GORA course/drone page, which exposes per-hole layout data to browsers.
+GORA_HTML="$RAW/sahoro-gora.html"
+if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 30 --retry 2 \
+  -A "$UA" -e 'https://booking.gora.golf.rakuten.co.jp/' \
+  'https://booking.gora.golf.rakuten.co.jp/guide/course_info/drone/disp/c_id/10068' -o "$GORA_HTML"; then
+  python3 - "$GORA_HTML" <<'PY'
+from html.parser import HTMLParser
+from urllib.parse import urljoin
+import re,sys,html
+base='https://booking.gora.golf.rakuten.co.jp/'
+raw=open(sys.argv[1],encoding='utf-8',errors='ignore').read()
+class P(HTMLParser):
+    def __init__(self): super().__init__(); self.urls=[]
+    def handle_starttag(self,tag,attrs):
+        d=dict(attrs)
+        for k in ('src','data-src','data-original','href','poster','srcset'):
+            v=d.get(k)
+            if not v: continue
+            for part in v.split(','):
+                u=part.strip().split(' ')[0]
+                if u: self.urls.append(urljoin(base,u))
+p=P(); p.feed(raw)
+# Also inspect JS/JSON literals for image assets omitted from ordinary tags.
+for m in re.finditer(r'https?://[^\"\'<>\\ ]+|/[A-Za-z0-9_./?=&%:+~-]+\.(?:jpg|jpeg|png|webp)(?:\?[^\"\'<>\\ ]*)?',raw,re.I):
+    p.urls.append(urljoin(base,html.unescape(m.group(0))))
+seen=[]
+for u in p.urls:
+    lu=u.lower()
+    if u in seen: continue
+    if any(k in lu for k in ('10068','hole','layout','course','drone','gora')) and any(ext in lu for ext in ('.jpg','.jpeg','.png','.webp')):
+        seen.append(u)
+for i,u in enumerate(seen[:300],1): print(f'GORA_IMG_CAND {i:03d} {u}')
+print('GORA_HTML_BYTES',len(raw),'GORA_IMG_COUNT',len(seen))
+PY
+else
+  echo 'GORA_HTML_FETCH_FAILED'
+fi
+
+# Keep GDO discovery as a secondary source.
 GDO_HTML="$RAW/sahoro-gdo.html"
-if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 25 --retry 2 -A "$UA" \
+if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 25 --retry 1 -A "$UA" \
   'https://reserve.golfdigest.co.jp/golf-course/course-layout/111101/' -o "$GDO_HTML"; then
   python3 - "$GDO_HTML" <<'PY'
 from html.parser import HTMLParser

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="HokkaidoGolfGPS-v1.1-debug.apk"
+APK="HokkaidoGolfGPS-v1.2-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 OUT="preview"
@@ -15,7 +15,7 @@ adb shell settings put global show_first_crash_dialog 0 || true
 adb shell am force-stop com.google.android.apps.nexuslauncher || true
 adb shell am force-stop com.android.launcher3 || true
 
-# Preview location remains halfway between synthetic H11 TEE and GREEN.
+# Synthetic preview location sits about halfway between preview H11 TEE and GREEN.
 adb emu geo fix 143.2283600 43.2585100 || true
 adb shell am force-stop "$PKG" || true
 adb shell am start -n "$ACTIVITY" --ez preview true
@@ -23,22 +23,22 @@ sleep 4
 adb emu geo fix 143.2283600 43.2585100 || true
 sleep 2
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
-adb exec-out screencap -p > "$OUT/01-home-concept.png"
+adb exec-out screencap -p > "$OUT/01-home-artwork.png"
 
-# Start round from the large orange start button.
-adb shell input tap 540 2200
+# V1.2 orange start button is at ~73-80% screen height.
+adb shell input tap 540 1840
 sleep 4
-adb exec-out screencap -p > "$OUT/02-course-concept.png"
+adb exec-out screencap -p > "$OUT/02-course-artwork.png"
 
-# Touch the live course to show target bubble.
-adb shell input tap 600 1080
+# Touch approved map artwork area to show the dynamic target overlay.
+adb shell input tap 610 1160
 sleep 1
-adb exec-out screencap -p > "$OUT/03-target-concept.png"
+adb exec-out screencap -p > "$OUT/03-target-artwork.png"
 
-# Open score tab in the rounded bottom navigation.
-adb shell input tap 690 2260
+# Score tab in the lower rounded bar.
+adb shell input tap 670 2290
 sleep 2
-adb exec-out screencap -p > "$OUT/04-score-concept.png"
+adb exec-out screencap -p > "$OUT/04-score-artwork.png"
 
-printf 'V1.1 concept UI screenshots captured:\n'
+printf 'V1.2 artwork fidelity screenshots captured:\n'
 ls -lh "$OUT"/*.png

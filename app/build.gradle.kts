@@ -8,8 +8,8 @@ android {
         applicationId = "com.hokkaidogolf.trip"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "1.4.0-five-screen-gps"
+        versionCode = 18
+        versionName = "1.4.1-five-screen-gps"
     }
 
     buildTypes {

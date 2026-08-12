@@ -27,7 +27,6 @@ PY
   rm -f "$tmp"; echo "ART FALLBACK  $(basename "$out")"; return 0
 }
 
-# Establish Rakuten session and persist exact Sahoro source URLs for auditing.
 : > "$CAND"
 if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 30 --retry 2 \
   -A "$UA" -c "$GORA_COOKIE" -b "$GORA_COOKIE" -e 'https://booking.gora.golf.rakuten.co.jp/' \
@@ -72,7 +71,7 @@ fetch_gora_img(){
 from PIL import Image
 import sys
 try:
-    im=Image.open(sys.argv[1]); im.verify(); ok=im.width>=180 and im.height>=180
+    im=Image.open(sys.argv[1]); im.verify(); ok=im.width>=60 and im.height>=300
 except Exception: ok=False
 raise SystemExit(0 if ok else 1)
 PY
@@ -81,14 +80,12 @@ PY
   rm -f "$tmp"; echo "GORA CURL BLOCKED $(basename "$out")"; return 0
 }
 
-# Scenic layers.
 fetch_img 'https://www.princehotels.co.jp/golf/kamishihoro/images/kamishihoro_main_pc_2000x910_01.jpg' "$RAW/raw_kamishihoro.jpg" 480 300
 fetch_img 'https://www.princehotels.co.jp/image/2024_4_top200_golf_1.jpg' "$RAW/raw_furano.jpg" 480 300
 fetch_img 'https://golf-pass.brightspotcdn.com/dims4/default/f86d5af/2147483647/strip/true/crop/1440x929%2B0%2B15/resize/930x600%21/format/webp/quality/90/?url=https%3A%2F%2Fgolf-pass-brightspot.s3.amazonaws.com%2Ffc%2F1b%2Ffd7f35b176dd12aa987c27f2efd2%2F119818.jpg' "$RAW/raw_sahoro.jpg" 480 300
 fetch_img 'https://image.fnnews.com/resource/media/image/2025/07/03/202507031109109114_l.jpg' "$RAW/raw_naepo.jpg" 480 300
 fetch_img 'https://royallinks.co.kr/mobile/images/main/event02.jpg' "$RAW/raw_royal.jpg" 480 300
 
-# Prince + Royal full-hole maps and first-pass Rakuten downloads.
 for h in $(seq -w 1 18); do
   n=$((10#$h))
   fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-c${h}.jpg" "$RES/yardage_kamishihoro_c${h}.jpg" 180 180
@@ -104,9 +101,6 @@ for h in $(seq -w 1 18); do
   fi
 done
 
-# Rakuten blocks raw image fetches from some CI IPs. If needed, keep the live
-# GORA page open and inject each known hole URL as an IMG request initiated by
-# that page. Screenshot the loaded element, preserving the entire tee->green map.
 SAHORO=$(find "$RES" -maxdepth 1 -type f -name 'yardage_sahoro_*.png' | wc -l)
 if [ "$SAHORO" -ne 18 ]; then
   echo "GORA direct fetch yielded $SAHORO/18; starting in-page browser injection"
@@ -143,15 +137,16 @@ try:
         ''',src)
         loaded=bool(result and result[0]); nw=int(result[1]) if loaded else 0; nh=int(result[2]) if loaded else 0
         print('INJECT LOAD',hole,loaded,nw,nh,src)
-        if not loaded or nw<180 or nh<180: continue
+        # GORA maps are deliberately tall/narrow: observed width 71-159px, height 400px.
+        if not loaded or nw<60 or nh<300: continue
         el=d.find_element(By.ID,'oaiHoleImage')
         d.execute_script("window.scrollTo(0,0);arguments[0].style.left='0px';arguments[0].style.top='0px';",el)
-        time.sleep(.12)
+        time.sleep(.10)
         out=root/f'yardage_sahoro_{hole:02d}.png'
         if not el.screenshot(str(out)): continue
         try:
             with Image.open(out) as im:
-                if im.width<180 or im.height<180:
+                if im.width<60 or im.height<300:
                     out.unlink(missing_ok=True); continue
                 st=ImageStat.Stat(im.convert('RGB').resize((32,32)))
                 if sum(st.stddev)<8:

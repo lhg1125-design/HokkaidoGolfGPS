@@ -30,18 +30,18 @@ jobs:
       - name: Check Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          ls -la "$ANDROID_HOME/platforms" || true
-          ls -la "$ANDROID_HOME/build-tools" || true
+          ls "$ANDROID_HOME/platforms" || true
+          ls "$ANDROID_HOME/build-tools" || true
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v0.3-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v0.4-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v0.3-debug-apk
-          path: HokkaidoGolfGPS-v0.3-debug.apk
+          name: HokkaidoGolfGPS-v0.4-debug-apk
+          path: HokkaidoGolfGPS-v0.4-debug.apk
           retention-days: 14

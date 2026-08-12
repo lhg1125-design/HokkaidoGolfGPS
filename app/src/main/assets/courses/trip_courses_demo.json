@@ -1,9 +1,32 @@
 {
+  "schema": "trip-course-v0.4",
   "unit": "m",
-  "warning": "DEMO_GEOMETRY_NOT_FOR_SHOT_DECISIONS",
+  "yard_to_meter": 0.9144,
+  "warning": "COURSE_CENTER_VERIFIED_HOLE_GREEN_COORDINATES_PENDING",
   "courses": [
-    {"name":"上士幌ゴルフ場","ko":"가미시호로 골프장","date":"2026-08-24"},
-    {"name":"富良野ゴルフコース","ko":"후라노 골프코스","date":"2026-08-25"},
-    {"name":"サホロカントリークラブ","ko":"사호로 컨트리클럽","date":"2026-08-26"}
+    {
+      "name": "上士幌ゴルフ場",
+      "ko": "가미시호로 골프장",
+      "date": "2026-08-24",
+      "center": {"lat": 43.2570513, "lon": 143.2283621},
+      "variants": ["CHAMPIONS", "MASTERS"],
+      "tee_data": "REGULAR"
+    },
+    {
+      "name": "富良野ゴルフコース",
+      "ko": "후라노 골프코스",
+      "date": "2026-08-25",
+      "center": {"lat": 43.3351203, "lon": 142.4817967},
+      "variants": ["PALMER", "KING"],
+      "tee_data": "REGULAR"
+    },
+    {
+      "name": "サホロカントリークラブ",
+      "ko": "사호로 컨트리클럽",
+      "date": "2026-08-26",
+      "center": {"lat": 43.15515899658203, "lon": 142.80709838867188},
+      "variants": ["OUT", "IN"],
+      "tee_data": "REGULAR"
+    }
   ]
 }

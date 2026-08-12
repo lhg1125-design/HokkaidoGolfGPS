@@ -11,12 +11,12 @@ permissions:
 jobs:
   extract:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - name: Install tools
         run: python3 -m pip install --disable-pip-version-check pillow requests
-      - name: Download verified Naepo round-post originals
+      - name: Download verified Naepo round-post high-res images
         run: |
           mkdir -p .github/tmp/naepo-real/originals
           python3 - <<'PY'
@@ -27,22 +27,19 @@ jobs:
           from io import BytesIO
           root=Path('.github/tmp/naepo-real'); od=root/'originals'
           urls=[x.strip() for x in Path('.github/data/naepo-round-224012917731-originals.txt').read_text().splitlines() if x.strip()]
-          ua={'User-Agent':'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36','Referer':'https://m.blog.naver.com/jc_song/224012917731'}
+          ua={'User-Agent':'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36','Referer':'https://search.naver.com/'}
           sess=requests.Session();sess.headers.update(ua);saved=[]
           for i,url in enumerate(urls):
-            candidates=[url,'https://search.pstatic.net/common/?src='+quote(url,safe='')+'&type=sc960_832']
-            data=None
-            for u in candidates:
-              try:
-                r=sess.get(u,timeout=20);print('GET',i,r.status_code,len(r.content),u[:150])
-                if r.status_code==200 and len(r.content)>5000:
-                  try:im=Image.open(BytesIO(r.content)).convert('RGB');data=im;break
-                  except:pass
-              except Exception as e:print('ERR',i,e)
-            if data is None:continue
-            p=od/f'{i:02d}_{data.width}x{data.height}.jpg';data.save(p,'JPEG',quality=96,subsampling=0)
+            u='https://search.pstatic.net/common/?src='+quote(url,safe='')+'&type=sc960_832'
+            try:r=sess.get(u,timeout=10)
+            except Exception as e:print('ERR',i,e);continue
+            print('GET',i,r.status_code,len(r.content),u[:160])
+            if r.status_code!=200 or len(r.content)<5000:continue
+            try:data=Image.open(BytesIO(r.content)).convert('RGB')
+            except Exception as e:print('IMGERR',i,e);continue
+            p=od/f'{i:02d}_{data.width}x{data.height}.jpg';data.save(p,'JPEG',quality=97,subsampling=0)
             saved.append((p,url,data.size))
-          if len(saved)<9:raise SystemExit(f'only {len(saved)} originals downloaded')
+          if len(saved)<9:raise SystemExit(f'only {len(saved)} images downloaded')
           (root/'manifest.tsv').write_text('\n'.join(f'{p.name}\t{sz[0]}x{sz[1]}\t{url}' for p,url,sz in saved),encoding='utf-8')
           print('SAVED',len(saved))
           cols=3;tw=520;th=570;rows=(len(saved)+cols-1)//cols

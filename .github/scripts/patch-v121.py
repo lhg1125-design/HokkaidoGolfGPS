@@ -8,6 +8,7 @@ s=s.replace('text(c,"PAR "+par,w-m,h*.087f,15,Color.WHITE,true,Paint.Align.RIGHT
 s=s.replace('pill(c,new RectF(w*.72f,h*.024f,w*.94f,h*.053f),gpsBg(),gpsLabel(),gpsColor(),7.4f);','pill(c,new RectF(w*.72f,h*.030f,w*.94f,h*.059f),gpsBg(),gpsLabel(),gpsColor(),7.4f);')
 s=s.replace('text(c,greenSaveLabel(),greenSave.centerX(),greenSave.centerY()+6,8.2f,Color.WHITE,true,Paint.Align.CENTER);','box(c,greenSave,green==null?CORAL:DEEP,28);box(c,teeSave,getRef("t",hole)==null?Color.rgb(53,139,94):DEEP,28);\n            text(c,greenSaveLabel(),greenSave.centerX(),greenSave.centerY()+6,8.2f,Color.WHITE,true,Paint.Align.CENTER);')
 s=s.replace('getRef("t",hole)==null?"TEE 저장":"TEE ✓"','getRef("t",hole)==null?"TEE 저장":"TEE OK"')
+s=s.replace('if(prog>.02f)pill(c,new RectF(courseRect.left+16,courseRect.top+18,courseRect.left+135,courseRect.top+55),Color.argb(230,255,255,255),"진행 "+Math.round(prog*100)+"%",GREEN,7.4f);','if(prog>.02f)pill(c,new RectF(courseRect.right-145,courseRect.top+18,courseRect.right-16,courseRect.top+55),Color.argb(230,255,255,255),"진행 "+Math.round(prog*100)+"%",GREEN,7.4f);')
 s=s.replace('V1.2 · ARTWORK FIDELITY','V1.2.1 · ARTWORK FIDELITY')
 p.write_text(s)
 print('applied v1.2.1 artwork polish')

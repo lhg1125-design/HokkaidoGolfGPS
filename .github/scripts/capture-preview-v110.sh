@@ -47,13 +47,13 @@ shot(){
 
 # H13: circular previous/next controls live in the free left/right ends of the meter strip.
 shot 2 0 13 1 "02-sahoro-h13-circular-hole-controls.png"
-# Pixel 6 absolute coordinates: right circular step button in compact metric strip.
-adb shell input tap 985 292
+# Exact Pixel 6 screen centers measured from the rendered buttons.
+adb shell input tap 982 354
 sleep .65
 adb exec-out screencap -p > "$OUT/03-sahoro-next-button-h14.png"
 test -s "$OUT/03-sahoro-next-button-h14.png"
 # Left button returns to H13.
-adb shell input tap 95 292
+adb shell input tap 97 354
 sleep .65
 adb exec-out screencap -p > "$OUT/04-sahoro-prev-button-h13.png"
 test -s "$OUT/04-sahoro-prev-button-h13.png"

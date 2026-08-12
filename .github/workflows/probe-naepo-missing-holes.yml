@@ -1,0 +1,77 @@
+name: Probe Naepo Missing Holes
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/probe-naepo-missing-holes.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: python3 -m pip install --disable-pip-version-check selenium pillow requests
+      - name: Search H2 H6 images
+        run: |
+          mkdir -p .github/tmp/naepo-missing/cands
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.parse import quote,urlparse,parse_qs,unquote
+          import re,time,requests,html
+          from PIL import Image,ImageDraw,ImageFont
+          from io import BytesIO
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.common.by import By
+          root=Path('.github/tmp/naepo-missing'); cdir=root/'cands'
+          ua='Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36'
+          opt=Options()
+          for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1440,1800'):opt.add_argument(a)
+          opt.add_argument('--user-agent='+ua);d=webdriver.Chrome(options=opt)
+          urls=[]
+          try:
+            for hole in (2,6):
+              q=f'내포골프클럽 {hole}번홀';u='https://search.naver.com/search.naver?where=image&sm=tab_jum&query='+quote(q)
+              d.get(u);time.sleep(2)
+              for _ in range(5):d.execute_script('window.scrollTo(0, document.body.scrollHeight);');time.sleep(.7)
+              s=html.unescape(d.page_source);(root/f'h{hole}.html').write_text(s,encoding='utf-8')
+              # Prefer structured originalUrl items to avoid UI thumbnails.
+              for m in re.finditer(r'"originalUrl":"([^"]+)"',s):
+                x=m.group(1).replace('http://','https://')
+                if x not in urls:urls.append(x)
+          finally:d.quit()
+          print('ORIGINAL URLS',len(urls))
+          sess=requests.Session();sess.headers.update({'User-Agent':ua,'Referer':'https://search.naver.com/'})
+          saved=[]
+          for i,url in enumerate(urls[:220]):
+            lu=url.lower()
+            if any(x in lu for x in ['logo','icon','profile','avatar']):continue
+            pu='https://search.pstatic.net/common/?src='+quote(url,safe='')+'&type=sc960_832'
+            try:r=sess.get(pu,timeout=8)
+            except:continue
+            if r.status_code!=200 or len(r.content)<8000:continue
+            try:im=Image.open(BytesIO(r.content)).convert('RGB')
+            except:continue
+            if im.width<300 or im.height<200:continue
+            p=cdir/f'{len(saved):03d}.jpg';im.save(p,'JPEG',quality=94,subsampling=0);saved.append((p,url,im.size))
+            if len(saved)>=100:break
+          (root/'saved.tsv').write_text('\n'.join(f'{p.name}\t{sz[0]}x{sz[1]}\t{u}' for p,u,sz in saved),encoding='utf-8')
+          print('SAVED',len(saved))
+          cols=4;tw=300;th=340;font=ImageFont.load_default()
+          for pg in range((len(saved)+19)//20):
+            subset=saved[pg*20:(pg+1)*20];sheet=Image.new('RGB',(cols*tw,5*th),'white');dr=ImageDraw.Draw(sheet)
+            for j,(p,u,sz) in enumerate(subset):
+              im=Image.open(p).convert('RGB');im.thumbnail((tw-12,th-48),Image.Resampling.LANCZOS)
+              x=(j%cols)*tw+(tw-im.width)//2;y=(j//cols)*th+4;sheet.paste(im,(x,y));dr.text(((j%cols)*tw+6,(j//cols)*th+th-34),f'{p.stem} {sz[0]}x{sz[1]}',fill='black',font=font)
+            sheet.save(root/f'contact-{pg:02d}.jpg','JPEG',quality=92)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naepo-missing-hole-candidates
+          path: .github/tmp/naepo-missing/*
+          if-no-files-found: error
+          retention-days: 5

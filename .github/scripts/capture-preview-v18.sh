@@ -10,6 +10,12 @@ adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
 adb shell settings put global hide_error_dialogs 1 || true
 adb shell settings put global show_first_crash_dialog 0 || true
+adb shell settings put secure anr_show_background 0 || true
+# Pixel Launcher can ANR on the headless software-rendered emulator and cover the
+# app despite the app itself being healthy. Stop launchers before every capture.
+adb shell am force-stop com.google.android.apps.nexuslauncher || true
+adb shell am force-stop com.android.launcher3 || true
+sleep 1
 
 cat > /tmp/state_v09.xml <<'EOF'
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
@@ -25,12 +31,23 @@ adb shell am force-stop "$PKG" || true
 adb shell run-as "$PKG" mkdir -p shared_prefs
 adb shell run-as "$PKG" tee shared_prefs/state_v09.xml < /tmp/state_v09.xml >/dev/null
 
+kill_launcher_overlay(){
+  adb shell am force-stop com.google.android.apps.nexuslauncher || true
+  adb shell am force-stop com.android.launcher3 || true
+  sleep 1
+}
+
 launch_home(){
   local course="$1" variant="$2" hole="$3"
   adb shell am force-stop "$PKG" || true
+  kill_launcher_overlay
   adb logcat -c || true
   adb shell am start -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen 0 >/dev/null
   sleep 4
+  kill_launcher_overlay
+  # Bring our Activity back to the foreground after stopping Launcher.
+  adb shell am start -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen 0 >/dev/null
+  sleep 2
 }
 
 shot_round(){
@@ -39,6 +56,7 @@ shot_round(){
   launch_home "$course" "$variant" "$hole"
   adb shell input tap 540 1940
   sleep 5
+  kill_launcher_overlay
   echo "FOCUS: $(adb shell dumpsys window | grep -m1 'mCurrentFocus' || true)"
   echo "APP PID: $(adb shell pidof "$PKG" || true)"
   adb exec-out screencap -p > "$OUT/$file"

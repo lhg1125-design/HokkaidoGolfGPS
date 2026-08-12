@@ -59,10 +59,12 @@ done
 # Sahoro discovery pass. GDO blocks generic CI requests, so also inspect the
 # Rakuten GORA course/drone page, which exposes per-hole layout data to browsers.
 GORA_HTML="$RAW/sahoro-gora.html"
+CAND="$RAW/sahoro-candidates.txt"
+: > "$CAND"
 if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 30 --retry 2 \
   -A "$UA" -e 'https://booking.gora.golf.rakuten.co.jp/' \
   'https://booking.gora.golf.rakuten.co.jp/guide/course_info/drone/disp/c_id/10068' -o "$GORA_HTML"; then
-  python3 - "$GORA_HTML" <<'PY'
+  python3 - "$GORA_HTML" <<'PY' | tee "$CAND"
 from html.parser import HTMLParser
 from urllib.parse import urljoin
 import re,sys,html
@@ -79,7 +81,6 @@ class P(HTMLParser):
                 u=part.strip().split(' ')[0]
                 if u: self.urls.append(urljoin(base,u))
 p=P(); p.feed(raw)
-# Also inspect JS/JSON literals for image assets omitted from ordinary tags.
 for m in re.finditer(r'https?://[^\"\'<>\\ ]+|/[A-Za-z0-9_./?=&%:+~-]+\.(?:jpg|jpeg|png|webp)(?:\?[^\"\'<>\\ ]*)?',raw,re.I):
     p.urls.append(urljoin(base,html.unescape(m.group(0))))
 seen=[]
@@ -92,14 +93,14 @@ for i,u in enumerate(seen[:300],1): print(f'GORA_IMG_CAND {i:03d} {u}')
 print('GORA_HTML_BYTES',len(raw),'GORA_IMG_COUNT',len(seen))
 PY
 else
-  echo 'GORA_HTML_FETCH_FAILED'
+  echo 'GORA_HTML_FETCH_FAILED' | tee "$CAND"
 fi
 
 # Keep GDO discovery as a secondary source.
 GDO_HTML="$RAW/sahoro-gdo.html"
 if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 25 --retry 1 -A "$UA" \
   'https://reserve.golfdigest.co.jp/golf-course/course-layout/111101/' -o "$GDO_HTML"; then
-  python3 - "$GDO_HTML" <<'PY'
+  python3 - "$GDO_HTML" <<'PY' | tee -a "$CAND"
 from html.parser import HTMLParser
 from urllib.parse import urljoin
 import sys

@@ -66,7 +66,7 @@ jobs:
       - name: Fetch premium course reference imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
 
-      - name: Render V1.10 artwork UI
+      - name: Render V1.10.1 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -120,18 +120,19 @@ jobs:
           python3 .github/scripts/patch-v183.py
           python3 .github/scripts/patch-v190.py
           python3 .github/scripts/patch-v1100.py
+          python3 .github/scripts/patch-v1101.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.10.0-field-beta-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.10.1-field-yardage-safe-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.10.0-field-beta-debug-apk
-          path: HokkaidoGolfGPS-v1.10.0-field-beta-debug.apk
+          name: HokkaidoGolfGPS-v1.10.1-field-yardage-safe-debug-apk
+          path: HokkaidoGolfGPS-v1.10.1-field-yardage-safe-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -154,7 +155,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.10.0-field-beta-preview-screenshots
+          name: HokkaidoGolfGPS-v1.10.1-field-yardage-safe-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

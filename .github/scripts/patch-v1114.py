@@ -24,21 +24,18 @@ helpers=r'''        private String fieldReadyLabelV1114(){
             if(x.equals("EST READY"))return Color.argb(108,255,226,143);
             return Color.argb(70,255,255,255);
         }
-        private String greenCenterButtonV1114(GeoRef green){
-            return green==null?"GREEN CENTER 저장":"GREEN CENTER OK";
-        }
 
 '''
 s=s[:pos]+helpers+s[pos:]
 
-# Capture kind=1 is stored as key "g" and the confirmation text explicitly says
-# GREEN CENTER. Never label the same control as FRONT.
-s=s.replace('greenSaveLabel()','greenCenterButtonV1114(green)')
+# Capture kind=1 is key "g" (= green center). Keep method signatures intact and
+# only correct user-visible wording so a FRONT label can never imply the wrong point.
 s=s.replace('"GREEN FRONT"','"GREEN CENTER"')
 s=s.replace('"GREEN 저장"','"GREEN CENTER 저장"')
+s=s.replace('"GREEN OK"','"GREEN CENTER OK"')
 
-# The provenance is still shown in the full-hole footer. Use the small header
-# pill for operational readiness, which is what matters during a live round.
+# The provenance remains in the full-hole footer. Use the small header pill for
+# operational readiness, which is what matters during a live round.
 old='''            pill(c,new RectF(w*.69f,h*.086f,w*.94f,h*.128f),Color.argb(62,255,255,255),yardageSourceV190(),Color.WHITE,7.0f);'''
 new='''            pill(c,new RectF(w*.69f,h*.086f,w*.94f,h*.128f),fieldReadyBgV1114(),fieldReadyLabelV1114(),Color.WHITE,7.0f);'''
 if old not in s:

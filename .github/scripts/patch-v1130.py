@@ -74,4 +74,14 @@ s=s.replace('''            int orange=Color.rgb(255,132,35);''','''            i
 s=s.replace('''            p.setColor(Color.argb((int)(32+42*pulse),255,132,35));''','''            p.setColor(Color.argb((int)(36+54*pulse),247,126,52));''',1)
 
 p.write_text(s)
+
+# Legacy activity is still compiled although V09 is the launcher. Keep its
+# long-standing mascot typo from blocking the dedicated concept-art build.
+legacy=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
+if legacy.exists():
+    t=legacy.read_text()
+    t=t.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p));','c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
+    t=t.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r));','c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
+    legacy.write_text(t)
+
 print('applied v1.13.0 concept-art skin + bundled rounded KR/JP typography')

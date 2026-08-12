@@ -13,99 +13,89 @@ INK=(54,80,54)
 GREEN=(76,157,91)
 
 def is_matte_pixel(rgb):
-    hi=max(rgb); lo=min(rgb); sat=hi-lo
+    hi=max(rgb);lo=min(rgb);sat=hi-lo
     return (sat<42 and (hi<190 or lo>205)) or hi<28
 
 def clean_border_matte(im):
     src=im.convert('RGB');w,h=src.size
     step=max(18,min(w,h)//28);seeds=[]
-    for x in range(0,w,step): seeds.extend([(x,0),(x,h-1)])
-    for y in range(0,h,step): seeds.extend([(0,y),(w-1,y)])
+    for x in range(0,w,step):seeds.extend([(x,0),(x,h-1)])
+    for y in range(0,h,step):seeds.extend([(0,y),(w-1,y)])
     seeds.extend([(w-1,0),(0,h-1),(w-1,h-1)])
     for xy in seeds:
         try:
-            if is_matte_pixel(src.getpixel(xy)):
-                ImageDraw.floodfill(src,xy,CREAM,thresh=42)
-        except Exception: pass
+            if is_matte_pixel(src.getpixel(xy)):ImageDraw.floodfill(src,xy,CREAM,thresh=42)
+        except Exception:pass
     return src
 
 def strip_outside_course(im):
-    """Keep the verified hole and its local rough, replace source canvas outside.
+    """Create a geometry-safe course silhouette and remove publisher canvas.
 
-    A saturation/value signal finds the coloured course body row by row. Everything
-    between the left/right course edges is preserved verbatim, including white
-    bunkers and grey cart paths; only exterior matte is converted to cream.
+    The keep mask is built only from colour/value evidence already present in the
+    source and dilated enough to include nearby bunkers/cart paths. Nothing inside
+    the hole is repositioned, redrawn or invented.
     """
     src=im.convert('RGB');w,h=src.size
     hsv=src.convert('HSV');_,sat,val=hsv.split()
-    sm=sat.point(lambda v:255 if v>28 else 0)
-    vm=val.point(lambda v:255 if v>28 else 0)
+    sm=sat.point(lambda v:255 if v>24 else 0)
+    vm=val.point(lambda v:255 if v>24 else 0)
     sig=ImageChops.multiply(sm,vm)
-    keep=Image.new('L',(w,h),0);kd=ImageDraw.Draw(keep)
-    pad=max(8,round(w*.018))
-    for y in range(h):
-        bb=sig.crop((0,y,w,y+1)).getbbox()
-        if bb:
-            l=max(0,bb[0]-pad);r=min(w-1,bb[2]-1+pad)
-            kd.line((l,y,r,y),fill=255,width=1)
-    # Small vertical expansion prevents isolated low-saturation course edge loss.
-    keep=keep.filter(ImageFilter.MaxFilter(5))
+    k=max(7,min(31,int(min(w,h)*.04)))
+    if k%2==0:k+=1
+    keep=sig.filter(ImageFilter.MaxFilter(k))
+    # Close small holes in the silhouette, retaining white bunkers and paths.
+    keep=keep.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(3))
     bg=Image.new('RGB',(w,h),CREAM)
     return Image.composite(src,bg,keep)
 
 def crop_to_full_hole(im):
     bg=Image.new('RGB',im.size,CREAM)
     diff=ImageChops.difference(im,bg).convert('L')
-    mask=diff.point(lambda v:255 if v>18 else 0)
-    bbox=mask.getbbox()
+    mask=diff.point(lambda v:255 if v>18 else 0);bbox=mask.getbbox()
     if not bbox:return im
     l,t,r,b=bbox;pad=max(10,round(max(im.size)*.018))
     return im.crop((max(0,l-pad),max(0,t-pad),min(im.width,r+pad),min(im.height,b+pad)))
 
-def toon_grade(im):
-    # Geometry-preserving visual conversion only: no generated or invented layout.
-    im=clean_border_matte(im)
-    im=strip_outside_course(im)
-    im=crop_to_full_hole(im)
-
+def toon_grade(im,strong=False):
+    im=clean_border_matte(im);im=strip_outside_course(im);im=crop_to_full_hole(im)
     longest=max(im.size);target=1800
     if longest<target:
         scale=target/float(longest)
         im=im.resize((round(im.width*scale),round(im.height*scale)),Image.Resampling.LANCZOS)
 
-    # Soft painted surface + limited animation-cell palette.
-    smooth=im.filter(ImageFilter.MedianFilter(3)).filter(ImageFilter.SMOOTH_MORE)
-    base=Image.blend(im,smooth,.55)
-    base=ImageEnhance.Color(base).enhance(1.27)
-    base=ImageEnhance.Contrast(base).enhance(1.10)
+    # Sahoro's published raster is only 89x400, so use a deliberately stronger
+    # animation treatment after upscale. Other higher-resolution sources get a
+    # lighter grade that preserves their already-illustrated detail.
+    med=5 if strong else 3
+    smooth=im.filter(ImageFilter.MedianFilter(med)).filter(ImageFilter.SMOOTH_MORE)
+    base=Image.blend(im,smooth,.66 if strong else .54)
+    base=ImageEnhance.Color(base).enhance(1.30 if strong else 1.25)
+    base=ImageEnhance.Contrast(base).enhance(1.11)
     base=ImageEnhance.Brightness(base).enhance(1.04)
-    cell=base.quantize(colors=48,method=Image.Quantize.MEDIANCUT,dither=Image.Dither.NONE).convert('RGB')
-    base=Image.blend(base,cell,.64)
+    colors=30 if strong else 48
+    cell=base.quantize(colors=colors,method=Image.Quantize.MEDIANCUT,dither=Image.Dither.NONE).convert('RGB')
+    base=Image.blend(base,cell,.78 if strong else .64)
 
-    # Concept-art dark-green ink edge, deliberately softer than a technical map.
-    edges=base.convert('L').filter(ImageFilter.FIND_EDGES)
-    edges=ImageOps.autocontrast(edges)
-    alpha=edges.point(lambda v:0 if v<74 else min(94,int((v-74)*.80)))
+    edges=base.convert('L').filter(ImageFilter.FIND_EDGES);edges=ImageOps.autocontrast(edges)
+    alpha=edges.point(lambda v:0 if v<72 else min(102,int((v-72)*.84)))
     contour=Image.new('RGBA',base.size,INK+(0,));contour.putalpha(alpha)
     out=Image.alpha_composite(base.convert('RGBA'),contour).convert('RGB')
-    out=out.filter(ImageFilter.UnsharpMask(radius=.9,percent=70,threshold=3))
+    out=out.filter(ImageFilter.UnsharpMask(radius=.9,percent=68,threshold=3))
     return out
 
 manifest=[];samples=[]
 for p in FILES:
     with Image.open(p) as src:
-        before=src.size;out=toon_grade(src)
+        before=src.size;out=toon_grade(src,p.name.startswith('yardage_sahoro_'))
     out.save(p,'JPEG',quality=96,subsampling=0,optimize=True,progressive=True)
     manifest.append(f'{p.name}\t{before[0]}x{before[1]} -> {out.width}x{out.height}')
-    if p.name in {'yardage_kamishihoro_c01.jpg','yardage_furano_palmer15.jpg','yardage_sahoro_13.jpg','yardage_royallinks_queens01.jpg'}:
-        samples.append((p.name,out.copy()))
+    if p.name in {'yardage_kamishihoro_c01.jpg','yardage_furano_palmer15.jpg','yardage_sahoro_13.jpg','yardage_royallinks_queens01.jpg'}:samples.append((p.name,out.copy()))
 
 (TMP/'manifest.txt').write_text('\n'.join(manifest)+'\n')
 if samples:
     W=1400;tile_w=330;tile_h=660
     sheet=Image.new('RGB',(W,760),CREAM);d=ImageDraw.Draw(sheet)
-    try:
-        f=ImageFont.truetype('/tmp/Jua-Regular.ttf',26);sf=ImageFont.truetype('/tmp/Jua-Regular.ttf',20)
+    try:f=ImageFont.truetype('/tmp/Jua-Regular.ttf',26);sf=ImageFont.truetype('/tmp/Jua-Regular.ttf',20)
     except Exception:f=sf=None
     d.text((35,25),'V1.13.0 · ANIMATION YARDAGE',fill=INK,font=f)
     for idx,(name,im) in enumerate(samples[:4]):
@@ -116,5 +106,5 @@ if samples:
         d.text((x+10,705),name.replace('yardage_','').replace('.jpg',''),fill=INK,font=sf)
     sheet.save(TMP/'yardage-concept-samples.jpg','JPEG',quality=94,subsampling=0)
 
-print('V1.13.0 126 yardages converted to high-res animation-cell style')
+print('V1.13.0 126 yardages converted to silhouette-clean high-res animation style')
 print('sample sheet:',TMP/'yardage-concept-samples.jpg')

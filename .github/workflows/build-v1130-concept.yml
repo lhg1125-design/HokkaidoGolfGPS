@@ -1,0 +1,173 @@
+name: Build V1.13 Concept Art
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  concept-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install render tools
+        run: python3 -m pip install --disable-pip-version-check pillow selenium
+
+      - name: Restore approved concept artwork
+        run: |
+          mkdir -p app/src/main/res/drawable-nodpi
+          cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
+          file app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          file app/src/main/res/drawable-nodpi/concept_course_exact.webp
+
+      - name: Bundle concept fonts
+        run: |
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o /tmp/Jua-Regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o /tmp/MPLUSRounded1c-ExtraBold.ttf
+          mkdir -p app/src/main/assets/fonts
+          cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
+          cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
+          test -s app/src/main/assets/fonts/Jua-Regular.ttf
+          test -s app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
+
+      - name: Fetch full-hole course imagery
+        run: bash .github/scripts/fetch-v18-premium-course-art.sh
+
+      - name: Preserve Sahoro as JPG
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          root=Path('app/src/main/res/drawable-nodpi')
+          srcs=sorted(root.glob('yardage_sahoro_*.png'))
+          if len(srcs)!=18: raise SystemExit(f'expected 18 Sahoro PNGs, got {len(srcs)}')
+          for src in srcs:
+              dst=src.with_suffix('.jpg')
+              with Image.open(src) as im:
+                  im.convert('RGB').save(dst,'JPEG',quality=96,subsampling=0,optimize=True)
+              src.unlink()
+          print('Sahoro JPG',len(list(root.glob('yardage_sahoro_*.jpg'))))
+          PY
+
+      - name: Convert 126 yardages to concept-art style
+        run: python3 .github/scripts/stylize-yardage-v1130.py
+
+      - name: Upload yardage style proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: V1.13-concept-yardage-style-proof
+          path: |
+            .github/tmp/v1130/yardage-concept-samples.jpg
+            .github/tmp/v1130/manifest.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Render concept UI assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/generate-v12-ui.py')
+          s=p.read_text()
+          lines=[]
+          for line in s.splitlines():
+              parts=line.split(';')
+              parts=[seg.replace(',font(', ',font=font(') if 'd.text(' in seg else seg for seg in parts]
+              lines.append(';'.join(parts))
+          s='\n'.join(lines)+'\n'
+          s=s.replace('라운드 시작  →','라운드 시작  >')
+          s=s.replace('COURSES OFFLINE ✓','COURSES OFFLINE')
+          s=s.replace('GPS READY ✓','GPS READY')
+          s=s.replace('24~26 AUG · HOKKAIDO TRIP','24~26 AUG - HOKKAIDO TRIP')
+          s=s.replace('GPS × 코스맵 × 스코어 관리','GPS + 코스맵 + 스코어 관리')
+          s=s.replace('4명 함께 · 자동 합계','4명 함께 / 자동 합계')
+          p.write_text(s)
+          PY
+          python3 .github/scripts/generate-v12-ui.py
+          python3 .github/scripts/generate-v18-premium-art.py
+
+      - name: Apply app patch chain + V1.13 skin
+        run: |
+          set -e
+          for p in \
+            patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 \
+            patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore \
+            patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 \
+            patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 \
+            patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130
+          do
+            python3 ".github/scripts/${p}.py"
+          done
+
+      - name: Set V1.13 package version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/build.gradle.kts'); s=p.read_text()
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 48',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.0-concept-art-skin"',s,1)
+          p.write_text(s)
+          PY
+
+      - name: Build debug APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Gate concept APK
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          unzip -l "$APK" | grep 'yardage_' > /tmp/yardage-apk.txt
+          test "$(grep -c 'yardage_' /tmp/yardage-apk.txt)" -eq 126
+          test "$(grep -c 'yardage_sahoro_' /tmp/yardage-apk.txt)" -eq 18
+          unzip -l "$APK" | grep -q 'assets/fonts/Jua-Regular.ttf'
+          unzip -l "$APK" | grep -q 'assets/fonts/MPLUSRounded1c-ExtraBold.ttf'
+          cp "$APK" HokkaidoGolfGPS-v1.13.0-concept-art-skin-debug.apk
+
+      - name: Upload V1.13 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HokkaidoGolfGPS-v1.13.0-concept-art-skin-debug-apk
+          path: HokkaidoGolfGPS-v1.13.0-concept-art-skin-debug.apk
+          retention-days: 14
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Capture V1.13 Android previews
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: bash .github/scripts/capture-preview-v1130.sh
+
+      - name: Upload V1.13 previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: HokkaidoGolfGPS-v1.13.0-concept-art-preview-screenshots
+          path: preview-v1130/*.png
+          if-no-files-found: error
+          retention-days: 14

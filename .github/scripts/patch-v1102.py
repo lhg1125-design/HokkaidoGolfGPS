@@ -3,21 +3,21 @@ p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
 s=p.read_text()
 
 if 'V1.10.1 · FIELD YARDAGE SAFE' not in s:
-    raise SystemExit('v1.10.2 requires v1.10.1 field yardage safe')
-s=s.replace('V1.10.1 · FIELD YARDAGE SAFE','V1.10.2 · FULL HOLE YARDAGE',1)
+    raise SystemExit('v1.10.3 requires v1.10.1 field yardage safe')
+s=s.replace('V1.10.1 · FIELD YARDAGE SAFE','V1.10.3 · JP/KR FULL HOLE',1)
 
-# Bitmap course-map resources are generated at CI build time.
 if 'import android.graphics.Bitmap;' not in s:
     s=s.replace('import android.graphics.Canvas;','import android.graphics.Bitmap;\nimport android.graphics.BitmapFactory;\nimport android.graphics.Canvas;',1)
 
 marker='        private void roundJapanPremium(Canvas c){roundUnifiedYardageV190(c);}'
 pos=s.find(marker)
-if pos<0: raise SystemExit('v1.10.2 renderer marker missing')
+if pos<0: raise SystemExit('v1.10.3 renderer marker missing')
 
 helpers=r'''        private String fullHoleResourceV1102(){
             String hh=hole<10?("0"+hole):(""+hole);
             if(selected==0)return variant==0?("yardage_kamishihoro_c"+hh):("yardage_kamishihoro_m"+hh);
             if(selected==1)return variant==0?("yardage_furano_palmer"+hh):("yardage_furano_king"+hh);
+            if(selected==4)return variant==0?("yardage_royallinks_queens"+hh):("yardage_royallinks_kings"+hh);
             return null;
         }
         private Bitmap fullHoleBitmapV1102(){
@@ -58,7 +58,8 @@ helpers=r'''        private String fullHoleResourceV1102(){
             drawDistanceRulerV1102(c,new RectF(stage.left+4,stage.top+12,stage.right-4,stage.bottom-12),totalM);
 
             RectF src=new RectF(r.left+12,r.bottom-42,r.right-12,r.bottom-9);box(c,src,Color.argb(242,255,255,255),16);
-            textFit(c,"OFFICIAL FULL HOLE MAP · TEE → GREEN · "+yardageSourceV190(),src.left+10,src.centerY()+3,src.right-10,7.2f,GREEN,true);
+            String srcLabel=selected==4?"ROYAL LINKS OFFICIAL FULL HOLE":"PRINCE OFFICIAL FULL HOLE";
+            textFit(c,srcLabel+" · TEE → GREEN · "+yardageSourceV190(),src.left+10,src.centerY()+3,src.right-10,7.2f,GREEN,true);
         }
 
 '''
@@ -66,7 +67,7 @@ s=s[:pos]+helpers+s[pos:]
 
 old='courseRect.set(m,h*.318f,w-m,h*.575f);drawActualYardageV190(c,courseRect,par,totalM);drawHolePager(c,h*.292f);'
 new='courseRect.set(m,h*.300f,w-m,h*.650f);drawFullHoleYardageV1102(c,courseRect,par,totalM);drawHolePager(c,h*.286f);'
-if old not in s: raise SystemExit('v1.10.2 full-hole card anchor missing')
+if old not in s: raise SystemExit('v1.10.3 full-hole card anchor missing')
 s=s.replace(old,new,1)
 
 repls={
@@ -82,10 +83,10 @@ repls={
 'pm.set(w*.535f,h*.844f,w*.605f,h*.893f);pp.set(w*.82f,h*.844f,w*.90f,h*.893f);':'pm.set(w*.535f,h*.857f,w*.605f,h*.904f);pp.set(w*.82f,h*.857f,w*.90f,h*.904f);'
 }
 for a,b in repls.items():
-    if a not in s: raise SystemExit('v1.10.2 lower-layout anchor missing: '+a[:45])
+    if a not in s: raise SystemExit('v1.10.3 lower-layout anchor missing: '+a[:45])
     s=s.replace(a,b,1)
 
 s=s.replace('text(c,"LIVE FIELD BETA",m,h*.035f,8.5f,Color.rgb(215,241,222),true);','text(c,"FULL HOLE YARDAGE",m,h*.035f,8.5f,Color.rgb(215,241,222),true);',1)
 
 p.write_text(s)
-print('applied v1.10.2 full tee-to-green yardage renderer')
+print('applied v1.10.3 Japan/Korea full tee-to-green yardage renderer')

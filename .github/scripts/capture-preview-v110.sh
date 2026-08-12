@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.10.3-jp-kr-full-hole-debug.apk"
+APK="HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 SIM_ACTIVITY="com.hokkaidogolf.trip/.BetaSimActivity"
@@ -39,28 +39,28 @@ shot(){
   sleep 0.6; adb exec-out screencap -p > "$OUT/$file"; test -s "$OUT/$file"
 }
 
-# Japan official full-hole maps.
+# Hokkaido full-hole map gate: tee and green must both remain visible.
 shot 0 0 1 1 "01-kamishihoro-c-h1-full.png"
 shot 0 1 13 1 "02-kamishihoro-m-h13-full.png"
 shot 1 0 15 1 "03-furano-palmer-h15-full.png"
 shot 1 1 17 1 "04-furano-king-h17-full.png"
-
-# Sahoro remains explicitly schematic until stable hole-map assets are verified.
-shot 2 0 13 1 "05-sahoro-h13-schematic.png"
+shot 2 0 1 1 "05-sahoro-h1-full.png"
+shot 2 0 13 1 "06-sahoro-h13-full.png"
 
 # Korea: Naepo truth guard + Royal Links official Queens/Kings maps.
-shot 3 0 1 1 "06-naepo-cal-required.png"
-shot 4 0 1 1 "07-royallinks-queens-h1-full.png"
-shot 4 1 14 1 "08-royallinks-kings-h14-full.png"
-shot 4 0 1 3 "09-scorecard.png"
+shot 3 0 1 1 "07-naepo-cal-required.png"
+shot 4 0 1 1 "08-royallinks-queens-h1-full.png"
+shot 4 1 14 1 "09-royallinks-kings-h14-full.png"
+shot 4 0 1 3 "10-scorecard.png"
 
-# Compact containment gate.
+# Compact containment gate, including Sahoro.
 adb shell wm size 720x1600; adb shell wm density 320; sleep 0.7
-shot 0 0 1 1 "10-compact-kamishihoro-h1-full.png"
-shot 4 0 1 1 "11-compact-royallinks-h1-full.png"
+shot 0 0 1 1 "11-compact-kamishihoro-h1-full.png"
+shot 2 0 13 1 "12-compact-sahoro-h13-full.png"
+shot 4 0 1 1 "13-compact-royallinks-h1-full.png"
 adb shell wm size reset; adb shell wm density reset
 
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.10.3 preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.10.4 preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.10.3 JP/KR full-hole yardage screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.10.4 Hokkaido full-hole yardage screenshots:\n'; ls -lh "$OUT"/*.png

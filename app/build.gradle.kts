@@ -8,8 +8,8 @@ android {
         applicationId = "com.hokkaidogolf.trip"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "1.6-field-gps-capture"
+        versionCode = 23
+        versionName = "1.6.1-hazard-fieldpack"
     }
 
     buildTypes {

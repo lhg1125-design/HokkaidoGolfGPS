@@ -76,7 +76,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
-      - name: Render V1.10.3 artwork UI
+      - name: Render V1.10.4 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -132,18 +132,19 @@ jobs:
           python3 .github/scripts/patch-v1100.py
           python3 .github/scripts/patch-v1101.py
           python3 .github/scripts/patch-v1102.py
+          python3 .github/scripts/patch-v1104.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.10.3-jp-kr-full-hole-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.10.3-jp-kr-full-hole-debug-apk
-          path: HokkaidoGolfGPS-v1.10.3-jp-kr-full-hole-debug.apk
+          name: HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-debug-apk
+          path: HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -166,7 +167,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.10.3-jp-kr-full-hole-preview-screenshots
+          name: HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

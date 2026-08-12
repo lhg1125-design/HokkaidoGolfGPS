@@ -63,7 +63,7 @@ jobs:
           test -s /tmp/Jua-Regular.ttf
           test -s /tmp/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Render V1.6.1 artwork UI
+      - name: Render V1.6.2 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -102,18 +102,19 @@ jobs:
           python3 .github/scripts/patch-v151.py
           python3 .github/scripts/patch-v16.py
           python3 .github/scripts/patch-v161.py
+          python3 .github/scripts/patch-v162.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.6.1-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.6.2-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.6.1-debug-apk
-          path: HokkaidoGolfGPS-v1.6.1-debug.apk
+          name: HokkaidoGolfGPS-v1.6.2-debug-apk
+          path: HokkaidoGolfGPS-v1.6.2-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -136,7 +137,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.6.1-preview-screenshots
+          name: HokkaidoGolfGPS-v1.6.2-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

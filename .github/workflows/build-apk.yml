@@ -108,6 +108,7 @@ jobs:
           python3 .github/scripts/patch-v163restore.py
           python3 .github/scripts/patch-v170.py
           python3 .github/scripts/patch-v170fix.py
+          python3 .github/scripts/patch-v170preview.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug

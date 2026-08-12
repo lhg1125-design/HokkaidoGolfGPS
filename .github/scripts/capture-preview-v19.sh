@@ -11,7 +11,10 @@ adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
 adb shell settings put global hide_error_dialogs 1 || true
 adb shell settings put global show_first_crash_dialog 0 || true
-adb shell settings put secure immersive_mode_confirmations confirmed || true
+adb shell settings put secure anr_show_background 0 || true
+adb shell settings put global window_animation_scale 0 || true
+adb shell settings put global transition_animation_scale 0 || true
+adb shell settings put global animator_duration_scale 0 || true
 
 cat > /tmp/state_v09.xml <<'EOF'
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
@@ -27,15 +30,31 @@ adb shell am force-stop "$PKG" || true
 adb shell run-as "$PKG" mkdir -p shared_prefs
 adb shell run-as "$PKG" tee shared_prefs/state_v09.xml < /tmp/state_v09.xml >/dev/null
 
+kill_launcher_overlay(){
+  adb shell am force-stop com.google.android.apps.nexuslauncher || true
+  adb shell am force-stop com.android.launcher3 || true
+  sleep 1
+}
+
+launch_screen(){
+  local course="$1" variant="$2" hole="$3" screen="$4"
+  adb shell am force-stop "$PKG" || true
+  kill_launcher_overlay
+  adb logcat -c || true
+  adb shell am start -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen "$screen" >/dev/null
+  sleep 4
+  kill_launcher_overlay
+  adb shell am start -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen "$screen" >/dev/null
+  sleep 2
+}
+
 shot(){
   local course="$1" variant="$2" hole="$3" screen="$4" file="$5"
-  adb shell am force-stop "$PKG" || true
-  adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen "$screen" >/dev/null
-  sleep 3
+  launch_screen "$course" "$variant" "$hole" "$screen"
   adb exec-out screencap -p > "$OUT/$file"
 }
 
-# Home and per-hole yardage verification.
+# Home and exact-distance yardage verification. H1/H2 prove that hole graphics change.
 shot 0 0 1 0 "01-home-v190.png"
 shot 0 0 1 1 "02-kamishihoro-h1-yardage.png"
 shot 0 0 2 1 "03-kamishihoro-h2-yardage.png"
@@ -46,7 +65,7 @@ shot 3 0 1 1 "07-naepo-field-yardage.png"
 shot 4 0 1 1 "08-royallinks-queens-h1-yardage.png"
 shot 4 1 12 1 "09-royallinks-kings-h12-yardage.png"
 
-# 3-player score screen should remain fully inside the safe content bounds.
+# Score/card safe-bounds validation.
 shot 4 0 1 2 "10-score-input-safe.png"
 shot 4 0 1 3 "11-scorecard-safe.png"
 

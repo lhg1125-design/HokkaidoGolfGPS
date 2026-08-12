@@ -1,0 +1,9 @@
+{
+  "unit": "m",
+  "warning": "DEMO_GEOMETRY_NOT_FOR_SHOT_DECISIONS",
+  "courses": [
+    {"name":"上士幌ゴルフ場","ko":"가미시호로 골프장","date":"2026-08-24"},
+    {"name":"富良野ゴルフコース","ko":"후라노 골프코스","date":"2026-08-25"},
+    {"name":"サホロカントリークラブ","ko":"사호로 컨트리클럽","date":"2026-08-26"}
+  ]
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.12.1-yardage-focus-debug.apk"
+APK="HokkaidoGolfGPS-v1.12.2-map-pin-focus-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 SIM_ACTIVITY="com.hokkaidogolf.trip/.BetaSimActivity"
@@ -45,26 +45,26 @@ shot(){
   sleep .45; adb exec-out screencap -p > "$OUT/$file"; test -s "$OUT/$file"
 }
 
-# Yardage is the dominant round surface (~64% screen height).
-shot 0 1 13 1 "02-kamishihoro-m-h13-yardage-focus.png"
-shot 2 0 1 1 "03-sahoro-h1-yardage-focus.png"
-shot 2 0 13 1 "04-sahoro-h13-you-42.png"
-# Tap directly on the larger right-side YOU/GPS axis and verify visual movement.
-adb shell input tap 995 1050
+# Meter-only yardage + direct orange map pin. No separate YOU legend/axis.
+shot 2 0 13 1 "02-sahoro-h13-meter-pin-42.png"
+# Tap directly on the hole image to move SIM position toward the green.
+adb shell input tap 540 900
 sleep .7
-adb exec-out screencap -p > "$OUT/05-sahoro-h13-you-moved.png"
-test -s "$OUT/05-sahoro-h13-you-moved.png"
-shot 4 0 1 1 "06-royallinks-queens-h1-yardage-focus.png"
+adb exec-out screencap -p > "$OUT/03-sahoro-h13-meter-pin-moved.png"
+test -s "$OUT/03-sahoro-h13-meter-pin-moved.png"
+shot 2 0 1 1 "04-sahoro-h1-meter-pin.png"
+shot 0 1 13 1 "05-kamishihoro-m-h13-meter-pin.png"
+shot 4 0 1 1 "06-royallinks-queens-h1-meter-pin.png"
 shot 3 0 1 1 "07-naepo-cal-required.png"
 shot 4 0 1 3 "08-scorecard.png"
 
-# Compact containment gate: full tee->green image + YOU + remaining distance.
+# Compact containment: full TEE->GREEN art + direct orange pin + meter-only row.
 adb shell wm size 720x1600; adb shell wm density 320; sleep .6
-shot 2 0 13 1 "09-compact-sahoro-h13-yardage-focus.png"
-shot 4 0 1 1 "10-compact-royallinks-h1-yardage-focus.png"
+shot 2 0 13 1 "09-compact-sahoro-h13-meter-pin.png"
+shot 4 0 1 1 "10-compact-royallinks-h1-meter-pin.png"
 adb shell wm size reset; adb shell wm density reset
 
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.12.1 preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.12.2 preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.12.1 yardage-focus screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.12.2 meter-only direct-pin screenshots:\n'; ls -lh "$OUT"/*.png

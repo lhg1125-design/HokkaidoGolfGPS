@@ -58,6 +58,7 @@ public class MainActivity extends Activity implements LocationListener {
         private final Context ctx;
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final SharedPreferences prefs;
+
         private final String[] jp = {"上士幌ゴルフ場","富良野ゴルフコース","サホロカントリークラブ"};
         private final String[] ko = {"가미시호로 골프장","후라노 골프코스","사호로 컨트리클럽"};
         private final String[][] variantNames = {{"CHAMPIONS","MASTERS"},{"PALMER","KING"},{"OUT / IN","OUT / IN"}};
@@ -97,7 +98,8 @@ public class MainActivity extends Activity implements LocationListener {
         private Location location;
         private boolean hasTarget=false;
         private float targetX, targetY;
-        private long lastScoreTap=0;
+        private long lastScoreTap=0, lastHoleChange=0, playerSelectAt=0, gpsReadyAt=0;
+        private int lastScoreDelta=0, lastTapKind=0, holeDirection=1;
 
         private final RectF[] cards={new RectF(),new RectF(),new RectF()};
         private final RectF start=new RectF(), varA=new RectF(), varB=new RectF();
@@ -113,13 +115,15 @@ public class MainActivity extends Activity implements LocationListener {
         GolfView(Context c){
             super(c);
             ctx=c;
-            prefs=c.getSharedPreferences("score_v05",MODE_PRIVATE);
+            prefs=c.getSharedPreferences("score_v06",MODE_PRIVATE);
             p.setTypeface(Typeface.create("sans-serif-rounded",Typeface.NORMAL));
             setKeepScreenOn(true);
         }
 
         void setLocation(Location l){
+            boolean firstFix = location == null;
             location=l;
+            if(firstFix) gpsReadyAt=SystemClock.uptimeMillis();
             if(selected<0){
                 int near=nearestCourse(l);
                 if(near>=0 && distanceToCourse(l,near)<8000) selected=near;
@@ -131,7 +135,7 @@ public class MainActivity extends Activity implements LocationListener {
             super.onDraw(c);
             c.drawColor(BG);
             if(screen==0) home(c); else if(screen==1) round(c); else score(c);
-            postInvalidateDelayed(screen==1?60:120);
+            postInvalidateDelayed(screen==1?50:100);
         }
 
         private void home(Canvas c){
@@ -140,8 +144,8 @@ public class MainActivity extends Activity implements LocationListener {
             text(c,"北海道ゴルフ",m,h*.067f,27,INK,true);
             text(c,"GPSキャディ",m,h*.112f,38,GREEN,true);
             pill(c,new RectF(m,h*.135f,m+w*.48f,h*.178f),Color.rgb(229,244,218),"8/24~26 · HOKKAIDO TRIP",GREEN,10);
-            mascot(c,w*.83f,h*.10f+bob,24,true);
-            speech(c,w*.62f,h*.16f,"오늘도 굿샷!",GREEN);
+            mascot(c,w*.83f,h*.10f+bob,29,true);
+            speech(c,w*.58f,h*.155f,"오늘도 굿샷!",GREEN);
 
             text(c,"오늘 어디서 칠까요?",m,h*.225f,18,INK,true);
             text(c,"GPS · 코스 · 4인 스코어 · 거리 단위 m",m,h*.254f,10,Color.GRAY,false);
@@ -163,7 +167,11 @@ public class MainActivity extends Activity implements LocationListener {
                     String ds=dm<10000?dm+"m":"약 "+Math.round(dm/1000f)+"km";
                     pill(c,new RectF(w-m-108,y+18,w-m-14,y+49),SOFT,ds,selected==i?GREEN:Color.GRAY,9);
                 }
-                if(selected==i){ p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(3); p.setColor(GREEN); c.drawRoundRect(cards[i],26,26,p); p.setStyle(Paint.Style.FILL); }
+                if(selected==i){
+                    float glow=(float)(0.5+0.5*Math.sin(SystemClock.uptimeMillis()/280.0));
+                    p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(3); p.setColor(Color.argb(150+(int)(80*glow),25,111,69));
+                    c.drawRoundRect(cards[i],26,26,p); p.setStyle(Paint.Style.FILL);
+                }
             }
 
             float vy=h*.70f;
@@ -174,6 +182,7 @@ public class MainActivity extends Activity implements LocationListener {
 
             start.set(m,h*.805f,w-m,h*.882f);
             gradientBox(c,start,selected>=0?DEEP:Color.LTGRAY,selected>=0?GREEN:Color.GRAY,36);
+            if(selected>=0) drawSheen(c,start,36);
             text(c,selected>=0?"라운드 시작  →":"골프장을 먼저 선택해주세요",w/2,h*.854f,15,selected>=0?Color.WHITE:Color.DKGRAY,true,Paint.Align.CENTER);
             text(c,"REGULAR TEE · 휴대폰 GPS · 오프라인 스코어",w/2,h*.925f,9,Color.GRAY,false,Paint.Align.CENTER);
         }
@@ -200,6 +209,7 @@ public class MainActivity extends Activity implements LocationListener {
 
             RectF hud=new RectF(m,h*.125f,w-m,h*.23f);
             gradientBox(c,hud,DEEP,GREEN,28);
+            drawSheen(c,hud,28);
             metric(c,"REGULAR",officialM+"m",w*.21f,h*.16f);
             metric(c,"PAR",""+par,w*.50f,h*.16f);
             int ccDist=location==null?-1:(int)Math.round(distanceToCourse(location,selected));
@@ -207,7 +217,7 @@ public class MainActivity extends Activity implements LocationListener {
 
             courseRect.set(m,h*.25f,w-m,h*.61f);
             drawAnimatedCourse(c,courseRect,par,officialM);
-            text(c,"홀맵 V0.5 · 애니메이션 UI · 실제 그린 좌표는 V0.6에서 연결",w/2,h*.635f,9,Color.GRAY,false,Paint.Align.CENTER);
+            text(c,"홀맵 V0.6 · 모션 & 캐릭터 에디션 · 타깃 거리는 맵 추정",w/2,h*.635f,9,Color.GRAY,false,Paint.Align.CENTER);
 
             mapLaunch.set(m,h*.655f,w*.61f,h*.708f); gpsSettings.set(w*.64f,h*.655f,w-m,h*.708f);
             pillButton(c,mapLaunch,DEEP,"지도 앱에서 코스 열기 ↗",Color.WHITE);
@@ -229,18 +239,23 @@ public class MainActivity extends Activity implements LocationListener {
             text(c,""+putt,w*.70f,h*.852f,28*pop,INK,true,Paint.Align.CENTER);
             pm.set(w*.53f,h*.815f,w*.61f,h*.865f); pp.set(w*.82f,h*.815f,w*.90f,h*.865f);
             roundButton(c,pm,"−",Color.rgb(238,243,232),Color.GRAY); roundButton(c,pp,"+",Color.rgb(226,245,250),SKY);
+            drawScoreBurst(c,since,h);
             nav(c);
+            drawGpsReadyCelebration(c,w,h);
         }
 
         private void drawAnimatedCourse(Canvas c,RectF r,int par,int officialM){
             long now=SystemClock.uptimeMillis();
             float phase=(now%2400)/2400f;
             float pulse=(float)(0.5+0.5*Math.sin(phase*Math.PI*2));
+            float slide=holeSlideOffset(now);
 
-            gradientBox(c,r,Color.rgb(230,247,210),Color.rgb(205,236,191),32);
+            c.save();
+            c.translate(slide,0);
+            gradientBox(c,r,Color.rgb(232,248,214),Color.rgb(201,236,190),32);
             drawMountains(c,r);
-            drawCloud(c,r.left+r.width()*.18f,r.top+32+(float)Math.sin(now/700.0)*3,20);
-            drawCloud(c,r.left+r.width()*.78f,r.top+45+(float)Math.sin(now/850.0)*3,15);
+            drawCloud(c,r.left+r.width()*.18f+(phase-.5f)*10,r.top+32+(float)Math.sin(now/700.0)*3,20);
+            drawCloud(c,r.left+r.width()*.78f-(phase-.5f)*8,r.top+45+(float)Math.sin(now/850.0)*3,15);
 
             p.setColor(Color.rgb(91,181,88));
             Path f=new Path();
@@ -256,14 +271,21 @@ public class MainActivity extends Activity implements LocationListener {
             f.lineTo(cx+48,r.top+62);
             f.cubicTo(r.left+r.width()*.72f,r.top+r.height()*.50f,r.left+r.width()*.50f,r.bottom-r.height()*.22f,cx+22,r.bottom-22);
             f.close(); c.drawPath(f,p);
+            drawFairwayStripes(c,f,r,phase);
 
-            p.setColor(BLUE); c.drawOval(new RectF(r.left+15,r.top+r.height()*.48f,r.left+r.width()*.39f,r.bottom-16),p);
-            p.setColor(Color.rgb(114,190,240)); c.drawOval(new RectF(r.left+30,r.top+r.height()*.54f,r.left+r.width()*.35f,r.bottom-30),p);
-            p.setColor(YELLOW); c.drawOval(new RectF(cx+38,r.top+r.height()*.43f,cx+82,r.top+r.height()*.50f),p);
+            RectF water=new RectF(r.left+15,r.top+r.height()*.48f,r.left+r.width()*.39f,r.bottom-16);
+            p.setColor(BLUE); c.drawOval(water,p);
+            RectF waterInner=new RectF(r.left+30,r.top+r.height()*.54f,r.left+r.width()*.35f,r.bottom-30);
+            p.setColor(Color.rgb(114,190,240)); c.drawOval(waterInner,p);
+            drawWaterRipples(c,waterInner,phase);
+
+            RectF bunker=new RectF(cx+38,r.top+r.height()*.43f,cx+82,r.top+r.height()*.50f);
+            p.setColor(Color.rgb(231,185,70)); c.drawOval(new RectF(bunker.left+2,bunker.top+5,bunker.right+4,bunker.bottom+7),p);
+            p.setColor(YELLOW); c.drawOval(bunker,p);
 
             float flagX=cx+12, flagY=r.top+56;
             p.setStrokeWidth(4); p.setColor(INK); c.drawLine(flagX,flagY,flagX,r.top+24,p);
-            Path flag=new Path(); flag.moveTo(flagX,r.top+24); flag.lineTo(flagX+27+6*pulse,r.top+31); flag.lineTo(flagX,r.top+39); flag.close(); p.setColor(CORAL); c.drawPath(flag,p);
+            Path flag=new Path(); flag.moveTo(flagX,r.top+24); flag.lineTo(flagX+27+7*pulse,r.top+31); flag.lineTo(flagX,r.top+39); flag.close(); p.setColor(CORAL); c.drawPath(flag,p);
             p.setColor(Color.rgb(75,168,78)); c.drawOval(new RectF(cx-28,r.top+43,cx+50,r.top+83),p);
 
             float youX=cx, youY=r.bottom-32;
@@ -276,13 +298,45 @@ public class MainActivity extends Activity implements LocationListener {
                 p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(3); p.setColor(CORAL); c.drawCircle(targetX,targetY,12+8*pulse,p); p.setStyle(Paint.Style.FILL);
                 p.setColor(CORAL); c.drawCircle(targetX,targetY,7,p);
                 int mapEstimate=(int)Math.max(0,Math.min(officialM,officialM*((youY-targetY)/(youY-(flagY+10)))));
-                RectF bubble=new RectF(targetX-60,targetY-49,targetX+60,targetY-18);
-                box(c,bubble,Color.argb(235,255,255,255),16);
-                text(c,"맵 추정 "+mapEstimate+"m",bubble.centerX(),bubble.centerY()+4,9,CORAL,true,Paint.Align.CENTER);
+                RectF bubble=new RectF(targetX-64,targetY-51,targetX+64,targetY-18);
+                softShadow(c,bubble,16); box(c,bubble,Color.argb(245,255,255,255),16);
+                text(c,"타깃 약 "+mapEstimate+"m",bubble.centerX(),bubble.centerY()+4,9,CORAL,true,Paint.Align.CENTER);
             }
 
-            mascot(c,r.right-28,r.top+28,11,false);
-            if(pulse>.58f) speech(c,r.right-156,r.top+22,"핀까지 가자!",DEEP);
+            float mx=r.right-45, my=r.top+48+(float)Math.sin(now/280.0)*4;
+            mascot(c,mx,my,22,true);
+            String tip;
+            if(location==null) tip="GPS 잡는 중!";
+            else if(hasTarget) tip="타깃 체크!";
+            else if(par==3) tip="핀을 노려봐!";
+            else if(par==5) tip="리듬 좋다!";
+            else tip="굿샷 준비!";
+            speech(c,r.right-174,r.top+18,tip,DEEP);
+            c.restore();
+        }
+
+        private void drawFairwayStripes(Canvas c,Path fairway,RectF r,float phase){
+            c.save();
+            c.clipPath(fairway);
+            p.setStrokeWidth(22);
+            for(int i=-8;i<20;i++){
+                float x=r.left+i*44+phase*44;
+                p.setColor(i%2==0?Color.argb(18,255,255,255):Color.argb(12,20,90,40));
+                c.drawLine(x,r.bottom,x+r.height()*.55f,r.top,p);
+            }
+            c.restore();
+        }
+
+        private void drawWaterRipples(Canvas c,RectF water,float phase){
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2); p.setColor(Color.argb(100,255,255,255));
+            float cy=water.centerY();
+            for(int i=0;i<3;i++){
+                float grow=((phase+i*.28f)%1f);
+                float rw=water.width()*(.18f+.30f*grow);
+                float rh=water.height()*(.05f+.08f*grow);
+                c.drawOval(new RectF(water.centerX()-rw,cy-rh+i*18,water.centerX()+rw,cy+rh+i*18),p);
+            }
+            p.setStyle(Paint.Style.FILL);
         }
 
         private void drawMountains(Canvas c,RectF r){
@@ -304,11 +358,16 @@ public class MainActivity extends Activity implements LocationListener {
         private void playerTabs(Canvas c,float y){
             float w=getWidth(),m=w*.045f,gap=6,avail=w-2*m,ww=(avail-gap*3)/4;
             int[] dots={GREEN,SKY,CORAL,YELLOW};
+            long since=SystemClock.uptimeMillis()-playerSelectAt;
+            float bounce=since<260?(float)Math.sin((260-since)/260f*Math.PI)*5f:0f;
             for(int i=0;i<4;i++){
                 float l=m+i*(ww+gap); playerTabs[i].set(l,y,l+ww,y+34);
-                box(c,playerTabs[i],player==i?GREEN:CARD,18);
-                p.setColor(dots[i]); c.drawCircle(l+13,y+17,4,p);
-                text(c,"P"+(i+1),l+ww/2+6,y+22,10,player==i?Color.WHITE:INK,true,Paint.Align.CENTER);
+                float yy=(player==i)?y-bounce:y;
+                RectF draw=new RectF(l,yy,l+ww,yy+34);
+                if(player==i) softShadow(c,draw,18);
+                box(c,draw,player==i?GREEN:CARD,18);
+                p.setColor(dots[i]); c.drawCircle(l+13,yy+17,4,p);
+                text(c,"P"+(i+1),l+ww/2+6,yy+22,10,player==i?Color.WHITE:INK,true,Paint.Align.CENTER);
             }
         }
 
@@ -316,7 +375,7 @@ public class MainActivity extends Activity implements LocationListener {
             float w=getWidth(),h=getHeight(),m=w*.05f;
             text(c,"스코어카드",m,h*.067f,29,INK,true);
             text(c,ko[Math.max(0,selected)]+" · "+variantNames[Math.max(0,selected)][variant],m,h*.098f,10,Color.GRAY,false);
-            mascot(c,w*.88f,h*.075f,16,true);
+            mascot(c,w*.88f,h*.075f,20,true);
             text(c,"4명 한 번에. 계산은 제가 할게요 :) ",m,h*.13f,10,Color.GRAY,false);
             float y=h*.18f; int[] totals={0,0,0,0};
             for(int i=1;i<=18;i++){
@@ -329,7 +388,7 @@ public class MainActivity extends Activity implements LocationListener {
                 }
                 y+=h*.031f;
             }
-            RectF total=new RectF(m,h*.775f,w-m,h*.862f); gradientBox(c,total,DEEP,GREEN,25);
+            RectF total=new RectF(m,h*.775f,w-m,h*.862f); gradientBox(c,total,DEEP,GREEN,25); drawSheen(c,total,25);
             text(c,"TOTAL",m+16,h*.818f,9,Color.WHITE,true);
             for(int pl=0;pl<4;pl++) text(c,"P"+(pl+1)+"  "+totals[pl],w*(.36f+pl*.16f),h*.826f,11,Color.WHITE,true,Paint.Align.CENTER);
             nav(c);
@@ -344,19 +403,61 @@ public class MainActivity extends Activity implements LocationListener {
             pillButton(c,next,CARD,"다음 ›",INK);
         }
 
+        private void drawScoreBurst(Canvas c,long since,float h){
+            if(since>=650 || lastScoreDelta==0)return;
+            float progress=since/650f;
+            float y=(lastTapKind==1?h*.815f:h*.815f)-progress*52;
+            float x=lastTapKind==1?getWidth()*.43f:getWidth()*.86f;
+            int alpha=(int)(255*(1-progress));
+            int col=lastScoreDelta>0?(lastTapKind==1?GREEN:SKY):Color.GRAY;
+            String s=lastScoreDelta>0?"+1":"−1";
+            p.setColor(Color.argb(Math.min(220,alpha),255,255,255)); c.drawCircle(x,y,18,p);
+            text(c,s,x,y+5,10,Color.argb(alpha,Color.red(col),Color.green(col),Color.blue(col)),true,Paint.Align.CENTER);
+        }
+
+        private void drawGpsReadyCelebration(Canvas c,float w,float h){
+            if(gpsReadyAt==0)return;
+            long since=SystemClock.uptimeMillis()-gpsReadyAt;
+            if(since>1500)return;
+            float t=since/1500f;
+            float rise=(float)Math.sin(Math.min(1,t)*Math.PI);
+            RectF b=new RectF(w*.34f,h*.236f,w*.66f,h*.278f);
+            box(c,b,Color.argb((int)(240*(1-Math.max(0,(t-.65f)/.35f))),229,244,218),20);
+            text(c,"GPS READY!",b.centerX(),b.centerY()+5,10,GREEN,true,Paint.Align.CENTER);
+            for(int i=0;i<6;i++){
+                double a=i*Math.PI/3 + t*2.2;
+                float rr=20+35*rise;
+                float sx=b.centerX()+(float)Math.cos(a)*rr, sy=b.centerY()+(float)Math.sin(a)*rr;
+                p.setColor(i%2==0?YELLOW:SKY); c.drawCircle(sx,sy,3,p);
+            }
+        }
+
+        private float holeSlideOffset(long now){
+            if(lastHoleChange==0)return 0;
+            float t=(now-lastHoleChange)/320f;
+            if(t>=1)return 0;
+            float ease=1-(1-t)*(1-t)*(1-t);
+            return holeDirection*getWidth()*(1-ease)*.35f;
+        }
+
         private void mascot(Canvas c,float x,float y,float r,boolean wave){
             float bob=(float)Math.sin(SystemClock.uptimeMillis()/300.0)*2;
             y+=bob;
+            p.setColor(Color.argb(25,20,60,30)); c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r*1.0f),p);
             p.setColor(Color.WHITE); c.drawCircle(x,y,r,p);
             p.setColor(Color.rgb(210,210,198)); c.drawCircle(x-r*.32f,y-r*.22f,r*.10f,p); c.drawCircle(x+r*.23f,y+r*.22f,r*.08f,p);
             p.setColor(INK); c.drawCircle(x-r*.25f,y-r*.05f,r*.075f,p); c.drawCircle(x+r*.25f,y-r*.05f,r*.075f,p);
             p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2); p.setColor(INK); c.drawArc(new RectF(x-r*.30f,y-r*.02f,x+r*.30f,y+r*.45f),15,150,false,p); p.setStyle(Paint.Style.FILL);
             p.setColor(GREEN); c.drawRoundRect(new RectF(x-r*.65f,y-r*.82f,x+r*.58f,y-r*.48f),r*.16f,r*.16f,p); c.drawCircle(x-r*.28f,y-r*.82f,r*.28f,p);
-            if(wave){ p.setStrokeWidth(4); p.setColor(INK); c.drawLine(x+r*.7f,y,x+r*1.15f,y-r*.45f,p); }
+            if(wave){
+                float arm=(float)Math.sin(SystemClock.uptimeMillis()/160.0)*r*.18f;
+                p.setStrokeWidth(Math.max(3,r*.12f)); p.setColor(INK); c.drawLine(x+r*.68f,y,x+r*1.15f,y-r*.40f+arm,p);
+            }
         }
 
         private void speech(Canvas c,float x,float y,String s,int color){
-            RectF b=new RectF(x,y,x+112,y+34); box(c,b,Color.argb(238,255,255,255),17); text(c,s,b.centerX(),b.centerY()+4,9,color,true,Paint.Align.CENTER);
+            RectF b=new RectF(x,y,x+120,y+36); softShadow(c,b,18); box(c,b,Color.argb(242,255,255,255),18); text(c,s,b.centerX(),b.centerY()+4,9,color,true,Paint.Align.CENTER);
+            Path tail=new Path(); tail.moveTo(b.right-18,b.bottom-1); tail.lineTo(b.right-5,b.bottom+10); tail.lineTo(b.right-30,b.bottom-1); tail.close(); p.setColor(Color.argb(242,255,255,255)); c.drawPath(tail,p);
         }
 
         private int currentPar(){ return parForHole(hole); }
@@ -395,6 +496,15 @@ public class MainActivity extends Activity implements LocationListener {
         private void roundButton(Canvas c,RectF r,String s,int bg,int fg){ box(c,r,bg,16); text(c,s,r.centerX(),r.centerY()+7,20,fg,true,Paint.Align.CENTER); }
         private void softShadow(Canvas c,RectF r,float rad){ p.setColor(Color.argb(18,20,60,30)); RectF s=new RectF(r.left,r.top+4,r.right,r.bottom+4); c.drawRoundRect(s,rad,rad,p); }
         private void gradientBox(Canvas c,RectF r,int c1,int c2,float rad){ Shader old=p.getShader(); p.setShader(new LinearGradient(r.left,r.top,r.right,r.bottom,c1,c2,Shader.TileMode.CLAMP)); c.drawRoundRect(r,rad,rad,p); p.setShader(old); }
+        private void drawSheen(Canvas c,RectF r,float rad){
+            float phase=(SystemClock.uptimeMillis()%3200)/3200f;
+            float x=r.left-r.width()*.35f+phase*r.width()*1.7f;
+            Path clip=new Path(); clip.addRoundRect(r,rad,rad,Path.Direction.CW);
+            c.save(); c.clipPath(clip);
+            p.setColor(Color.argb(18,255,255,255));
+            Path shine=new Path(); shine.moveTo(x-r.width()*.12f,r.bottom); shine.lineTo(x+r.width()*.06f,r.top); shine.lineTo(x+r.width()*.22f,r.top); shine.lineTo(x+r.width()*.04f,r.bottom); shine.close(); c.drawPath(shine,p);
+            c.restore();
+        }
         private void box(Canvas c,RectF r,int color,float rad){ p.setShader(null); p.setColor(color); p.setStyle(Paint.Style.FILL); c.drawRoundRect(r,rad,rad,p); }
         private void text(Canvas c,String s,float x,float y,float sz,int color,boolean bold){ text(c,s,x,y,sz,color,bold,Paint.Align.LEFT); }
         private void text(Canvas c,String s,float x,float y,float sz,int color,boolean bold,Paint.Align align){ p.setShader(null); p.setStyle(Paint.Style.FILL); p.setColor(color); p.setTextSize(sz*getResources().getDisplayMetrics().scaledDensity); p.setTypeface(Typeface.create("sans-serif-rounded",bold?Typeface.BOLD:Typeface.NORMAL)); p.setTextAlign(align); c.drawText(s,x,y,p); }
@@ -415,15 +525,15 @@ public class MainActivity extends Activity implements LocationListener {
             }
             if(mapLaunch.contains(x,y)){launchMap();return true;}
             if(gpsSettings.contains(x,y)){launchGpsSettings();return true;}
-            for(int i=0;i<4;i++) if(playerTabs[i].contains(x,y)){player=i;invalidate();return true;}
+            for(int i=0;i<4;i++) if(playerTabs[i].contains(x,y)){player=i;playerSelectAt=SystemClock.uptimeMillis();invalidate();return true;}
 
             int par=currentPar();
-            if(minus.contains(x,y)){ setStroke(player,hole,Math.max(1,getStroke(player,hole,par)-1)); lastScoreTap=SystemClock.uptimeMillis(); }
-            else if(plus.contains(x,y)){ setStroke(player,hole,getStroke(player,hole,par)+1); lastScoreTap=SystemClock.uptimeMillis(); }
-            else if(pm.contains(x,y)){ setPutt(player,hole,Math.max(0,getPutt(player,hole)-1)); lastScoreTap=SystemClock.uptimeMillis(); }
-            else if(pp.contains(x,y)){ setPutt(player,hole,getPutt(player,hole)+1); lastScoreTap=SystemClock.uptimeMillis(); }
-            else if(prev.contains(x,y)){hole=Math.max(1,hole-1);hasTarget=false;}
-            else if(next.contains(x,y)){hole=Math.min(18,hole+1);hasTarget=false;}
+            if(minus.contains(x,y)){ setStroke(player,hole,Math.max(1,getStroke(player,hole,par)-1)); lastScoreTap=SystemClock.uptimeMillis(); lastScoreDelta=-1; lastTapKind=1; }
+            else if(plus.contains(x,y)){ setStroke(player,hole,getStroke(player,hole,par)+1); lastScoreTap=SystemClock.uptimeMillis(); lastScoreDelta=1; lastTapKind=1; }
+            else if(pm.contains(x,y)){ setPutt(player,hole,Math.max(0,getPutt(player,hole)-1)); lastScoreTap=SystemClock.uptimeMillis(); lastScoreDelta=-1; lastTapKind=2; }
+            else if(pp.contains(x,y)){ setPutt(player,hole,getPutt(player,hole)+1); lastScoreTap=SystemClock.uptimeMillis(); lastScoreDelta=1; lastTapKind=2; }
+            else if(prev.contains(x,y)){ if(hole>1){hole--; holeDirection=-1; lastHoleChange=SystemClock.uptimeMillis(); hasTarget=false;} }
+            else if(next.contains(x,y)){ if(hole<18){hole++; holeDirection=1; lastHoleChange=SystemClock.uptimeMillis(); hasTarget=false;} }
             else if(mapTab.contains(x,y)){screen=1;}
             else if(scoreTab.contains(x,y)){screen=2;}
             invalidate(); return true;

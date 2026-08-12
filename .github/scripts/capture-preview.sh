@@ -29,7 +29,7 @@ sleep 4
 adb exec-out screencap -p > "$OUT/02-course-artwork.png"
 
 adb shell input tap 610 1160
-sleep 1
+sleep 2
 adb exec-out screencap -p > "$OUT/03-target-artwork.png"
 
 adb shell input tap 670 2290

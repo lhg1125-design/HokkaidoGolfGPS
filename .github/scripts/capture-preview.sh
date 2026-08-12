@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="HokkaidoGolfGPS-v1.3-debug.apk"
+APK="HokkaidoGolfGPS-v1.4-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 OUT="preview"
@@ -22,19 +22,30 @@ sleep 4
 adb emu geo fix 143.2283600 43.2585100 || true
 sleep 2
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
-adb exec-out screencap -p > "$OUT/01-home-artwork.png"
+adb exec-out screencap -p > "$OUT/01-home.png"
 
+# Start round.
 adb shell input tap 540 1840
 sleep 4
-adb exec-out screencap -p > "$OUT/02-course-artwork.png"
-
+# Target point on concept-art map; preview TEE/GREEN calibration enables GPS target distance.
 adb shell input tap 610 1160
 sleep 2
-adb exec-out screencap -p > "$OUT/03-target-artwork.png"
+adb exec-out screencap -p > "$OUT/02-course-gps-target.png"
 
+# Bottom nav: INPUT.
+adb shell input tap 415 2290
+sleep 2
+adb exec-out screencap -p > "$OUT/03-score-input.png"
+
+# Bottom nav: CARD.
 adb shell input tap 670 2290
 sleep 2
 adb exec-out screencap -p > "$OUT/04-scorecard-xl.png"
 
-printf 'V1.3 scorecard XL + round summary screenshots captured:\n'
+# Bottom nav: SUMMARY.
+adb shell input tap 910 2290
+sleep 2
+adb exec-out screencap -p > "$OUT/05-round-summary.png"
+
+printf 'V1.4 five-screen concept flow screenshots captured:\n'
 ls -lh "$OUT"/*.png

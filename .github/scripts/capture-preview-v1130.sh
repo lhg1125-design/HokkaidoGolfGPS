@@ -33,7 +33,6 @@ shot(){
   test -s "$OUT/$file"
 }
 
-# Fresh real app home: verify the non-SIM entrance uses the concept-art skin too.
 adb shell pm clear "$PKG" >/dev/null || true
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
@@ -42,26 +41,23 @@ adb shell am start -W -n "$ACTIVITY" >/dev/null; sleep 1.0; clear_system_dialogs
 adb exec-out screencap -p > "$OUT/00-app-home-concept.png"
 test -s "$OUT/00-app-home-concept.png"
 
-# Utility simulator launcher remains available for off-site field rehearsal.
 adb shell am force-stop "$PKG" || true; clear_system_dialogs
 adb shell am start -W -n "$SIM_ACTIVITY" >/dev/null; sleep .8
 adb exec-out screencap -p > "$OUT/01-concept-beta-launcher.png"
 
-# Four representative animated-style full-hole maps.
 shot 2 0 13 1 "02-sahoro-h13-concept-yardage.png"
 shot 0 0 1 1 "03-kamishihoro-c-h1-concept-yardage.png"
 shot 1 0 15 1 "04-furano-palmer-h15-concept-yardage.png"
 shot 4 0 1 1 "05-royallinks-q-h1-concept-yardage.png"
 
-# Verify circular hole movement remains functional after the visual re-skin.
 shot 2 0 13 1 "06-sahoro-h13-hole-buttons.png"
-# Pixel 6: right circular button is in the TOTAL/REMAIN/PAR strip near y=285.
-adb shell input tap 1005 285
+# Measured from the 1080x2400 Pixel 6 screenshot: right circular control center
+# is about (982,354), not the earlier estimate that landed above the button.
+adb shell input tap 982 354
 sleep .65
 adb exec-out screencap -p > "$OUT/07-sahoro-next-h14.png"
 test -s "$OUT/07-sahoro-next-h14.png"
 
-# Dedicated score UI and compact-screen rendering.
 shot 2 0 13 3 "08-scorecard-concept-font.png"
 adb shell wm size 720x1600; adb shell wm density 320; sleep .6
 shot 2 0 13 1 "09-compact-sahoro-concept-yardage.png"

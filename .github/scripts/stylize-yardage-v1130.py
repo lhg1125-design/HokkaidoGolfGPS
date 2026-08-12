@@ -16,18 +16,11 @@ def is_matte_pixel(rgb):
     r,g,b=rgb
     hi=max(rgb); lo=min(rgb)
     sat=hi-lo
-    # External source mattes are white/grey/black and low saturation.
-    # Never seed green course pixels, water, bunkers or coloured labels.
     return (sat<42 and (hi<190 or lo>205)) or hi<28
 
 def clean_border_matte(im):
-    """Replace only border-connected source matte with concept cream.
-
-    Multiple edge seeds handle Sahoro's black/grey checker matte as well as
-    Prince/Royal white canvases while leaving internal bunkers/cart paths intact.
-    """
+    """Replace only border-connected source matte with concept cream."""
     src=im.convert('RGB')
-    d=ImageDraw.Draw(src)
     w,h=src.size
     step=max(18,min(w,h)//28)
     seeds=[]
@@ -43,11 +36,8 @@ def clean_border_matte(im):
     return src
 
 def crop_to_full_hole(im):
-    # Background is now concept cream. Crop the dead canvas so TEE→GREEN uses
-    # as much of the phone's yardage area as possible without cropping the hole.
     bg=Image.new('RGB',im.size,CREAM)
     diff=ImageChops.difference(im,bg).convert('L')
-    # JPEG/source noise around cream must not count as course content.
     mask=diff.point(lambda v: 255 if v>18 else 0)
     bbox=mask.getbbox()
     if not bbox:
@@ -58,17 +48,19 @@ def crop_to_full_hole(im):
     return im.crop((l,t,r,b))
 
 def toon_grade(im):
-    # Preserve verified hole geometry while converting only its visual surface.
+    # Two matte/crop passes: the first removes the original canvas; after that
+    # previously internal white/grey strips become edge-connected and the second
+    # pass removes them too. Course geometry itself is never warped or redrawn.
     im=clean_border_matte(im)
     im=crop_to_full_hole(im)
-    longest=max(im.size)
-    target=1800
+    im=clean_border_matte(im)
+    im=crop_to_full_hole(im)
+
+    longest=max(im.size);target=1800
     if longest<target:
         scale=target/float(longest)
         im=im.resize((round(im.width*scale),round(im.height*scale)),Image.Resampling.LANCZOS)
 
-    # Paint-like smoothing, blended back with source so bunkers, water and paths
-    # stay legible. Posterisation creates a clean animation-cell colour language.
     smooth=im.filter(ImageFilter.MedianFilter(3)).filter(ImageFilter.SMOOTH_MORE)
     base=Image.blend(im,smooth,.48)
     base=ImageEnhance.Color(base).enhance(1.22)
@@ -77,7 +69,6 @@ def toon_grade(im):
     post=ImageOps.posterize(base,6)
     base=Image.blend(base,post,.36)
 
-    # Restrained dark-green contour line on strong edges: illustrated, not harsh.
     edges=base.convert('L').filter(ImageFilter.FIND_EDGES)
     edges=ImageOps.autocontrast(edges)
     alpha=edges.point(lambda v: 0 if v<78 else min(78,int((v-78)*.70)))
@@ -117,5 +108,5 @@ if samples:
         d.text((x+10,705),label,fill=INK,font=sf)
     sheet.save(TMP/'yardage-concept-samples.jpg','JPEG',quality=94,subsampling=0)
 
-print('V1.13.0 stylized + matte-cleaned yardage assets:',len(FILES))
+print('V1.13.0 stylized + double matte-cleaned yardage assets:',len(FILES))
 print('sample sheet:',TMP/'yardage-concept-samples.jpg')

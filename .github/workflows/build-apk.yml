@@ -66,6 +66,27 @@ jobs:
       - name: Fetch and gate JP KR full-hole imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
 
+      - name: Preserve Sahoro maps as JPG
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          root=Path('app/src/main/res/drawable-nodpi')
+          srcs=sorted(root.glob('yardage_sahoro_*.png'))
+          if len(srcs)!=18:
+              raise SystemExit(f'expected 18 Sahoro PNGs before conversion, got {len(srcs)}')
+          for src in srcs:
+              dst=src.with_suffix('.jpg')
+              with Image.open(src) as im:
+                  im.convert('RGB').save(dst,'JPEG',quality=96,subsampling=0,optimize=True)
+              src.unlink()
+          outs=sorted(root.glob('yardage_sahoro_*.jpg'))
+          if len(outs)!=18:
+              raise SystemExit(f'expected 18 Sahoro JPGs after conversion, got {len(outs)}')
+          print('SAHORO JPG PRESERVED',len(outs))
+          for x in outs: print(x.name,x.stat().st_size)
+          PY
+
       - name: Upload Sahoro discovery
         uses: actions/upload-artifact@v4
         with:
@@ -76,7 +97,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
-      - name: Render V1.10.5 artwork UI
+      - name: Render V1.10.6 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -98,6 +119,7 @@ jobs:
           PY
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
+          test "$(find app/src/main/res/drawable-nodpi -maxdepth 1 -name 'yardage_sahoro_*.jpg' | wc -l)" -eq 18
 
       - name: Apply app patches
         run: |
@@ -134,18 +156,30 @@ jobs:
           python3 .github/scripts/patch-v1102.py
           python3 .github/scripts/patch-v1104.py
           python3 .github/scripts/patch-v1105.py
+          python3 .github/scripts/patch-v1106.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
+      - name: Gate final APK 126 full-hole resources
+        run: |
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          unzip -l "$APK" | grep 'yardage_' > /tmp/yardage-apk.txt
+          cat /tmp/yardage-apk.txt
+          SAHORO=$(grep -c 'yardage_sahoro_' /tmp/yardage-apk.txt || true)
+          TOTAL=$(grep -c 'yardage_' /tmp/yardage-apk.txt || true)
+          echo "FINAL APK SAHORO=$SAHORO TOTAL=$TOTAL"
+          test "$SAHORO" -eq 18
+          test "$TOTAL" -eq 126
+
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.10.6-hokkaido-126-hole-pack-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-debug-apk
-          path: HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-debug.apk
+          name: HokkaidoGolfGPS-v1.10.6-hokkaido-126-hole-pack-debug-apk
+          path: HokkaidoGolfGPS-v1.10.6-hokkaido-126-hole-pack-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -168,7 +202,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-preview-screenshots
+          name: HokkaidoGolfGPS-v1.10.6-hokkaido-126-hole-pack-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

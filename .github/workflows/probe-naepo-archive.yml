@@ -1,0 +1,50 @@
+name: Probe Naepo Archive
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/probe-naepo-archive.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Query Wayback CDX and public search surfaces
+        run: |
+          mkdir -p .github/tmp/naepo-archive
+          python3 - <<'PY'
+          import requests,re,json
+          from pathlib import Path
+          out=Path('.github/tmp/naepo-archive')
+          ua={'User-Agent':'Mozilla/5.0'}
+          urls=[
+            'https://web.archive.org/cdx/search/cdx?url=www.naepogc.com/*&output=json&fl=timestamp,original,mimetype,statuscode&filter=statuscode:200&collapse=urlkey&limit=5000',
+            'https://web.archive.org/cdx/search/cdx?url=naepogc.com/*&output=json&fl=timestamp,original,mimetype,statuscode&filter=statuscode:200&collapse=urlkey&limit=5000'
+          ]
+          rows=[]
+          for u in urls:
+            try:
+              r=requests.get(u,headers=ua,timeout=40); print('CDX',r.status_code,len(r.content),u)
+              (out/f'cdx{len(rows)}.txt').write_bytes(r.content)
+              if r.ok:
+                data=r.json()
+                for x in data[1:]:
+                  if x not in rows: rows.append(x)
+            except Exception as e: print('CDXERR',e)
+          print('ROWS',len(rows))
+          for x in rows:
+            ts,orig,mime,status=x
+            lo=orig.lower()
+            if any(k in lo for k in ['course','hole','map','layout','guide','yard','green','field','golf','images/course','img/course']):
+              print('CAND',ts,mime,orig)
+          (out/'candidates.txt').write_text('\n'.join('\t'.join(x) for x in rows),encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naepo-archive-probe
+          path: .github/tmp/naepo-archive/*
+          retention-days: 3

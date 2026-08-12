@@ -27,7 +27,7 @@ PY
   rm -f "$tmp"; echo "ART FALLBACK  $(basename "$out")"; return 0
 }
 
-# Establish the same Rakuten browser session before image requests.
+# Establish Rakuten session and persist exact Sahoro source URLs for auditing.
 : > "$CAND"
 if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 30 --retry 2 \
   -A "$UA" -c "$GORA_COOKIE" -b "$GORA_COOKIE" -e 'https://booking.gora.golf.rakuten.co.jp/' \
@@ -104,51 +104,63 @@ for h in $(seq -w 1 18); do
   fi
 done
 
-# Rakuten blocks direct image requests from some CI IPs. In that case use an
-# actual headless Chrome session and capture the rendered per-hole IMG elements.
+# Rakuten blocks raw image fetches from some CI IPs. If needed, keep the live
+# GORA page open and inject each known hole URL as an IMG request initiated by
+# that page. Screenshot the loaded element, preserving the entire tee->green map.
 SAHORO=$(find "$RES" -maxdepth 1 -type f -name 'yardage_sahoro_*.png' | wc -l)
 if [ "$SAHORO" -ne 18 ]; then
-  echo "GORA direct fetch yielded $SAHORO/18; starting Selenium browser fallback"
+  echo "GORA direct fetch yielded $SAHORO/18; starting in-page browser injection"
   rm -f "$RES"/yardage_sahoro_*.png
   python3 - "$GORA_PAGE" "$RES" <<'PY'
-import re,sys,time
+import sys,time
 from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from PIL import Image
+from PIL import Image,ImageStat
+
 page=sys.argv[1]; root=Path(sys.argv[2])
 opt=Options()
-opt.add_argument('--headless=new'); opt.add_argument('--no-sandbox'); opt.add_argument('--disable-dev-shm-usage')
-opt.add_argument('--window-size=1600,1200'); opt.add_argument('--disable-gpu')
+for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1600,1200'):
+    opt.add_argument(a)
 opt.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/143.0.0.0 Safari/537.36')
 d=webdriver.Chrome(options=opt)
+d.set_script_timeout(18)
 try:
-    d.get(page)
-    WebDriverWait(d,25).until(lambda x: len(x.find_elements(By.CSS_SELECTOR,"img[src*='new_hole_info']"))>=18)
-    time.sleep(2)
-    elems=d.find_elements(By.CSS_SELECTOR,"img[src*='new_hole_info']")
-    seen={}
-    for el in elems:
-        src=el.get_attribute('src') or ''
-        m=re.search(r'/new_hole_info/(166|167)_([1-9])\.png',src)
-        if not m: continue
-        course,num=m.group(1),int(m.group(2)); hole=num if course=='166' else num+9
-        if hole in seen: continue
-        d.execute_script("arguments[0].scrollIntoView({block:'center'});",el); time.sleep(.12)
+    d.get(page); time.sleep(2.5)
+    ok_count=0
+    for hole in range(1,19):
+        grp='166' if hole<=9 else '167'; num=hole if hole<=9 else hole-9
+        src=f'https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/{grp}_{num}.png'
+        result=d.execute_async_script(r'''
+            const url=arguments[0], done=arguments[arguments.length-1];
+            const old=document.getElementById('oaiHoleImage'); if(old) old.remove();
+            const img=document.createElement('img'); img.id='oaiHoleImage';
+            img.style.cssText='position:absolute;left:0;top:0;z-index:2147483647;background:#fff;max-width:none!important;max-height:none!important;object-fit:contain;';
+            img.onload=()=>{img.style.width=img.naturalWidth+'px';img.style.height=img.naturalHeight+'px';done([true,img.naturalWidth,img.naturalHeight]);};
+            img.onerror=()=>done([false,0,0]);
+            document.body.appendChild(img); img.src=url;
+        ''',src)
+        loaded=bool(result and result[0]); nw=int(result[1]) if loaded else 0; nh=int(result[2]) if loaded else 0
+        print('INJECT LOAD',hole,loaded,nw,nh,src)
+        if not loaded or nw<180 or nh<180: continue
+        el=d.find_element(By.ID,'oaiHoleImage')
+        d.execute_script("window.scrollTo(0,0);arguments[0].style.left='0px';arguments[0].style.top='0px';",el)
+        time.sleep(.12)
         out=root/f'yardage_sahoro_{hole:02d}.png'
-        ok=el.screenshot(str(out))
-        if not ok: continue
+        if not el.screenshot(str(out)): continue
         try:
             with Image.open(out) as im:
-                if im.width<180 or im.height<180: out.unlink(missing_ok=True); continue
-                print('SELENIUM GORA OK',out.name,im.size,src)
-                seen[hole]=src
-        except Exception:
-            out.unlink(missing_ok=True)
-    print('SELENIUM_GORA_COUNT',len(seen))
+                if im.width<180 or im.height<180:
+                    out.unlink(missing_ok=True); continue
+                st=ImageStat.Stat(im.convert('RGB').resize((32,32)))
+                if sum(st.stddev)<8:
+                    print('INJECT LOW VARIANCE',hole,st.stddev); out.unlink(missing_ok=True); continue
+                print('SELENIUM GORA OK',out.name,im.size,'std',round(sum(st.stddev),2))
+                ok_count+=1
+        except Exception as e:
+            print('INJECT VERIFY FAIL',hole,e); out.unlink(missing_ok=True)
+    print('SELENIUM_GORA_COUNT',ok_count)
 finally:
     d.quit()
 PY

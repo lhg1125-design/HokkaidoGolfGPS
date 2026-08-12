@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-set -u
+set -euo pipefail
 RAW=.github/tmp/v18
 RES=app/src/main/res/drawable-nodpi
 mkdir -p "$RAW" "$RES"
-UA='Mozilla/5.0 (Linux; Android 15; HokkaidoGolfGPS/1.10.5) AppleWebKit/537.36'
+UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/143.0.0.0 Safari/537.36'
+GORA_PAGE='https://booking.gora.golf.rakuten.co.jp/guide/course_info/drone/disp/c_id/10068'
+GORA_HTML="$RAW/sahoro-gora.html"
+GORA_COOKIE="$RAW/gora-cookies.txt"
+CAND="$RAW/sahoro-candidates.txt"
 
 fetch_img(){
   local url="$1" out="$2" minw="${3:-180}" minh="${4:-180}" tmp="${2}.tmp"
@@ -23,64 +27,11 @@ PY
   rm -f "$tmp"; echo "ART FALLBACK  $(basename "$out")"; return 0
 }
 
-fetch_gora_img(){
-  local url="$1" out="$2" tmp="${2}.tmp"
-  rm -f "$tmp" "$out"
-  if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 30 --retry 2 \
-      -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/143.0.0.0 Safari/537.36' \
-      -e 'https://booking.gora.golf.rakuten.co.jp/guide/course_info/drone/disp/c_id/10068' \
-      -H 'Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' \
-      -H 'Sec-Fetch-Site: same-site' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Dest: image' \
-      "$url" -o "$tmp"; then
-    if python3 - "$tmp" <<'PY'
-from PIL import Image
-import sys
-try:
-    im=Image.open(sys.argv[1]); im.verify(); ok=im.width>=180 and im.height>=180
-except Exception: ok=False
-raise SystemExit(0 if ok else 1)
-PY
-    then
-      mv "$tmp" "$out"
-      python3 - "$out" <<'PY'
-from PIL import Image
-import sys,os
-im=Image.open(sys.argv[1]); print('GORA ART OK',os.path.basename(sys.argv[1]),im.size,os.path.getsize(sys.argv[1]))
-PY
-      return 0
-    fi
-  fi
-  rm -f "$tmp"; echo "GORA ART FALLBACK  $(basename "$out")"; return 0
-}
-
-# Scenic layers.
-fetch_img 'https://www.princehotels.co.jp/golf/kamishihoro/images/kamishihoro_main_pc_2000x910_01.jpg' "$RAW/raw_kamishihoro.jpg" 480 300
-fetch_img 'https://www.princehotels.co.jp/image/2024_4_top200_golf_1.jpg' "$RAW/raw_furano.jpg" 480 300
-fetch_img 'https://golf-pass.brightspotcdn.com/dims4/default/f86d5af/2147483647/strip/true/crop/1440x929%2B0%2B15/resize/930x600%21/format/webp/quality/90/?url=https%3A%2F%2Fgolf-pass-brightspot.s3.amazonaws.com%2Ffc%2F1b%2Ffd7f35b176dd12aa987c27f2efd2%2F119818.jpg' "$RAW/raw_sahoro.jpg" 480 300
-fetch_img 'https://image.fnnews.com/resource/media/image/2025/07/03/202507031109109114_l.jpg' "$RAW/raw_naepo.jpg" 480 300
-fetch_img 'https://royallinks.co.kr/mobile/images/main/event02.jpg' "$RAW/raw_royal.jpg" 480 300
-
-# Full-hole maps.
-for h in $(seq -w 1 18); do
-  n=$((10#$h))
-  fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-c${h}.jpg" "$RES/yardage_kamishihoro_c${h}.jpg" 180 180
-  fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-m${h}.jpg" "$RES/yardage_kamishihoro_m${h}.jpg" 180 180
-  fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-palmer${h}.jpg" "$RES/yardage_furano_palmer${h}.jpg" 180 180
-  fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-king${h}.jpg" "$RES/yardage_furano_king${h}.jpg" 180 180
-  fetch_img "https://www.royallinks.co.kr/images/course/a/${h}.jpg" "$RES/yardage_royallinks_queens${h}.jpg" 180 180
-  fetch_img "https://www.royallinks.co.kr/images/course/b/${h}.jpg" "$RES/yardage_royallinks_kings${h}.jpg" 180 180
-  if [ "$n" -le 9 ]; then
-    fetch_gora_img "https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/166_${n}.png" "$RES/yardage_sahoro_${h}.png"
-  else
-    k=$((n-9)); fetch_gora_img "https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/167_${k}.png" "$RES/yardage_sahoro_${h}.png"
-  fi
-done
-
-# Discovery proof retained for source auditing.
-GORA_HTML="$RAW/sahoro-gora.html"; CAND="$RAW/sahoro-candidates.txt"; : > "$CAND"
+# Establish the same Rakuten browser session before image requests.
+: > "$CAND"
 if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 30 --retry 2 \
-  -A "$UA" -e 'https://booking.gora.golf.rakuten.co.jp/' \
-  'https://booking.gora.golf.rakuten.co.jp/guide/course_info/drone/disp/c_id/10068' -o "$GORA_HTML"; then
+  -A "$UA" -c "$GORA_COOKIE" -b "$GORA_COOKIE" -e 'https://booking.gora.golf.rakuten.co.jp/' \
+  "$GORA_PAGE" -o "$GORA_HTML"; then
   python3 - "$GORA_HTML" <<'PY' | tee "$CAND"
 from html.parser import HTMLParser
 from urllib.parse import urljoin
@@ -105,7 +56,103 @@ for u in p.urls:
 for i,u in enumerate(seen[:300],1):print(f'GORA_IMG_CAND {i:03d} {u}')
 print('GORA_HTML_BYTES',len(raw),'GORA_IMG_COUNT',len(seen))
 PY
-else echo 'GORA_HTML_FETCH_FAILED' | tee "$CAND"; fi
+else
+  echo 'GORA_HTML_FETCH_FAILED' | tee "$CAND"
+fi
+
+fetch_gora_img(){
+  local url="$1" out="$2" tmp="${2}.tmp"
+  rm -f "$tmp" "$out"
+  if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 20 --retry 1 \
+      -A "$UA" -b "$GORA_COOKIE" -c "$GORA_COOKIE" -e "$GORA_PAGE" \
+      -H 'Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' \
+      -H 'Sec-Fetch-Site: same-site' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Dest: image' \
+      "$url" -o "$tmp"; then
+    if python3 - "$tmp" <<'PY'
+from PIL import Image
+import sys
+try:
+    im=Image.open(sys.argv[1]); im.verify(); ok=im.width>=180 and im.height>=180
+except Exception: ok=False
+raise SystemExit(0 if ok else 1)
+PY
+    then mv "$tmp" "$out"; echo "GORA ART OK $(basename "$out")"; return 0; fi
+  fi
+  rm -f "$tmp"; echo "GORA CURL BLOCKED $(basename "$out")"; return 0
+}
+
+# Scenic layers.
+fetch_img 'https://www.princehotels.co.jp/golf/kamishihoro/images/kamishihoro_main_pc_2000x910_01.jpg' "$RAW/raw_kamishihoro.jpg" 480 300
+fetch_img 'https://www.princehotels.co.jp/image/2024_4_top200_golf_1.jpg' "$RAW/raw_furano.jpg" 480 300
+fetch_img 'https://golf-pass.brightspotcdn.com/dims4/default/f86d5af/2147483647/strip/true/crop/1440x929%2B0%2B15/resize/930x600%21/format/webp/quality/90/?url=https%3A%2F%2Fgolf-pass-brightspot.s3.amazonaws.com%2Ffc%2F1b%2Ffd7f35b176dd12aa987c27f2efd2%2F119818.jpg' "$RAW/raw_sahoro.jpg" 480 300
+fetch_img 'https://image.fnnews.com/resource/media/image/2025/07/03/202507031109109114_l.jpg' "$RAW/raw_naepo.jpg" 480 300
+fetch_img 'https://royallinks.co.kr/mobile/images/main/event02.jpg' "$RAW/raw_royal.jpg" 480 300
+
+# Prince + Royal full-hole maps and first-pass Rakuten downloads.
+for h in $(seq -w 1 18); do
+  n=$((10#$h))
+  fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-c${h}.jpg" "$RES/yardage_kamishihoro_c${h}.jpg" 180 180
+  fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-m${h}.jpg" "$RES/yardage_kamishihoro_m${h}.jpg" 180 180
+  fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-palmer${h}.jpg" "$RES/yardage_furano_palmer${h}.jpg" 180 180
+  fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-king${h}.jpg" "$RES/yardage_furano_king${h}.jpg" 180 180
+  fetch_img "https://www.royallinks.co.kr/images/course/a/${h}.jpg" "$RES/yardage_royallinks_queens${h}.jpg" 180 180
+  fetch_img "https://www.royallinks.co.kr/images/course/b/${h}.jpg" "$RES/yardage_royallinks_kings${h}.jpg" 180 180
+  if [ "$n" -le 9 ]; then
+    fetch_gora_img "https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/166_${n}.png" "$RES/yardage_sahoro_${h}.png"
+  else
+    k=$((n-9)); fetch_gora_img "https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/167_${k}.png" "$RES/yardage_sahoro_${h}.png"
+  fi
+done
+
+# Rakuten blocks direct image requests from some CI IPs. In that case use an
+# actual headless Chrome session and capture the rendered per-hole IMG elements.
+SAHORO=$(find "$RES" -maxdepth 1 -type f -name 'yardage_sahoro_*.png' | wc -l)
+if [ "$SAHORO" -ne 18 ]; then
+  echo "GORA direct fetch yielded $SAHORO/18; starting Selenium browser fallback"
+  rm -f "$RES"/yardage_sahoro_*.png
+  python3 - "$GORA_PAGE" "$RES" <<'PY'
+import re,sys,time
+from pathlib import Path
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from PIL import Image
+page=sys.argv[1]; root=Path(sys.argv[2])
+opt=Options()
+opt.add_argument('--headless=new'); opt.add_argument('--no-sandbox'); opt.add_argument('--disable-dev-shm-usage')
+opt.add_argument('--window-size=1600,1200'); opt.add_argument('--disable-gpu')
+opt.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/143.0.0.0 Safari/537.36')
+d=webdriver.Chrome(options=opt)
+try:
+    d.get(page)
+    WebDriverWait(d,25).until(lambda x: len(x.find_elements(By.CSS_SELECTOR,"img[src*='new_hole_info']"))>=18)
+    time.sleep(2)
+    elems=d.find_elements(By.CSS_SELECTOR,"img[src*='new_hole_info']")
+    seen={}
+    for el in elems:
+        src=el.get_attribute('src') or ''
+        m=re.search(r'/new_hole_info/(166|167)_([1-9])\.png',src)
+        if not m: continue
+        course,num=m.group(1),int(m.group(2)); hole=num if course=='166' else num+9
+        if hole in seen: continue
+        d.execute_script("arguments[0].scrollIntoView({block:'center'});",el); time.sleep(.12)
+        out=root/f'yardage_sahoro_{hole:02d}.png'
+        ok=el.screenshot(str(out))
+        if not ok: continue
+        try:
+            with Image.open(out) as im:
+                if im.width<180 or im.height<180: out.unlink(missing_ok=True); continue
+                print('SELENIUM GORA OK',out.name,im.size,src)
+                seen[hole]=src
+        except Exception:
+            out.unlink(missing_ok=True)
+    print('SELENIUM_GORA_COUNT',len(seen))
+finally:
+    d.quit()
+PY
+fi
 
 PRINCE=$(find "$RES" -maxdepth 1 -type f \( -name 'yardage_kamishihoro_*.jpg' -o -name 'yardage_furano_*.jpg' \) | wc -l)
 SAHORO=$(find "$RES" -maxdepth 1 -type f -name 'yardage_sahoro_*.png' | wc -l)
@@ -113,7 +160,7 @@ ROYAL=$(find "$RES" -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l
 echo "Prince full-hole assets present: $PRINCE"
 echo "Sahoro GORA full-hole assets present: $SAHORO"
 echo "Royal Links full-hole assets present: $ROYAL"
-# Hard gate: never build a release-labelled Hokkaido full-hole APK without all 18 Sahoro maps.
-test "$PRINCE" -eq 72
-test "$SAHORO" -eq 18
-test "$ROYAL" -eq 36
+if [ "$PRINCE" -ne 72 ] || [ "$SAHORO" -ne 18 ] || [ "$ROYAL" -ne 36 ]; then
+  echo 'FULL-HOLE ASSET GATE FAILED' >&2
+  exit 1
+fi

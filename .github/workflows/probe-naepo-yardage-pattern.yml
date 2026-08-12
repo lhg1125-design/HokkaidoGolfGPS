@@ -1,0 +1,88 @@
+name: Probe Naepo Yardage Pattern
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/probe-naepo-yardage-pattern.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: python3 -m pip install --disable-pip-version-check selenium pillow requests numpy
+      - name: Search and score yardage-like images
+        run: |
+          mkdir -p .github/tmp/naepo-pattern/cands
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.parse import quote
+          import re,time,requests,html,hashlib
+          import numpy as np
+          from PIL import Image,ImageDraw,ImageFont
+          from io import BytesIO
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          root=Path('.github/tmp/naepo-pattern');cdir=root/'cands'
+          ua='Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36'
+          opt=Options()
+          for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1440,1800'):opt.add_argument(a)
+          opt.add_argument('--user-agent='+ua);d=webdriver.Chrome(options=opt)
+          queries=['내포골프클럽 2홀','내포골프클럽 H2','내포골프클럽 2홀 코스','내포골프클럽 2 HOLE','내포골프클럽 6홀','내포골프클럽 H6','내포골프클럽 6홀 코스','내포골프클럽 6 HOLE','내포골프클럽 홀맵','내포골프클럽 코스도','내포골프클럽 코스 공략']
+          urls=[]
+          try:
+            for qi,q in enumerate(queries):
+              d.get('https://search.naver.com/search.naver?where=image&sm=tab_jum&query='+quote(q));time.sleep(1.5)
+              for _ in range(4):d.execute_script('window.scrollTo(0, document.body.scrollHeight);');time.sleep(.5)
+              s=html.unescape(d.page_source);(root/f'q{qi:02d}.html').write_text(s,encoding='utf-8')
+              for obj in re.findall(r'\{"type":"image".*?\}\s*(?:,|\])',s,re.S):
+                m=re.search(r'"originalUrl":"([^"]+)"',obj)
+                if not m:continue
+                u=m.group(1).replace('http://','https://')
+                title=re.search(r'"title":"([^"]*)"',obj);link=re.search(r'"link":"([^"]*)"',obj)
+                key=(u,title.group(1) if title else '',link.group(1) if link else '',q)
+                if u not in [x[0] for x in urls]:urls.append(key)
+          finally:d.quit()
+          print('UNIQUE',len(urls))
+          sess=requests.Session();sess.headers.update({'User-Agent':ua,'Referer':'https://search.naver.com/'})
+          scored=[]
+          for i,(url,title,link,q) in enumerate(urls[:900]):
+            pu='https://search.pstatic.net/common/?src='+quote(url,safe='')+'&type=sc960_832'
+            try:r=sess.get(pu,timeout=6)
+            except:continue
+            if r.status_code!=200 or len(r.content)<8000:continue
+            try:im=Image.open(BytesIO(r.content)).convert('RGB')
+            except:continue
+            if im.width<400 or im.height<250:continue
+            sm=im.copy();sm.thumbnail((240,180));a=np.asarray(sm).astype(np.int16)
+            white=((a[:,:,0]>225)&(a[:,:,1]>225)&(a[:,:,2]>225)).mean()
+            green=((a[:,:,1]>a[:,:,0]*1.15)&(a[:,:,1]>a[:,:,2]*1.10)&(a[:,:,1]>70)).mean()
+            dark=(a.mean(axis=2)<90).mean()
+            # Known Naepo yardage sheets: very white page, meaningful green map, a little dark text.
+            score=white*3.2+green*5.0+min(dark,.12)*1.5
+            if white>.30 and green>.025:
+              scored.append((score,im,url,title,link,q,white,green))
+          scored.sort(key=lambda x:x[0],reverse=True);scored=scored[:100]
+          rows=[]
+          for j,(score,im,url,title,link,q,white,green) in enumerate(scored):
+            p=cdir/f'{j:03d}.jpg';im.save(p,'JPEG',quality=95,subsampling=0)
+            rows.append(f'{p.name}\t{score:.3f}\tW{white:.3f}\tG{green:.3f}\t{q}\t{title}\t{link}\t{url}')
+          (root/'ranked.tsv').write_text('\n'.join(rows),encoding='utf-8');print('RANKED',len(scored))
+          cols=4;tw=320;th=370;font=ImageFont.load_default()
+          for pg in range((len(scored)+19)//20):
+            ss=scored[pg*20:(pg+1)*20];sheet=Image.new('RGB',(cols*tw,5*th),'white');dr=ImageDraw.Draw(sheet)
+            for j,x in enumerate(ss):
+              score,im,url,title,link,q,white,green=x;im=im.copy();im.thumbnail((tw-14,th-54),Image.Resampling.LANCZOS)
+              xx=(j%cols)*tw+(tw-im.width)//2;yy=(j//cols)*th+4;sheet.paste(im,(xx,yy));dr.text(((j%cols)*tw+7,(j//cols)*th+th-40),f'{pg*20+j:03d} S{score:.2f} W{white:.2f} G{green:.2f}',fill='black',font=font)
+            sheet.save(root/f'contact-{pg:02d}.jpg','JPEG',quality=93)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naepo-yardage-pattern-candidates
+          path: .github/tmp/naepo-pattern/*
+          if-no-files-found: error
+          retention-days: 5

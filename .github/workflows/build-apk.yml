@@ -97,6 +97,7 @@ jobs:
           python3 .github/scripts/patch-v141.py
           python3 .github/scripts/patch-v142.py
           python3 .github/scripts/patch-v143.py
+          python3 .github/scripts/patch-v149.py
           python3 .github/scripts/patch-v15.py
           python3 .github/scripts/patch-v151.py
 

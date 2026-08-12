@@ -8,8 +8,8 @@ android {
         applicationId = "com.hokkaidogolf.trip"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.6.0-motion-character"
+        versionCode = 7
+        versionName = "0.7.0-field-gps"
     }
 
     buildTypes {

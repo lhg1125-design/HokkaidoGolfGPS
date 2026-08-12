@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.12.3-max-map-debug.apk"
+APK="HokkaidoGolfGPS-v1.12.4-hole-step-buttons-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 SIM_ACTIVITY="com.hokkaidogolf.trip/.BetaSimActivity"
@@ -45,24 +45,30 @@ shot(){
   sleep .45; adb exec-out screencap -p > "$OUT/$file"; test -s "$OUT/$file"
 }
 
-# Meter-only yardage, max image space, direct pulsing orange position pin.
-shot 2 0 13 1 "02-sahoro-h13-max-map-42.png"
-adb shell input tap 540 900
-sleep .45
-adb exec-out screencap -p > "$OUT/03-sahoro-h13-max-map-moved.png"
-test -s "$OUT/03-sahoro-h13-max-map-moved.png"
-shot 2 0 1 1 "04-sahoro-h1-max-map.png"
-shot 0 1 13 1 "05-kamishihoro-m-h13-max-map.png"
-shot 4 0 1 1 "06-royallinks-queens-h1-max-map.png"
+# H13: circular previous/next controls live in the free left/right ends of the meter strip.
+shot 2 0 13 1 "02-sahoro-h13-circular-hole-controls.png"
+# Pixel 6 absolute coordinates: right circular step button in compact metric strip.
+adb shell input tap 985 292
+sleep .65
+adb exec-out screencap -p > "$OUT/03-sahoro-next-button-h14.png"
+test -s "$OUT/03-sahoro-next-button-h14.png"
+# Left button returns to H13.
+adb shell input tap 95 292
+sleep .65
+adb exec-out screencap -p > "$OUT/04-sahoro-prev-button-h13.png"
+test -s "$OUT/04-sahoro-prev-button-h13.png"
+
+shot 0 1 13 1 "05-kamishihoro-m-h13-hole-controls.png"
+shot 4 0 1 1 "06-royallinks-queens-h1-left-disabled.png"
 shot 3 0 1 1 "07-naepo-cal-required.png"
 shot 4 0 1 3 "08-scorecard.png"
 
 adb shell wm size 720x1600; adb shell wm density 320; sleep .6
-shot 2 0 13 1 "09-compact-sahoro-h13-max-map.png"
-shot 4 0 1 1 "10-compact-royallinks-h1-max-map.png"
+shot 2 0 13 1 "09-compact-sahoro-h13-hole-controls.png"
+shot 4 0 1 1 "10-compact-royallinks-h1-hole-controls.png"
 adb shell wm size reset; adb shell wm density reset
 
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.12.3 preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.12.4 preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.12.3 max-map screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.12.4 circular hole-step screenshots:\n'; ls -lh "$OUT"/*.png

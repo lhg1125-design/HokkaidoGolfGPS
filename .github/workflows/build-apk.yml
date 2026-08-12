@@ -64,7 +64,18 @@ jobs:
           test -s /tmp/MPLUSRounded1c-ExtraBold.ttf
 
       - name: Render V1.2 artwork UI
-        run: python3 .github/scripts/generate-v12-ui.py
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/generate-v12-ui.py')
+          lines=[]
+          for line in p.read_text().splitlines():
+              parts=line.split(';')
+              parts=[seg.replace(',font(', ',font=font(') if 'd.text(' in seg else seg for seg in parts]
+              lines.append(';'.join(parts))
+          p.write_text('\n'.join(lines)+'\n')
+          PY
+          python3 .github/scripts/generate-v12-ui.py
 
       - name: Apply app patches
         run: |

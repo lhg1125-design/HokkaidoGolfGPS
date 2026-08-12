@@ -1,0 +1,72 @@
+name: Extract Naepo Real Yardages
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/extract-naepo-real-yardages.yml'
+permissions:
+  contents: read
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: python3 -m pip install --disable-pip-version-check pillow requests beautifulsoup4
+      - name: Extract one verified Naepo round-post image set
+        run: |
+          mkdir -p .github/tmp/naepo-real/originals
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.parse import quote,unquote
+          import requests,re,html,json
+          from PIL import Image,ImageDraw,ImageFont
+          from io import BytesIO
+          root=Path('.github/tmp/naepo-real'); od=root/'originals'
+          ua={'User-Agent':'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36','Referer':'https://search.naver.com/'}
+          q=quote('내포골프클럽 야디지')
+          u='https://m.search.naver.com/search.naver?where=m_image&sm=tab_jum&query='+q
+          r=requests.get(u,headers=ua,timeout=30);r.raise_for_status();s=html.unescape(r.text)
+          (root/'search.html').write_text(s,encoding='utf-8')
+          # The post is independently identifiable by article id/title from Naver results.
+          article='224012917731'
+          objs=re.findall(r'\{"type":"image".*?\}\s*(?:,|\])',s,re.S)
+          found=[]
+          for o in objs:
+            if article not in o:continue
+            m=re.search(r'"originalUrl":"([^"]+)"',o)
+            if not m:continue
+            url=m.group(1).replace('http://','https://')
+            ow=re.search(r'"orgWidth":(\d+)',o);oh=re.search(r'"orgHeight":(\d+)',o)
+            if url not in [x[0] for x in found]:found.append((url,int(ow.group(1)) if ow else 0,int(oh.group(1)) if oh else 0))
+          print('ARTICLE ORIGINALS',len(found))
+          if len(found)<9:raise SystemExit('not enough Naepo original images')
+          sess=requests.Session();sess.headers.update(ua)
+          saved=[]
+          for i,(url,ow,oh) in enumerate(found):
+            rr=sess.get(url,timeout=20); print('GET',i,rr.status_code,len(rr.content),ow,oh,url)
+            if rr.status_code!=200:continue
+            try:im=Image.open(BytesIO(rr.content)).convert('RGB')
+            except:continue
+            p=od/f'{i:02d}_{im.width}x{im.height}.jpg';im.save(p,'JPEG',quality=96,subsampling=0)
+            saved.append((p,url,im.size))
+          (root/'manifest.tsv').write_text('\n'.join(f'{p.name}\t{sz[0]}x{sz[1]}\t{url}' for p,url,sz in saved),encoding='utf-8')
+          print('SAVED',len(saved))
+          # High-res contact sheet, one tile per original.
+          cols=3;tw=480;th=540;rows=(len(saved)+cols-1)//cols
+          sheet=Image.new('RGB',(cols*tw,rows*th),'white');d=ImageDraw.Draw(sheet);font=ImageFont.load_default()
+          for j,(p,url,sz) in enumerate(saved):
+            im=Image.open(p).convert('RGB'); im.thumbnail((tw-20,th-55),Image.Resampling.LANCZOS)
+            x=(j%cols)*tw+(tw-im.width)//2;y=(j//cols)*th+8;sheet.paste(im,(x,y))
+            d.rectangle(((j%cols)*tw+4,(j//cols)*th+4,(j%cols+1)*tw-4,(j//cols+1)*th-4),outline=(60,110,70),width=3)
+            d.text(((j%cols)*tw+12,(j//cols)*th+th-38),f'{j:02d}  {sz[0]}x{sz[1]}',fill=(20,60,30),font=font)
+          sheet.save(root/'naepo-original-contact.jpg','JPEG',quality=94)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naepo-real-yardage-originals
+          path: .github/tmp/naepo-real/*
+          if-no-files-found: error
+          retention-days: 7

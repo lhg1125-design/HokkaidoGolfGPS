@@ -53,8 +53,8 @@ jobs:
           file app/src/main/res/drawable-nodpi/concept_hero_exact.webp
           file app/src/main/res/drawable-nodpi/concept_course_exact.webp
 
-      - name: Install artwork renderer
-        run: python3 -m pip install --disable-pip-version-check pillow
+      - name: Install artwork renderer and browser capture
+        run: python3 -m pip install --disable-pip-version-check pillow selenium
 
       - name: Fetch render-only rounded fonts
         run: |

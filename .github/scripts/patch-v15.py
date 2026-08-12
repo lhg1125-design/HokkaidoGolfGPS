@@ -10,13 +10,20 @@ s=s.replace('V1.4.3 · FIVE SCREEN GPS','V1.5 · COURSE DATA PACK')
 # Compact data-pack coverage in the live status row.
 s=s.replace('"DB  G "+gc+"/18 · T "+tc+"/18"', '"PACK D18 · G"+gc+" · T"+tc')
 
-# Source badge on the strategy card so guide data is never confused with field GPS.
-old='''            String note=strategyNote();
+# Source badge on the strategy area so guide data is never confused with field GPS.
+old_strategy='''            textFit(c,strategyNote(),w*.08f,h*.729f,w*.92f,8.5f,INK,true);'''
+new_strategy='''            textFit(c,strategyNote(),w*.08f,h*.729f,w*.69f,8.5f,INK,true);
+            pill(c,new RectF(w*.70f,h*.700f,w*.93f,h*.728f),Color.rgb(236,246,228),hazardSourceLabel(),GREEN,6.5f);'''
+if old_strategy in s:
+    s=s.replace(old_strategy,new_strategy,1)
+else:
+    # Fallback for earlier strategy-card layout.
+    old='''            String note=strategyNote();
             textFit(c,note,m+14,h*.620f,w-m-14,8.2f,INK,true);'''
-new='''            String note=strategyNote();
-            textFit(c,note,m+14,h*.620f,w-m-14,8.2f,INK,true);
-            pill(c,new RectF(w*.69f,h*.585f,w-m-10,h*.607f),Color.rgb(236,246,228),hazardSourceLabel(),GREEN,6.7f);'''
-if old in s: s=s.replace(old,new,1)
+    new='''            String note=strategyNote();
+            textFit(c,note,m+14,h*.620f,w*.68f,8.2f,INK,true);
+            pill(c,new RectF(w*.70f,h*.585f,w-m-10,h*.610f),Color.rgb(236,246,228),hazardSourceLabel(),GREEN,6.5f);'''
+    if old in s: s=s.replace(old,new,1)
 
 # Official-guide strategy highlights verified for the trip courses.
 s=s.replace('''            if(selected==0 && variant==0){
@@ -47,18 +54,20 @@ s=s.replace('''            int seed=(hole*37+selected*11+variant*7)%5;
             if(seed==1)return new Hazard[]{new Hazard("WATER",.66f,.52f)};
             return new Hazard[0];''','''            return new Hazard[0];''',1)
 
-# Hazard marker distances are calibrated-map estimates unless a real hazard GPS ref exists.
-old_h='''                GeoRef gr=greenCenterRef(hole);
+# Hazard marker distances from concept-map guide positions are APPROXIMATE, never exact GPS claims.
+old_h='''                GeoRef gr=calibratedMapRef(r,x,y);
                 if(gr!=null&&gpsUsable()){
                     int d=Math.round(distance(location,gr.lat,gr.lon));pill(c,new RectF(x-42,y+24,x+42,y+51),Color.argb(228,255,255,255),d+"m",INK,7.2f);
                 }'''
-new_h='''                GeoRef hr=calibratedMapRef(r,x,y);
-                if(hr!=null&&gpsUsable()){
-                    int d=Math.round(distance(location,hr.lat,hr.lon));pill(c,new RectF(x-48,y+24,x+48,y+51),Color.argb(228,255,255,255),"약 "+d+"m",INK,7.2f);
+new_h='''                GeoRef gr=calibratedMapRef(r,x,y);
+                if(gr!=null&&gpsUsable()){
+                    int d=Math.round(distance(location,gr.lat,gr.lon));pill(c,new RectF(x-50,y+24,x+50,y+51),Color.argb(228,255,255,255),"약 "+d+"m",INK,7.2f);
                 }else{
                     pill(c,new RectF(x-44,y+24,x+44,y+51),Color.argb(228,255,255,255),"GUIDE",INK,6.5f);
                 }'''
-if old_h in s: s=s.replace(old_h,new_h,1)
+if old_h not in s:
+    raise SystemExit('v1.5 hazard distance marker not found')
+s=s.replace(old_h,new_h,1)
 
 # Insert provenance helpers before hazardsForHole().
 marker='        private Hazard[] hazardsForHole(){'

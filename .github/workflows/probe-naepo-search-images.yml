@@ -1,0 +1,122 @@
+name: Probe Naepo Search Images
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/probe-naepo-search-images.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: python3 -m pip install --disable-pip-version-check selenium pillow requests beautifulsoup4
+      - name: Collect Naver and mirror candidates
+        run: |
+          mkdir -p .github/tmp/naepo-search/cands
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.parse import quote,urljoin,urlparse
+          import re,time,requests,hashlib
+          from PIL import Image,ImageOps,ImageDraw,ImageFont
+          from io import BytesIO
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.common.by import By
+
+          root=Path('.github/tmp/naepo-search'); cdir=root/'cands'
+          ua='Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36'
+          opt=Options()
+          for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1440,1800'):
+              opt.add_argument(a)
+          opt.add_argument('--user-agent='+ua)
+          d=webdriver.Chrome(options=opt)
+          urls=[]; pages=[]
+          def add(u,src=''):
+              if not u or not u.startswith('http'): return
+              if u.startswith('data:'): return
+              if u not in [x[0] for x in urls]: urls.append((u,src))
+          def collect_page(u,label,scrolls=4):
+              print('PAGE',label,u)
+              try:d.get(u);time.sleep(2)
+              except Exception as e:print('ERR',e);return
+              for _ in range(scrolls):
+                  d.execute_script('window.scrollTo(0, document.body.scrollHeight);');time.sleep(1)
+              (root/f'{label}.html').write_text(d.page_source,encoding='utf-8',errors='ignore')
+              d.save_screenshot(str(root/f'{label}.png'))
+              print('TITLE',d.title,'URL',d.current_url,'HTML',len(d.page_source))
+              for el in d.find_elements(By.CSS_SELECTOR,'img'):
+                  for a in ('src','data-src','data-original','data-lazy-src'):
+                      try:v=el.get_attribute(a) or ''
+                      except:v=''
+                      if v:add(v,label)
+                  try:
+                      ss=el.get_attribute('srcset') or ''
+                      for part in ss.split(','):add(part.strip().split(' ')[0],label)
+                  except:pass
+              raw=d.page_source
+              for m in re.finditer(r'https?://[^\"\'<>\\ ]+\.(?:jpg|jpeg|png|webp)(?:\?[^\"\'<>\\ ]*)?',raw,re.I):
+                  add(m.group(0).replace('&amp;','&'),label+'-raw')
+              # links to blog/content pages for later inspection
+              for el in d.find_elements(By.CSS_SELECTOR,'a[href]'):
+                  try:
+                      h=el.get_attribute('href') or ''; txt=(el.text or '')
+                      if ('내포' in txt or 'naepo' in h.lower() or 'blog.naver' in h) and h.startswith('http'):
+                          if h not in pages: pages.append(h)
+                  except:pass
+          try:
+              queries=['내포골프클럽 야디지','내포골프클럽 코스맵','내포골프클럽 1번홀','내포골프클럽 9홀','내포GC 야디지']
+              for i,q in enumerate(queries):
+                  collect_page('https://search.naver.com/search.naver?where=image&sm=tab_jum&query='+quote(q),f'naver{i}',6)
+              collect_page('https://fga.purpleo.co.kr/view/313','purpleo',2)
+              # inspect up to 12 discovered blog/content pages, including mobile Naver form
+              for i,u in enumerate(pages[:12]):
+                  if 'blog.naver.com' in u:
+                      u=u.replace('https://blog.naver.com/','https://m.blog.naver.com/')
+                  collect_page(u,f'blog{i:02d}',2)
+          finally:d.quit()
+
+          print('URLS',len(urls),'PAGES',len(pages))
+          (root/'urls.tsv').write_text('\n'.join(f'{u}\t{s}' for u,s in urls),encoding='utf-8')
+          (root/'pages.txt').write_text('\n'.join(pages),encoding='utf-8')
+
+          sess=requests.Session();sess.headers.update({'User-Agent':ua,'Referer':'https://search.naver.com/'})
+          saved=[]
+          for idx,(u,src) in enumerate(urls):
+              if len(saved)>=120:break
+              lu=u.lower()
+              if any(x in lu for x in ['logo','icon','favicon','sprite','profile','emoji','avatar']):continue
+              try:
+                  r=sess.get(u,timeout=12,allow_redirects=True)
+                  if r.status_code!=200 or len(r.content)<7000:continue
+                  im=Image.open(BytesIO(r.content)).convert('RGB')
+                  if im.width<180 or im.height<180:continue
+                  # favor course/yardage-like portrait or square images but retain landscape photos too
+                  fn=cdir/f'{len(saved):03d}.jpg'; im.thumbnail((1200,1200));im.save(fn,'JPEG',quality=90)
+                  saved.append((fn,u,src,im.size))
+                  print('SAVE',fn.name,im.size,src,u[:180])
+              except Exception as e:pass
+          (root/'saved.tsv').write_text('\n'.join(f'{p.name}\t{sz}\t{src}\t{u}' for p,u,src,sz in saved),encoding='utf-8')
+
+          # contact sheets with labels for model/user visual audit
+          thumbW,thumbH=260,300; cols=4
+          font=ImageFont.load_default()
+          for pg in range((len(saved)+19)//20):
+              subset=saved[pg*20:(pg+1)*20]
+              sheet=Image.new('RGB',(cols*thumbW,5*thumbH),'white'); dr=ImageDraw.Draw(sheet)
+              for j,(p,u,src,sz) in enumerate(subset):
+                  im=Image.open(p).convert('RGB'); im.thumbnail((thumbW-12,thumbH-52))
+                  x=(j%cols)*thumbW+(thumbW-im.width)//2; y=(j//cols)*thumbH+6
+                  sheet.paste(im,(x,y)); dr.text(((j%cols)*thumbW+8,(j//cols)*thumbH+thumbH-40),f'{p.stem} {sz[0]}x{sz[1]} {src[:12]}',fill='black',font=font)
+              sheet.save(root/f'contact-{pg:02d}.jpg',quality=90)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naepo-search-image-candidates
+          path: .github/tmp/naepo-search/*
+          if-no-files-found: error
+          retention-days: 5

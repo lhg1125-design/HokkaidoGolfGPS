@@ -1,0 +1,13 @@
+from pathlib import Path
+p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
+s=p.read_text()
+s=s.replace('float vy=h*.628f;\n            varA.set(w*.095f,vy+w*.010f,w*.48f,vy+h*.030f);varB.set(w*.52f,vy+w*.010f,w*.905f,vy+h*.030f);','varA.set(w*.098f,h*.667f,w*.477f,h*.696f);varB.set(w*.523f,h*.667f,w*.902f,h*.696f);')
+s=s.replace('if(selected>=0){\n                text(c,variants[selected][0],varA.centerX(),varA.centerY()+7,10,variant==0?Color.WHITE:INK,true,Paint.Align.CENTER);','if(selected>=0){\n                box(c,varA,variant==0?GREEN:SOFT,34);box(c,varB,variant==1?GREEN:SOFT,34);\n                text(c,variants[selected][0],varA.centerX(),varA.centerY()+7,10,variant==0?Color.WHITE:INK,true,Paint.Align.CENTER);')
+s=s.replace('text(c,ko[selected],m,h*.061f,15,Color.WHITE,true);text(c,variants[selected][variant]+" · H"+hole,m,h*.088f,10,Color.rgb(216,242,222),false);','text(c,ko[selected],m,h*.086f,15,Color.WHITE,true);text(c,variants[selected][variant]+" / H"+hole,m,h*.116f,10,Color.rgb(216,242,222),false);')
+s=s.replace('text(c,"PAR "+par,w-m,h*.087f,15,Color.WHITE,true,Paint.Align.RIGHT);','text(c,"PAR "+par,w-m,h*.116f,15,Color.WHITE,true,Paint.Align.RIGHT);')
+s=s.replace('pill(c,new RectF(w*.72f,h*.024f,w*.94f,h*.053f),gpsBg(),gpsLabel(),gpsColor(),7.4f);','pill(c,new RectF(w*.72f,h*.030f,w*.94f,h*.059f),gpsBg(),gpsLabel(),gpsColor(),7.4f);')
+s=s.replace('text(c,greenSaveLabel(),greenSave.centerX(),greenSave.centerY()+6,8.2f,Color.WHITE,true,Paint.Align.CENTER);','box(c,greenSave,green==null?CORAL:DEEP,28);box(c,teeSave,getRef("t",hole)==null?Color.rgb(53,139,94):DEEP,28);\n            text(c,greenSaveLabel(),greenSave.centerX(),greenSave.centerY()+6,8.2f,Color.WHITE,true,Paint.Align.CENTER);')
+s=s.replace('getRef("t",hole)==null?"TEE 저장":"TEE ✓"','getRef("t",hole)==null?"TEE 저장":"TEE OK"')
+s=s.replace('V1.2 · ARTWORK FIDELITY','V1.2.1 · ARTWORK FIDELITY')
+p.write_text(s)
+print('applied v1.2.1 artwork polish')

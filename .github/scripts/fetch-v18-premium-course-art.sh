@@ -5,7 +5,9 @@ mkdir -p "$RAW"
 UA='Mozilla/5.0 (Linux; Android 15; HokkaidoGolfGPS/1.8) AppleWebKit/537.36'
 
 fetch_img(){
-  local url="$1" out="$2" tmp="${out}.tmp"
+  local url="$1"
+  local out="$2"
+  local tmp="${out}.tmp"
   rm -f "$tmp" "$out"
   if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 25 --retry 1 -A "$UA" "$url" -o "$tmp"; then
     if python3 - "$tmp" <<'PY'

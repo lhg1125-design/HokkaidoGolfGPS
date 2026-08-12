@@ -3,7 +3,9 @@
     <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif-rounded</item>
         <item name="android:statusBarColor">#0E442B</item>
-        <item name="android:navigationBarColor">#0E442B</item>
+        <item name="android:navigationBarColor">#F7F9EC</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
     </style>
 </resources>

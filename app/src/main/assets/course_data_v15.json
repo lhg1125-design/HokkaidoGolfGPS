@@ -1,0 +1,43 @@
+{
+  "schema": "hokkaido-golf-course-data-v1.5",
+  "generated": "2026-08-12",
+  "unit": "m",
+  "policy": {
+    "live_distance": "Only field-saved or independently verified GPS coordinates may be used as exact live distances.",
+    "guide_hazard": "Course-guide hazards may be drawn on the concept map, but derived distances must be labeled approximate."
+  },
+  "courses": [
+    {
+      "id": "kamishihoro",
+      "name_ko": "가미시호로 골프장",
+      "variants": ["CHAMPIONS", "MASTERS"],
+      "distance_coverage": "18/18 each variant",
+      "source": "https://www.princehotels.co.jp/golf/kamishihoro/",
+      "verified_strategy_holes": [
+        {"variant":"CHAMPIONS","hole":4,"hazards":["우측 큰 연못","그린 앞 크리크"],"note_ko":"티샷 위치를 확보하고 세컨드 각도를 만든다."},
+        {"variant":"MASTERS","hole":13,"hazards":["중간 크리크"],"note_ko":"우도그렉. 거리보다 위치 선정이 우선."},
+        {"variant":"MASTERS","hole":15,"hazards":["그린 반주변 연못","그린 양쪽 큰 벙커"],"note_ko":"핀 직공략보다 그린 안전면 우선."}
+      ]
+    },
+    {
+      "id": "furano",
+      "name_ko": "후라노 골프코스",
+      "variants": ["PALMER", "KING"],
+      "distance_coverage": "18/18 each variant",
+      "source": "https://www.princehotels.co.jp/golf/furano/course/",
+      "verified_strategy_holes": [
+        {"variant":"PALMER","hole":15,"hazards":["그린 주변 연못","크로스 벙커"],"note_ko":"무리한 직공략보다 레이업 위치 선정."},
+        {"variant":"KING","hole":17,"hazards":["그린 좌측 연못","그린 좌측 벙커"],"note_ko":"우측 공략이 안전한 대표 전략 홀."}
+      ]
+    },
+    {
+      "id": "sahoro",
+      "name_ko": "사호로 컨트리클럽",
+      "variants": ["OUT / IN"],
+      "distance_coverage": "18/18",
+      "source": "https://booking.gora.golf.rakuten.co.jp/guide/disp/c_id/10068/",
+      "general_strategy_ko": "3개의 소하천과 다수의 연못이 특징. 홀별 정확한 해저드 GPS 좌표는 검증 데이터만 사용한다.",
+      "recommended": {"long_drive":[3,13],"nearest_pin":[8,15]}
+    }
+  ]
+}

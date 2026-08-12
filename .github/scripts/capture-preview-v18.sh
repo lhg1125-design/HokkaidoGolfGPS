@@ -13,9 +13,18 @@ adb shell settings put global show_first_crash_dialog 0 || true
 
 shot(){
   local course="$1" variant="$2" hole="$3" screen="$4" file="$5"
+  echo "===== PREVIEW course=$course variant=$variant hole=$hole screen=$screen file=$file ====="
   adb shell am force-stop "$PKG" || true
+  adb logcat -c || true
   adb shell am start -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen "$screen" >/dev/null
   sleep 4
+  if adb shell pidof "$PKG" >/dev/null 2>&1; then
+    echo "APP ALIVE: $(adb shell pidof "$PKG" || true)"
+  else
+    echo "APP NOT RUNNING"
+    adb logcat -d -v brief AndroidRuntime:E '*:S' || true
+    adb logcat -d -v brief | grep -E 'FATAL EXCEPTION|AndroidRuntime|ArrayIndexOutOfBounds|IndexOutOfBounds|NullPointerException|IllegalArgumentException|com.hokkaidogolf.trip' | tail -n 90 || true
+  fi
   adb exec-out screencap -p > "$OUT/$file"
 }
 

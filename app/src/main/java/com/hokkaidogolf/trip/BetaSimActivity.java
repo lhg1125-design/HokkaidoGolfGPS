@@ -34,9 +34,9 @@ public class BetaSimActivity extends Activity {
 
         TextView over=label("OFFSITE FIELD REHEARSAL",12,Color.rgb(73,145,91),true);root.addView(over);
         TextView title=label("北海道 BETA SIM",31,DEEP,true);title.setPadding(0,(int)(4*d),0,(int)(4*d));root.addView(title);
-        TextView sub=label("내일 현장 전 리허설 · 실제 홀 거리/공략 화면을 GPS GOOD 상태로 실행",15,INK,false);sub.setPadding(0,0,0,(int)(18*d));root.addView(sub);
+        TextView sub=label("현장 전 리허설 · 실제 홀 거리/공략 화면을 GPS GOOD 상태로 실행",15,INK,false);sub.setPadding(0,0,0,(int)(18*d));root.addView(sub);
 
-        TextView note=label("※ SIM은 기능 검증용입니다. 오른쪽 GPS AXIS를 원하는 위치에 탭하면 YOU가 이동하고 잔여 m가 즉시 바뀝니다. 실제 GPS 모드에서는 TEE+GREEN 저장 후 자동 계산됩니다.",13,Color.DKGRAY,false);
+        TextView note=label("※ SIM은 기능 검증용입니다. 오른쪽 GPS AXIS를 탭하면 YOU가 이동하고 잔여 m가 즉시 바뀝니다. 실제 라운드 전에는 아래 FIELD PREFLIGHT로 GPS 품질을 먼저 확인하세요.",13,Color.DKGRAY,false);
         note.setPadding((int)(14*d),(int)(12*d),(int)(14*d),(int)(12*d));note.setBackground(round(SOFT,18*d));root.addView(note,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
 
         section(root,"HOKKAIDO · TRIP PACK",d);
@@ -50,8 +50,12 @@ public class BetaSimActivity extends Activity {
         addCourse(root,"로얄링스 · QUEENS",4,0,d);
         addCourse(root,"로얄링스 · KINGS",4,1,d);
 
-        TextView tip=label("추천 리허설: 사호로 H13에서 GPS AXIS 20% → 50% → 80% 탭 · 거리 감소 확인 → 스코어 입력/카드",13,Color.rgb(90,100,90),false);
+        TextView tip=label("추천: FIELD PREFLIGHT → 사호로 H13에서 GPS AXIS 20% → 50% → 80% 탭 → 거리 감소 → 스코어 입력/카드",13,Color.rgb(90,100,90),false);
         tip.setPadding(0,(int)(16*d),0,(int)(12*d));root.addView(tip);
+
+        Button pre=button("FIELD PREFLIGHT · GPS 사전점검",Color.rgb(230,244,216),DEEP,d);
+        pre.setOnClickListener(v->startActivity(new Intent(this,FieldPreflightActivity.class)));
+        LinearLayout.LayoutParams pp=params(d,58);pp.setMargins(0,0,0,(int)(9*d));root.addView(pre,pp);
 
         Button real=button("실제 GPS 앱 열기",DEEP,Color.WHITE,d);
         real.setOnClickListener(v->{Intent i=new Intent(this,FieldGpsV09Activity.class);startActivity(i);});

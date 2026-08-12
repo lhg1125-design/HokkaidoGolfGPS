@@ -96,7 +96,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
-      - name: Render V1.12.3 artwork UI
+      - name: Render V1.12.4 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -165,6 +165,7 @@ jobs:
           python3 .github/scripts/patch-v1121.py
           python3 .github/scripts/patch-v1122.py
           python3 .github/scripts/patch-v1123.py
+          python3 .github/scripts/patch-v1124.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
@@ -180,13 +181,13 @@ jobs:
           test "$TOTAL" -eq 126
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.12.3-max-map-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.12.4-hole-step-buttons-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.12.3-max-map-debug-apk
-          path: HokkaidoGolfGPS-v1.12.3-max-map-debug.apk
+          name: HokkaidoGolfGPS-v1.12.4-hole-step-buttons-debug-apk
+          path: HokkaidoGolfGPS-v1.12.4-hole-step-buttons-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -209,7 +210,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.12.3-max-map-preview-screenshots
+          name: HokkaidoGolfGPS-v1.12.4-hole-step-buttons-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

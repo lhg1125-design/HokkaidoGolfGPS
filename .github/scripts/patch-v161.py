@@ -125,12 +125,11 @@ helpers=r'''        private void drawHazardCaptureButtons(Canvas c,RectF r){
 '''
 s=s[:idx]+helpers+s[idx:]
 
-# Touch handling: capture buttons must win over course-map target touch.
-touch_anchor='''            if(screen==1 && courseRect.contains(x,y)){'''
-idx=s.find(touch_anchor)
-if idx<0:
-    raise SystemExit('v1.6.1 touch course anchor missing')
-s=s[:idx]+'''            if(screen==1 && hazardBunkerBtn.contains(x,y)){saveHazard("b");return true;}\n            if(screen==1 && hazardWaterBtn.contains(x,y)){saveHazard("w");return true;}\n'''+s[idx:]
+# Touch handling: hazard capture buttons live inside courseRect, so check them first.
+touch_anchor='''            if(screen==1){\n                if(courseRect.contains(x,y)){'''
+if touch_anchor not in s:
+    raise SystemExit('v1.6.1 nested touch course anchor missing')
+s=s.replace(touch_anchor,'''            if(screen==1){\n                if(hazardBunkerBtn.contains(x,y)){saveHazard("b");return true;}\n                if(hazardWaterBtn.contains(x,y)){saveHazard("w");return true;}\n                if(courseRect.contains(x,y)){''',1)
 
 # Summary backup/restore touch handling near the start of ACTION_UP processing.
 touch_top='''            if(e.getAction()!=MotionEvent.ACTION_UP)return true;float x=e.getX(),y=e.getY();'''

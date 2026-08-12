@@ -33,7 +33,7 @@ jobs:
           ls "$ANDROID_HOME/platforms" || true
           ls "$ANDROID_HOME/build-tools" || true
 
-      - name: Prepare sources
+      - name: Prepare legacy sources
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -44,20 +44,45 @@ jobs:
               s = s.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r));', 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
               legacy.write_text(s)
           PY
+
+      - name: Restore approved concept artwork
+        run: |
+          mkdir -p app/src/main/res/drawable-nodpi
+          cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
+          file app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          file app/src/main/res/drawable-nodpi/concept_course_exact.webp
+
+      - name: Install artwork renderer
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Fetch render-only rounded fonts
+        run: |
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o /tmp/Jua-Regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o /tmp/MPLUSRounded1c-ExtraBold.ttf
+          test -s /tmp/Jua-Regular.ttf
+          test -s /tmp/MPLUSRounded1c-ExtraBold.ttf
+
+      - name: Render V1.2 artwork UI
+        run: python3 .github/scripts/generate-v12-ui.py
+
+      - name: Apply app patches
+        run: |
           python3 .github/scripts/patch-v10.py
           python3 .github/scripts/patch-v11.py
+          python3 .github/scripts/patch-v12.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.1-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.2-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.1-debug-apk
-          path: HokkaidoGolfGPS-v1.1-debug.apk
+          name: HokkaidoGolfGPS-v1.2-debug-apk
+          path: HokkaidoGolfGPS-v1.2-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -80,7 +105,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.1-preview-screenshots
+          name: HokkaidoGolfGPS-v1.2-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

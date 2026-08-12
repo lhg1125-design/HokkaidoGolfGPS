@@ -1,0 +1,108 @@
+name: Probe Naepo Official Course
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/probe-naepo-official.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install probe tools
+        run: python3 -m pip install --disable-pip-version-check selenium pillow requests
+      - name: Probe official site with Chrome
+        run: |
+          mkdir -p .github/tmp/naepo-probe
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,time,urllib.parse,json
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.common.by import By
+
+          out=Path('.github/tmp/naepo-probe')
+          opt=Options()
+          for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1440,1400'):
+              opt.add_argument(a)
+          opt.add_argument('--user-agent=Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36')
+          opt.set_capability('goog:loggingPrefs', {'performance':'ALL','browser':'ALL'})
+          d=webdriver.Chrome(options=opt)
+          seen_pages=[]; seen_assets=[]
+          def absu(base,u):
+              try:return urllib.parse.urljoin(base,u)
+              except:return u
+          def collect(page,label):
+              print('\n=== PAGE',label,page)
+              try:
+                  d.get(page); time.sleep(3)
+              except Exception as e:
+                  print('GET ERR',repr(e)); return
+              print('FINAL',d.current_url,'TITLE',d.title,'HTML',len(d.page_source))
+              (out/f'{label}.html').write_text(d.page_source,encoding='utf-8',errors='ignore')
+              try:d.save_screenshot(str(out/f'{label}.png'))
+              except Exception as e:print('SHOT ERR',e)
+              base=d.current_url
+              links=[]
+              for el in d.find_elements(By.CSS_SELECTOR,'a[href]'):
+                  try:
+                      href=absu(base,el.get_attribute('href') or '')
+                      txt=(el.text or '').strip().replace('\n',' ')
+                      if href and href not in links: links.append(href)
+                      if any(k in (txt+' '+href).lower() for k in ['course','코스','hole','홀','guide','소개','공략']):
+                          print('LINK',txt[:60],href)
+                  except:pass
+              assets=[]
+              for sel,attrs in [('img',['src','data-src','data-original','srcset']),('source',['src','srcset']),('*',['style'])]:
+                  for el in d.find_elements(By.CSS_SELECTOR,sel):
+                      for at in attrs:
+                          try:v=el.get_attribute(at) or ''
+                          except:v=''
+                          if not v:continue
+                          vals=[]
+                          if at=='style': vals=re.findall(r'url\([\"\']?([^\)\"\']+)',v,re.I)
+                          else: vals=[x.strip().split(' ')[0] for x in v.split(',')]
+                          for u in vals:
+                              u=absu(base,u)
+                              if u and u not in assets:assets.append(u)
+              for u in assets:
+                  lu=u.lower()
+                  if any(x in lu for x in ['course','hole','golf','field','map','guide','intro','layout','img','image']):
+                      print('ASSET',u)
+                  if u not in seen_assets:seen_assets.append(u)
+              for u in links:
+                  if u.startswith('http') and urllib.parse.urlparse(u).netloc.endswith('naepogc.com') and any(k in u.lower() for k in ['course','hole','guide','intro']):
+                      if u not in seen_pages:seen_pages.append(u)
+          try:
+              collect('https://www.naepogc.com/','home')
+              # inspect discovered same-origin course-like pages
+              for i,u in enumerate(seen_pages[:12],1): collect(u,f'page{i:02d}')
+              # performance log often reveals CSS/background and XHR-loaded images
+              for entry in d.get_log('performance'):
+                  try:
+                      msg=json.loads(entry['message'])['message']
+                      if msg['method']=='Network.responseReceived':
+                          r=msg['params']['response']; u=r.get('url',''); mime=r.get('mimeType','')
+                          if ('image' in mime or any(x in u.lower() for x in ['course','hole','layout'])) and u not in seen_assets:
+                              seen_assets.append(u); print('NET',mime,u)
+                  except:pass
+          finally:
+              d.quit()
+          (out/'assets.txt').write_text('\n'.join(seen_assets),encoding='utf-8')
+          (out/'pages.txt').write_text('\n'.join(seen_pages),encoding='utf-8')
+          print('TOTAL PAGES',len(seen_pages),'ASSETS',len(seen_assets))
+          PY
+      - name: Upload probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: naepo-official-probe
+          path: .github/tmp/naepo-probe/*
+          if-no-files-found: error
+          retention-days: 3

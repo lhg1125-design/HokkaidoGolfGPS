@@ -20,13 +20,13 @@ adb shell pm clear "$PKG" >/dev/null 2>&1 || true
 adb install -r "$APK" >/dev/null
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
-adb shell am start -n "$ACTIVITY" --ez preview true
-sleep 5
-adb exec-out screencap -p > "$OUT/01-home-korea-test.png"
 
-# Naepo test card is the first Korea card.
-adb shell input tap 540 1340
+# Start directly with Naepo selected. Preview injection also places synthetic GPS near Naepo.
+adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse 3 --ei previewVariant 0 --ei previewHole 1 >/dev/null
+sleep 7
+adb shell am start -n "$ACTIVITY" --ez preview true --ei previewCourse 3 --ei previewVariant 0 --ei previewHole 1 >/dev/null
 sleep 2
+adb exec-out screencap -p > "$OUT/01-home-korea-test.png"
 adb exec-out screencap -p > "$OUT/02-naepo-selected.png"
 
 # First round opens dynamic player-count/name setup.
@@ -34,7 +34,7 @@ adb shell input tap 540 1980
 sleep 2
 adb exec-out screencap -p > "$OUT/03-player-setup.png"
 
-# Seed 3 active players so all later screenshots verify linked slots/records.
+# Seed 3 active players so all later screens verify linked slots/records.
 cat > /tmp/state_v09.xml <<'EOF'
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <map>
@@ -48,10 +48,10 @@ EOF
 adb shell am force-stop "$PKG" || true
 adb shell run-as "$PKG" mkdir -p shared_prefs
 adb shell run-as "$PKG" tee shared_prefs/state_v09.xml < /tmp/state_v09.xml >/dev/null
-adb shell am start -n "$ACTIVITY" --ez preview true
+
+# Naepo field-calibration round.
+adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse 3 --ei previewVariant 0 --ei previewHole 1 >/dev/null
 sleep 4
-adb shell input tap 540 1340
-sleep 1
 adb shell input tap 540 1980
 sleep 3
 adb exec-out screencap -p > "$OUT/04-naepo-field-cal.png"
@@ -71,15 +71,21 @@ adb shell input tap 900 2290
 sleep 2
 adb exec-out screencap -p > "$OUT/07-round-summary-saved.png"
 
-# Relaunch home and validate Royal Links official-white vector yardage.
+# Royal Links Queens official WHITE-meter vector yardage.
 adb shell am force-stop "$PKG" || true
-adb shell am start -n "$ACTIVITY" --ez preview true
-sleep 3
-adb shell input tap 540 1540
-sleep 1
+adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse 4 --ei previewVariant 0 --ei previewHole 1 >/dev/null
+sleep 4
 adb shell input tap 540 1980
 sleep 3
 adb exec-out screencap -p > "$OUT/08-royallinks-queens-yardage.png"
+
+# Royal Links Kings also renders from the official WHITE-meter data pack.
+adb shell am force-stop "$PKG" || true
+adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse 4 --ei previewVariant 1 --ei previewHole 12 >/dev/null
+sleep 4
+adb shell input tap 540 1980
+sleep 3
+adb exec-out screencap -p > "$OUT/09-royallinks-kings-yardage.png"
 
 printf 'V1.7.0 Korea field-test screenshots captured:\n'
 ls -lh "$OUT"/*.png

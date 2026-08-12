@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
 s=p.read_text()
 if 'V1.11.1 · FIELD NAV SAFE' not in s:
@@ -16,11 +17,23 @@ if old not in s:
     raise SystemExit('v1.11.2 preview progress anchor missing')
 s=s.replace(old,new,1)
 
-oldtouch='''            if(screen==1 && courseRect.contains(x,y)){targetX=x;targetY=y;hasTarget=true;showToast("공략 지점 선택 · 도식 추정거리");invalidate();return true;}'''
-newtouch='''            if(screen==1 && previewMode && courseRect.contains(x,y) && x>courseRect.right-92f){\n                float nt=courseRect.top+96f,nb=courseRect.bottom-92f;\n                simProgressV1112=Math.max(0f,Math.min(1f,(nb-y)/Math.max(1f,nb-nt)));\n                showToast("SIM WALK · "+Math.round(simProgressV1112*100f)+"% · 잔여거리 갱신");invalidate();return true;\n            }\n            if(screen==1 && courseRect.contains(x,y)){targetX=x;targetY=y;hasTarget=true;showToast("공략 지점 선택 · 도식 추정거리");invalidate();return true;}'''
-if oldtouch not in s:
+# Previous UI patches can alter the wording/action of the ordinary course-map
+# touch line. Anchor only on courseRect.contains(x,y) and insert the simulator
+# rail handler immediately before it instead of replacing the whole line.
+m=re.search(r'courseRect\.contains\(\s*x\s*,\s*y\s*\)',s)
+if not m:
     raise SystemExit('v1.11.2 course touch anchor missing')
-s=s.replace(oldtouch,newtouch,1)
+line_start=s.rfind('\n',0,m.start())+1
+line=s[line_start:s.find('\n',line_start)]
+indent=line[:len(line)-len(line.lstrip())]
+block=(
+    indent+'if(screen==1 && previewMode && courseRect.contains(x,y) && x>courseRect.right-92f){\n'
+    +indent+'    float nt=courseRect.top+96f,nb=courseRect.bottom-92f;\n'
+    +indent+'    simProgressV1112=Math.max(0f,Math.min(1f,(nb-y)/Math.max(1f,nb-nt)));\n'
+    +indent+'    showToast("SIM WALK · "+Math.round(simProgressV1112*100f)+"% · 잔여거리 갱신");invalidate();return true;\n'
+    +indent+'}\n'
+)
+s=s[:line_start]+block+s[line_start:]
 
 # Give an always-visible hint only in simulator mode, without adding layout height.
 oldmsg='''            String msg=previewMode?(mode+" · "+(remain>=0?remain+"m":"--")):(mode+" · "+(remain>=0?remain+"m":"--")+" · "+navAccuracyV1110());'''

@@ -63,7 +63,10 @@ jobs:
           test -s /tmp/Jua-Regular.ttf
           test -s /tmp/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Render V1.7.0 artwork UI
+      - name: Fetch premium course reference imagery
+        run: bash .github/scripts/fetch-v18-premium-course-art.sh
+
+      - name: Render V1.8.0 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -84,6 +87,7 @@ jobs:
           p.write_text(s)
           PY
           python3 .github/scripts/generate-v12-ui.py
+          python3 .github/scripts/generate-v18-premium-art.py
 
       - name: Apply app patches
         run: |
@@ -109,18 +113,19 @@ jobs:
           python3 .github/scripts/patch-v170.py
           python3 .github/scripts/patch-v170fix.py
           python3 .github/scripts/patch-v170preview.py
+          python3 .github/scripts/patch-v180.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.7.0-korea-test-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.8.0-premium-art-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.7.0-korea-test-debug-apk
-          path: HokkaidoGolfGPS-v1.7.0-korea-test-debug.apk
+          name: HokkaidoGolfGPS-v1.8.0-premium-art-debug-apk
+          path: HokkaidoGolfGPS-v1.8.0-premium-art-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -143,7 +148,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.7.0-korea-test-preview-screenshots
+          name: HokkaidoGolfGPS-v1.8.0-premium-art-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

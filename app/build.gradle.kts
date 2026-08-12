@@ -8,8 +8,8 @@ android {
         applicationId = "com.hokkaidogolf.trip"
         minSdk = 26
         targetSdk = 35
-        versionCode = 25
-        versionName = "1.6.3-player-setup"
+        versionCode = 26
+        versionName = "1.8.0-premium-course-art"
     }
 
     buildTypes {

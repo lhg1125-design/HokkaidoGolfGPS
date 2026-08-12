@@ -63,7 +63,7 @@ jobs:
           test -s /tmp/Jua-Regular.ttf
           test -s /tmp/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Fetch JP KR full-hole course imagery
+      - name: Fetch and gate JP KR full-hole imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
 
       - name: Upload Sahoro discovery
@@ -76,7 +76,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
-      - name: Render V1.10.4 artwork UI
+      - name: Render V1.10.5 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -133,18 +133,19 @@ jobs:
           python3 .github/scripts/patch-v1101.py
           python3 .github/scripts/patch-v1102.py
           python3 .github/scripts/patch-v1104.py
+          python3 .github/scripts/patch-v1105.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-debug-apk
-          path: HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-debug.apk
+          name: HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-debug-apk
+          path: HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -167,7 +168,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-preview-screenshots
+          name: HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

@@ -29,12 +29,7 @@ def clean_border_matte(im):
     return src
 
 def strip_outside_course(im):
-    """Create a geometry-safe course silhouette and remove publisher canvas.
-
-    The keep mask is built only from colour/value evidence already present in the
-    source and dilated enough to include nearby bunkers/cart paths. Nothing inside
-    the hole is repositioned, redrawn or invented.
-    """
+    """General source-canvas remover for Prince/Royal maps."""
     src=im.convert('RGB');w,h=src.size
     hsv=src.convert('HSV');_,sat,val=hsv.split()
     sm=sat.point(lambda v:255 if v>24 else 0)
@@ -42,11 +37,50 @@ def strip_outside_course(im):
     sig=ImageChops.multiply(sm,vm)
     k=max(7,min(31,int(min(w,h)*.04)))
     if k%2==0:k+=1
-    keep=sig.filter(ImageFilter.MaxFilter(k))
-    # Close small holes in the silhouette, retaining white bunkers and paths.
-    keep=keep.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(3))
-    bg=Image.new('RGB',(w,h),CREAM)
-    return Image.composite(src,bg,keep)
+    keep=sig.filter(ImageFilter.MaxFilter(k)).filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(3))
+    return Image.composite(src,Image.new('RGB',(w,h),CREAM),keep)
+
+def strip_sahoro_publisher_matte(im):
+    """Remove GORA's stair-step grey/black matte without touching hole geometry.
+
+    Sahoro's published hole bitmap is very narrow. For each source row we locate
+    the actual coloured golf artwork using green/blue/yellow colour dominance,
+    then preserve the full span between its left/right edges plus a tiny safety
+    margin. This retains bunkers, paths and water that sit *inside* the course
+    while discarding only the publisher canvas outside that span.
+    """
+    src=im.convert('RGB');w,h=src.size
+    pix=src.load();mask=Image.new('L',(w,h),0);md=ImageDraw.Draw(mask)
+    spans=[]
+    for y in range(h):
+        xs=[]
+        for x in range(w):
+            r,g,b=pix[x,y]
+            hi=max(r,g,b);lo=min(r,g,b);sat=hi-lo
+            greenish=(g>r+9 and g>b+5 and g>55)
+            blueish=(b>r+10 and b>g-2 and b>70)
+            warm=(r>105 and g>85 and b<95 and sat>26)
+            if sat>30 and (greenish or blueish or warm):xs.append(x)
+        spans.append((min(xs),max(xs)) if xs else None)
+
+    # Fill missing rows from nearest detected source row so tee/green tips are
+    # never clipped just because a row is pale/low-saturation.
+    last=None
+    for y in range(h):
+        if spans[y] is not None:last=spans[y]
+        elif last is not None:spans[y]=last
+    last=None
+    for y in range(h-1,-1,-1):
+        if spans[y] is not None:last=spans[y]
+        elif last is not None:spans[y]=last
+
+    pad=max(2,round(w*.025))
+    for y,sp in enumerate(spans):
+        if sp is None:continue
+        l=max(0,sp[0]-pad);r=min(w-1,sp[1]+pad)
+        md.line((l,y,r,y),fill=255,width=1)
+    mask=mask.filter(ImageFilter.MaxFilter(3))
+    return Image.composite(src,Image.new('RGB',(w,h),CREAM),mask)
 
 def crop_to_full_hole(im):
     bg=Image.new('RGB',im.size,CREAM)
@@ -57,15 +91,14 @@ def crop_to_full_hole(im):
     return im.crop((max(0,l-pad),max(0,t-pad),min(im.width,r+pad),min(im.height,b+pad)))
 
 def toon_grade(im,strong=False):
-    im=clean_border_matte(im);im=strip_outside_course(im);im=crop_to_full_hole(im)
+    im=clean_border_matte(im)
+    im=strip_sahoro_publisher_matte(im) if strong else strip_outside_course(im)
+    im=crop_to_full_hole(im)
     longest=max(im.size);target=1800
     if longest<target:
         scale=target/float(longest)
         im=im.resize((round(im.width*scale),round(im.height*scale)),Image.Resampling.LANCZOS)
 
-    # Sahoro's published raster is only 89x400, so use a deliberately stronger
-    # animation treatment after upscale. Other higher-resolution sources get a
-    # lighter grade that preserves their already-illustrated detail.
     med=5 if strong else 3
     smooth=im.filter(ImageFilter.MedianFilter(med)).filter(ImageFilter.SMOOTH_MORE)
     base=Image.blend(im,smooth,.66 if strong else .54)
@@ -74,7 +107,7 @@ def toon_grade(im,strong=False):
     base=ImageEnhance.Brightness(base).enhance(1.04)
     colors=30 if strong else 48
     cell=base.quantize(colors=colors,method=Image.Quantize.MEDIANCUT,dither=Image.Dither.NONE).convert('RGB')
-    base=Image.blend(base,cell,.78 if strong else .64)
+    base=Image.blend(base,cell,.80 if strong else .64)
 
     edges=base.convert('L').filter(ImageFilter.FIND_EDGES);edges=ImageOps.autocontrast(edges)
     alpha=edges.point(lambda v:0 if v<72 else min(102,int((v-72)*.84)))
@@ -106,5 +139,5 @@ if samples:
         d.text((x+10,705),name.replace('yardage_','').replace('.jpg',''),fill=INK,font=sf)
     sheet.save(TMP/'yardage-concept-samples.jpg','JPEG',quality=94,subsampling=0)
 
-print('V1.13.0 126 yardages converted to silhouette-clean high-res animation style')
+print('V1.13.0 126 yardages converted to clean high-res animation style')
 print('sample sheet:',TMP/'yardage-concept-samples.jpg')

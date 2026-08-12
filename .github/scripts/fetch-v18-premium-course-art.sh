@@ -3,7 +3,7 @@ set -u
 RAW=.github/tmp/v18
 RES=app/src/main/res/drawable-nodpi
 mkdir -p "$RAW" "$RES"
-UA='Mozilla/5.0 (Linux; Android 15; HokkaidoGolfGPS/1.10.2) AppleWebKit/537.36'
+UA='Mozilla/5.0 (Linux; Android 15; HokkaidoGolfGPS/1.10.3) AppleWebKit/537.36'
 
 fetch_img(){
   local url="$1"
@@ -46,22 +46,19 @@ fetch_img 'https://golf-pass.brightspotcdn.com/dims4/default/f86d5af/2147483647/
 fetch_img 'https://image.fnnews.com/resource/media/image/2025/07/03/202507031109109114_l.jpg' "$RAW/raw_naepo.jpg" 480 300
 fetch_img 'https://royallinks.co.kr/mobile/images/main/event02.jpg' "$RAW/raw_royal.jpg" 480 300
 
-# ---------------------------------------------------------------------------
-# Full-hole maps. These are the Prince official per-hole course-guide images.
-# They are stored as drawable-nodpi so Android never crops or density-rescales
-# them before the FIT_CENTER renderer displays tee -> green in full.
-# ---------------------------------------------------------------------------
+# Full-hole maps: Prince official maps + Royal Links official attack maps.
 for h in $(seq -w 1 18); do
   fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-c${h}.jpg" "$RES/yardage_kamishihoro_c${h}.jpg" 180 180
   fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-m${h}.jpg" "$RES/yardage_kamishihoro_m${h}.jpg" 180 180
   fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-palmer${h}.jpg" "$RES/yardage_furano_palmer${h}.jpg" 180 180
   fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-king${h}.jpg" "$RES/yardage_furano_king${h}.jpg" 180 180
+  fetch_img "https://www.royallinks.co.kr/images/course/a/${h}.jpg" "$RES/yardage_royallinks_queens${h}.jpg" 180 180
+  fetch_img "https://www.royallinks.co.kr/images/course/b/${h}.jpg" "$RES/yardage_royallinks_kings${h}.jpg" 180 180
 done
 
-# GDO publishes a layout image for every Sahoro hole. Its asset URLs can move,
-# so discover image candidates from the live course-layout HTML. We only log
-# candidates here; V1.10.2 falls back to an explicit SCHEMATIC full-hole view
-# unless stable per-hole assets are discovered and verified.
+# Sahoro: GDO publishes a per-hole layout, but URLs can move. Discover candidates
+# without pretending an unverified asset is authoritative. Until a stable source
+# is confirmed the UI explicitly labels Sahoro as SCHEMATIC FULL HOLE.
 GDO_HTML="$RAW/sahoro-gdo.html"
 if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 25 --retry 2 -A "$UA" \
   'https://reserve.golfdigest.co.jp/golf-course/course-layout/111101/' -o "$GDO_HTML"; then
@@ -79,12 +76,13 @@ p=P(); p.feed(open(sys.argv[1],encoding='utf-8',errors='ignore').read())
 seen=[]
 for u in p.src:
     lu=u.lower()
-    if u not in seen and ('111101' in u or 'layout' in lu or 'hole' in lu or 'course' in lu):
-        seen.append(u)
+    if u not in seen and ('111101' in u or 'layout' in lu or 'hole' in lu or 'course' in lu): seen.append(u)
 for i,u in enumerate(seen[:120],1): print(f'GDO_IMG_CAND {i:03d} {u}')
 PY
 fi
 
-printf 'Full-hole Prince assets present: '
+printf 'Prince full-hole assets present: '
 find "$RES" -maxdepth 1 -type f \( -name 'yardage_kamishihoro_*.jpg' -o -name 'yardage_furano_*.jpg' \) | wc -l
+printf 'Royal Links full-hole assets present: '
+find "$RES" -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l
 ls -lh "$RAW" || true

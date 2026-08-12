@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="HokkaidoGolfGPS-v0.8-debug.apk"
+APK="HokkaidoGolfGPS-v0.8.1-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV08Activity"
 OUT="preview"
@@ -15,7 +15,6 @@ adb shell settings put global show_first_crash_dialog 0 || true
 adb shell am force-stop com.google.android.apps.nexuslauncher || true
 adb shell am force-stop com.android.launcher3 || true
 
-# Emulator location near Kamishihoro. preview=true provides clearly labeled demo TEE/GREEN refs only for screenshot validation.
 adb emu geo fix 143.2283621 43.2570513 || true
 adb shell am force-stop "$PKG" || true
 adb shell am start -n "$ACTIVITY" --ez preview true
@@ -32,7 +31,7 @@ adb shell input tap 540 2020
 sleep 4
 adb exec-out screencap -p > "$OUT/02-round.png"
 
-# Tap the schematic once so the attack-distance bubble is visible in the second round state.
+# Tap the schematic once so the attack-distance bubble is visible.
 adb shell input tap 600 1100
 sleep 1
 adb exec-out screencap -p > "$OUT/03-target.png"
@@ -42,5 +41,5 @@ adb shell input tap 690 2240
 sleep 2
 adb exec-out screencap -p > "$OUT/04-score.png"
 
-printf 'V0.8 preview screenshots captured:\n'
+printf 'V0.8.1 preview screenshots captured:\n'
 ls -lh "$OUT"/*.png

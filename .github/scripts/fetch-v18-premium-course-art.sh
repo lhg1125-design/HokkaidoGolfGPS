@@ -46,18 +46,24 @@ fetch_img 'https://golf-pass.brightspotcdn.com/dims4/default/f86d5af/2147483647/
 fetch_img 'https://image.fnnews.com/resource/media/image/2025/07/03/202507031109109114_l.jpg' "$RAW/raw_naepo.jpg" 480 300
 fetch_img 'https://royallinks.co.kr/mobile/images/main/event02.jpg' "$RAW/raw_royal.jpg" 480 300
 
-# Full-hole maps: Prince official maps + Royal Links official attack maps.
+# Full-hole maps: Prince official + Royal Links official + Rakuten GORA Sahoro.
 for h in $(seq -w 1 18); do
+  n=$((10#$h))
   fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-c${h}.jpg" "$RES/yardage_kamishihoro_c${h}.jpg" 180 180
   fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-m${h}.jpg" "$RES/yardage_kamishihoro_m${h}.jpg" 180 180
   fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-palmer${h}.jpg" "$RES/yardage_furano_palmer${h}.jpg" 180 180
   fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-king${h}.jpg" "$RES/yardage_furano_king${h}.jpg" 180 180
   fetch_img "https://www.royallinks.co.kr/images/course/a/${h}.jpg" "$RES/yardage_royallinks_queens${h}.jpg" 180 180
   fetch_img "https://www.royallinks.co.kr/images/course/b/${h}.jpg" "$RES/yardage_royallinks_kings${h}.jpg" 180 180
+  if [ "$n" -le 9 ]; then
+    fetch_img "https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/166_${n}.png" "$RES/yardage_sahoro_${h}.png" 180 180
+  else
+    k=$((n-9))
+    fetch_img "https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/167_${k}.png" "$RES/yardage_sahoro_${h}.png" 180 180
+  fi
 done
 
-# Sahoro discovery pass. GDO blocks generic CI requests, so also inspect the
-# Rakuten GORA course/drone page, which exposes per-hole layout data to browsers.
+# Persist the discovery proof for source auditing.
 GORA_HTML="$RAW/sahoro-gora.html"
 CAND="$RAW/sahoro-candidates.txt"
 : > "$CAND"
@@ -96,31 +102,10 @@ else
   echo 'GORA_HTML_FETCH_FAILED' | tee "$CAND"
 fi
 
-# Keep GDO discovery as a secondary source.
-GDO_HTML="$RAW/sahoro-gdo.html"
-if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 25 --retry 1 -A "$UA" \
-  'https://reserve.golfdigest.co.jp/golf-course/course-layout/111101/' -o "$GDO_HTML"; then
-  python3 - "$GDO_HTML" <<'PY' | tee -a "$CAND"
-from html.parser import HTMLParser
-from urllib.parse import urljoin
-import sys
-class P(HTMLParser):
-    def __init__(self): super().__init__(); self.src=[]
-    def handle_starttag(self,tag,attrs):
-        if tag.lower()!='img': return
-        d=dict(attrs); s=d.get('data-src') or d.get('src') or d.get('data-original')
-        if s: self.src.append(urljoin('https://reserve.golfdigest.co.jp/',s))
-p=P(); p.feed(open(sys.argv[1],encoding='utf-8',errors='ignore').read())
-seen=[]
-for u in p.src:
-    lu=u.lower()
-    if u not in seen and ('111101' in u or 'layout' in lu or 'hole' in lu or 'course' in lu): seen.append(u)
-for i,u in enumerate(seen[:120],1): print(f'GDO_IMG_CAND {i:03d} {u}')
-PY
-fi
-
 printf 'Prince full-hole assets present: '
 find "$RES" -maxdepth 1 -type f \( -name 'yardage_kamishihoro_*.jpg' -o -name 'yardage_furano_*.jpg' \) | wc -l
+printf 'Sahoro GORA full-hole assets present: '
+find "$RES" -maxdepth 1 -type f -name 'yardage_sahoro_*.png' | wc -l
 printf 'Royal Links full-hole assets present: '
 find "$RES" -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l
 ls -lh "$RAW" || true

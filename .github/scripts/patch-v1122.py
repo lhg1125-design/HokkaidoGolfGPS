@@ -122,20 +122,28 @@ new_method=r'''        private void drawFieldNavV1110(Canvas c,RectF stage,int t
 '''
 s=s[:a]+new_method+s[b:]
 
-# Simulator: tap directly on the hole image instead of a separate right-side axis.
-old='''            if(screen==1 && previewMode && courseRect.contains(x,y) && x>courseRect.right-92f){
-                float nt=courseRect.top+96f,nb=courseRect.bottom-92f;
-                simProgressV1112=Math.max(0f,Math.min(1f,(nb-y)/Math.max(1f,nb-nt)));
-                showToast("SIM WALK · "+Math.round(simProgressV1112*100f)+"% · 잔여거리 갱신");invalidate();return true;
-            }'''
-new='''            if(screen==1 && previewMode && courseRect.contains(x,y)){
-                float nt=courseRect.top+42f,nb=courseRect.bottom-30f;
-                simProgressV1112=Math.max(0f,Math.min(1f,(nb-y)/Math.max(1f,nb-nt)));
-                showToast("SIM · "+Math.round(simProgressV1112*100f)+"%");invalidate();return true;
-            }'''
-if old not in s:
-    raise SystemExit('v1.12.2 SIM direct-map touch anchor missing')
-s=s.replace(old,new,1)
+# Simulator: replace the previous narrow right-side axis touch block by locating
+# its header and closing brace, so wording/indent changes in older patches do
+# not break the update.
+hdr='if(screen==1 && previewMode && courseRect.contains(x,y) && x>courseRect.right-92f){'
+ha=s.find(hdr)
+if ha<0:
+    raise SystemExit('v1.12.2 SIM axis header missing')
+line_start=s.rfind('\n',0,ha)+1
+indent=s[line_start:ha]
+close='\n'+indent+'}'
+hb=s.find(close,ha)
+if hb<0:
+    raise SystemExit('v1.12.2 SIM axis block end missing')
+hb += len(close)
+new_touch=(
+    indent+'if(screen==1 && previewMode && courseRect.contains(x,y)){\n'
+    +indent+'    float nt=courseRect.top+42f,nb=courseRect.bottom-30f;\n'
+    +indent+'    simProgressV1112=Math.max(0f,Math.min(1f,(nb-y)/Math.max(1f,nb-nt)));\n'
+    +indent+'    showToast("SIM · "+Math.round(simProgressV1112*100f)+"%");invalidate();return true;\n'
+    +indent+'}'
+)
+s=s[:line_start]+new_touch+s[hb:]
 
 p.write_text(s)
 print('applied v1.12.2: meters-only + direct glowing orange map pin + 72% full-hole map')

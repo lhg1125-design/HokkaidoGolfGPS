@@ -37,11 +37,11 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          legacy = Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
+          legacy=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
           if legacy.exists():
-              s = legacy.read_text()
-              s = s.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p));', 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
-              s = s.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r));', 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
+              s=legacy.read_text()
+              s=s.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p));','c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
+              s=s.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r));','c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
               legacy.write_text(s)
           PY
 
@@ -63,17 +63,25 @@ jobs:
           test -s /tmp/Jua-Regular.ttf
           test -s /tmp/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Render V1.2 artwork UI
+      - name: Render V1.2.1 artwork UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('.github/scripts/generate-v12-ui.py')
+          s=p.read_text()
           lines=[]
-          for line in p.read_text().splitlines():
+          for line in s.splitlines():
               parts=line.split(';')
               parts=[seg.replace(',font(', ',font=font(') if 'd.text(' in seg else seg for seg in parts]
               lines.append(';'.join(parts))
-          p.write_text('\n'.join(lines)+'\n')
+          s='\n'.join(lines)+'\n'
+          s=s.replace('라운드 시작  →','라운드 시작  >')
+          s=s.replace('COURSES OFFLINE ✓','COURSES OFFLINE')
+          s=s.replace('GPS READY ✓','GPS READY')
+          s=s.replace('24~26 AUG · HOKKAIDO TRIP','24~26 AUG - HOKKAIDO TRIP')
+          s=s.replace('GPS × 코스맵 × 스코어 관리','GPS + 코스맵 + 스코어 관리')
+          s=s.replace('4명 함께 · 자동 합계','4명 함께 / 자동 합계')
+          p.write_text(s)
           PY
           python3 .github/scripts/generate-v12-ui.py
 
@@ -82,18 +90,19 @@ jobs:
           python3 .github/scripts/patch-v10.py
           python3 .github/scripts/patch-v11.py
           python3 .github/scripts/patch-v12.py
+          python3 .github/scripts/patch-v121.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.2-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.2.1-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.2-debug-apk
-          path: HokkaidoGolfGPS-v1.2-debug.apk
+          name: HokkaidoGolfGPS-v1.2.1-debug-apk
+          path: HokkaidoGolfGPS-v1.2.1-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -116,7 +125,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.2-preview-screenshots
+          name: HokkaidoGolfGPS-v1.2.1-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

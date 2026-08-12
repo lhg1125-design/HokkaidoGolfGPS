@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.12.2-map-pin-focus-debug.apk"
+APK="HokkaidoGolfGPS-v1.12.3-max-map-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 SIM_ACTIVITY="com.hokkaidogolf.trip/.BetaSimActivity"
@@ -45,26 +45,24 @@ shot(){
   sleep .45; adb exec-out screencap -p > "$OUT/$file"; test -s "$OUT/$file"
 }
 
-# Meter-only yardage + direct orange map pin. No separate YOU legend/axis.
-shot 2 0 13 1 "02-sahoro-h13-meter-pin-42.png"
-# Tap directly on the hole image to move SIM position toward the green.
+# Meter-only yardage, max image space, direct pulsing orange position pin.
+shot 2 0 13 1 "02-sahoro-h13-max-map-42.png"
 adb shell input tap 540 900
-sleep .7
-adb exec-out screencap -p > "$OUT/03-sahoro-h13-meter-pin-moved.png"
-test -s "$OUT/03-sahoro-h13-meter-pin-moved.png"
-shot 2 0 1 1 "04-sahoro-h1-meter-pin.png"
-shot 0 1 13 1 "05-kamishihoro-m-h13-meter-pin.png"
-shot 4 0 1 1 "06-royallinks-queens-h1-meter-pin.png"
+sleep .45
+adb exec-out screencap -p > "$OUT/03-sahoro-h13-max-map-moved.png"
+test -s "$OUT/03-sahoro-h13-max-map-moved.png"
+shot 2 0 1 1 "04-sahoro-h1-max-map.png"
+shot 0 1 13 1 "05-kamishihoro-m-h13-max-map.png"
+shot 4 0 1 1 "06-royallinks-queens-h1-max-map.png"
 shot 3 0 1 1 "07-naepo-cal-required.png"
 shot 4 0 1 3 "08-scorecard.png"
 
-# Compact containment: full TEE->GREEN art + direct orange pin + meter-only row.
 adb shell wm size 720x1600; adb shell wm density 320; sleep .6
-shot 2 0 13 1 "09-compact-sahoro-h13-meter-pin.png"
-shot 4 0 1 1 "10-compact-royallinks-h1-meter-pin.png"
+shot 2 0 13 1 "09-compact-sahoro-h13-max-map.png"
+shot 4 0 1 1 "10-compact-royallinks-h1-max-map.png"
 adb shell wm size reset; adb shell wm density reset
 
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.12.2 preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.12.3 preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.12.2 meter-only direct-pin screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.12.3 max-map screenshots:\n'; ls -lh "$OUT"/*.png

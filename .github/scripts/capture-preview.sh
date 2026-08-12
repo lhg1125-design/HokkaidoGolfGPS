@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="HokkaidoGolfGPS-v1.2.2-debug.apk"
+APK="HokkaidoGolfGPS-v1.3-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 OUT="preview"
@@ -34,7 +34,7 @@ adb exec-out screencap -p > "$OUT/03-target-artwork.png"
 
 adb shell input tap 670 2290
 sleep 2
-adb exec-out screencap -p > "$OUT/04-score-artwork.png"
+adb exec-out screencap -p > "$OUT/04-scorecard-xl.png"
 
-printf 'V1.2.2 2x control typography screenshots captured:\n'
+printf 'V1.3 scorecard XL + round summary screenshots captured:\n'
 ls -lh "$OUT"/*.png

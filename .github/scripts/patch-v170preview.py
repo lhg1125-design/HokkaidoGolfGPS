@@ -2,7 +2,7 @@ from pathlib import Path
 p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
 s=p.read_text()
 old='selected=0; variant=0; hole=4;'
-new='selected=FieldGpsV09Activity.this.getIntent().getIntExtra("previewCourse",0); variant=FieldGpsV09Activity.this.getIntent().getIntExtra("previewVariant",0); hole=FieldGpsV09Activity.this.getIntent().getIntExtra("previewHole",selected>=3?1:4);'
+new='selected=((Activity)ctx).getIntent().getIntExtra("previewCourse",0); variant=((Activity)ctx).getIntent().getIntExtra("previewVariant",0); hole=((Activity)ctx).getIntent().getIntExtra("previewHole",selected>=3?1:4);'
 if old not in s:
     raise SystemExit('v1.7.0 preview course selector anchor missing')
 s=s.replace(old,new,1)

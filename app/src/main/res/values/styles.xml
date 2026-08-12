@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif-rounded</item>
+        <item name="android:statusBarColor">#0E442B</item>
+        <item name="android:navigationBarColor">#0E442B</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

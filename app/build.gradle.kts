@@ -8,8 +8,8 @@ android {
         applicationId = "com.hokkaidogolf.trip"
         minSdk = 26
         targetSdk = 35
-        versionCode = 41
-        versionName = "1.11.3-first-round-nav"
+        versionCode = 42
+        versionName = "1.11.4-field-ready-nav"
     }
 
     buildTypes {

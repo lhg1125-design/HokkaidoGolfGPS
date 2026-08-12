@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.10.4-hokkaido-full-hole-debug.apk"
+APK="HokkaidoGolfGPS-v1.10.5-hokkaido-full-hole-verified-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 SIM_ACTIVITY="com.hokkaidogolf.trip/.BetaSimActivity"
@@ -61,6 +61,6 @@ shot 4 0 1 1 "13-compact-royallinks-h1-full.png"
 adb shell wm size reset; adb shell wm density reset
 
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.10.4 preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.10.5 preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.10.4 Hokkaido full-hole yardage screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.10.5 verified Hokkaido full-hole yardage screenshots:\n'; ls -lh "$OUT"/*.png

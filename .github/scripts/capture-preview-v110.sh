@@ -3,6 +3,7 @@ set -euo pipefail
 APK="HokkaidoGolfGPS-v1.10.1-field-yardage-safe-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
+SIM_ACTIVITY="com.hokkaidogolf.trip/.BetaSimActivity"
 OUT="preview"
 mkdir -p "$OUT"
 rm -f "$OUT"/*.png
@@ -38,6 +39,17 @@ clear_system_dialogs(){
   adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
   sleep 0.8
 }
+
+# The user-facing offsite simulator is a second launcher icon. Validate it first.
+adb shell am force-stop "$PKG" || true
+clear_system_dialogs
+adb shell am start -W -n "$SIM_ACTIVITY" >/dev/null
+sleep 1.5
+clear_system_dialogs
+adb shell am start -n "$SIM_ACTIVITY" >/dev/null
+sleep 0.7
+adb exec-out screencap -p > "$OUT/00-beta-sim-launcher.png"
+test -s "$OUT/00-beta-sim-launcher.png"
 
 shot(){
   local course="$1" variant="$2" hole="$3" screen="$4" file="$5"
@@ -85,5 +97,5 @@ if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|
   exit 1
 fi
 
-printf 'V1.10.1 field yardage safe screenshots:\n'
+printf 'V1.10.1 field yardage safe + beta sim screenshots:\n'
 ls -lh "$OUT"/*.png

@@ -66,6 +66,16 @@ jobs:
       - name: Fetch JP KR full-hole course imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
 
+      - name: Upload Sahoro discovery
+        uses: actions/upload-artifact@v4
+        with:
+          name: sahoro-full-hole-discovery
+          path: |
+            .github/tmp/v18/sahoro-candidates.txt
+            .github/tmp/v18/sahoro-gora.html
+          if-no-files-found: warn
+          retention-days: 3
+
       - name: Render V1.10.3 artwork UI
         run: |
           python3 - <<'PY'

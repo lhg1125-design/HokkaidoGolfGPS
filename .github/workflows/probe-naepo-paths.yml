@@ -1,0 +1,59 @@
+name: Probe Naepo Paths
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/probe-naepo-paths.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve DNS and extract linked official paths
+        run: |
+          mkdir -p .github/tmp/naepo-paths
+          (dig +short naepogc.com; dig +short www.naepogc.com) | tee .github/tmp/naepo-paths/dns.txt || true
+          python3 - <<'PY'
+          import requests,re,html
+          from pathlib import Path
+          out=Path('.github/tmp/naepo-paths')
+          ua={'User-Agent':'Mozilla/5.0'}
+          sources=[
+            'https://papahun.com/naep%D0%BEnewcitypublicgolfcourse-course/',
+            'https://papahun.com/naep%D0%BEnewcitypublicgolfcourse/',
+            'https://yeonggu.com/naepo-cc-website-reservation',
+            'https://dkwebzine.com/entry/%EC%BC%80%EC%9D%B4%EB%94%94%EC%A2%85%ED%95%A9%EA%B1%B4%EC%84%A4-%EB%82%B4%ED%8F%AC%EA%B3%A8%ED%94%84%ED%81%B4%EB%9F%BD-%EC%A4%80%EA%B3%B5'
+          ]
+          found=[]
+          for i,u in enumerate(sources):
+            try:
+              r=requests.get(u,headers=ua,timeout=20); print('SRC',r.status_code,len(r.content),r.url)
+              (out/f'src{i}.html').write_bytes(r.content)
+              txt=html.unescape(r.text)
+              for x in re.findall(r'https?://(?:www\.)?naepogc\.com[^\"\'<>\s]*',txt,re.I):
+                x=x.rstrip(').,');
+                if x not in found:found.append(x);print('OFFICIAL_LINK',x)
+              if 'dkwebzine' in u:
+                imgs=re.findall(r'https?://[^\"\'<>\s]+(?:jpg|jpeg|png|webp)[^\"\'<>\s]*',txt,re.I)
+                for x in imgs:
+                  if 'kakaocdn' in x: print('PLAN_IMAGE',x[:260])
+            except Exception as e:print('ERR',u,e)
+          (out/'official-links.txt').write_text('\n'.join(found),encoding='utf-8')
+          # Probe common course routes even if HTML is blocked; status/location can identify valid paths.
+          paths=['/course','/course/','/course/intro','/course/info','/course/guide','/course/course','/course/courseIntro','/course/courseInfo','/course/layout','/course/hole','/course/hole/1','/guide/course','/guide/course/list','/golf/course','/golf/course/1']
+          for base in ['https://naepogc.com','https://www.naepogc.com']:
+            for p in paths:
+              try:
+                r=requests.get(base+p,headers=ua,timeout=8,allow_redirects=False)
+                print('PROBE',r.status_code,len(r.content),r.headers.get('location',''),base+p)
+              except Exception as e: print('PERR',base+p,str(e)[:80])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naepo-route-probe
+          path: .github/tmp/naepo-paths/*
+          retention-days: 3

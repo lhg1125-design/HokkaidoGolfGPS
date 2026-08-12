@@ -8,8 +8,8 @@ android {
         applicationId = "com.hokkaidogolf.trip"
         minSdk = 26
         targetSdk = 35
-        versionCode = 44
-        versionName = "1.12.1-yardage-focus"
+        versionCode = 45
+        versionName = "1.12.2-map-pin-focus"
     }
 
     buildTypes {

@@ -33,6 +33,19 @@ jobs:
           ls "$ANDROID_HOME/platforms" || true
           ls "$ANDROID_HOME/build-tools" || true
 
+      - name: Hotfix source typo
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
+          s = path.read_text()
+          old = 'new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p)'
+          new = 'new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r)'
+          if old not in s:
+              raise SystemExit('expected RectF typo not found')
+          path.write_text(s.replace(old, new))
+          PY
+
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 

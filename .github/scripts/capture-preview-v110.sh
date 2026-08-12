@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.11.2-sim-walk-beta-debug.apk"
+APK="HokkaidoGolfGPS-v1.11.3-first-round-nav-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 SIM_ACTIVITY="com.hokkaidogolf.trip/.BetaSimActivity"
@@ -60,6 +60,6 @@ shot 4 0 1 1 "09-compact-royallinks-h1-field-nav.png"
 adb shell wm size reset; adb shell wm density reset
 
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.11.2 preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.11.3 preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.11.2 tappable SIM WALK screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.11.3 first-round nav + tappable SIM WALK screenshots:\n'; ls -lh "$OUT"/*.png

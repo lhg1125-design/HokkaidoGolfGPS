@@ -6,6 +6,10 @@ if 'V1.10.1 · FIELD YARDAGE SAFE' not in s:
     raise SystemExit('v1.10.2 requires v1.10.1 field yardage safe')
 s=s.replace('V1.10.1 · FIELD YARDAGE SAFE','V1.10.2 · FULL HOLE YARDAGE',1)
 
+# Bitmap course-map resources are generated at CI build time.
+if 'import android.graphics.Bitmap;' not in s:
+    s=s.replace('import android.graphics.Canvas;','import android.graphics.Bitmap;\nimport android.graphics.BitmapFactory;\nimport android.graphics.Canvas;',1)
+
 marker='        private void roundJapanPremium(Canvas c){roundUnifiedYardageV190(c);}'
 pos=s.find(marker)
 if pos<0: raise SystemExit('v1.10.2 renderer marker missing')
@@ -49,7 +53,6 @@ helpers=r'''        private String fullHoleResourceV1102(){
             RectF dst=fitCenterV1102(b,new RectF(stage.left+5,stage.top+5,stage.right-5,stage.bottom-5));
             Paint bp=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);c.drawBitmap(b,null,dst,bp);
 
-            // Do not crop the source image. TEE/GREEN anchors sit in the blank overlay gutter.
             RectF greenTag=new RectF(stage.left+8,stage.top+7,stage.left+73,stage.top+31);box(c,greenTag,Color.argb(232,24,111,68),12);text(c,"GREEN",greenTag.centerX(),greenTag.centerY()+3,6.3f,Color.WHITE,true,Paint.Align.CENTER);
             RectF teeTag=new RectF(stage.left+8,stage.bottom-31,stage.left+63,stage.bottom-7);box(c,teeTag,Color.argb(232,8,79,52),12);text(c,"TEE",teeTag.centerX(),teeTag.centerY()+3,6.3f,Color.WHITE,true,Paint.Align.CENTER);
             drawDistanceRulerV1102(c,new RectF(stage.left+4,stage.top+12,stage.right-4,stage.bottom-12),totalM);
@@ -66,7 +69,6 @@ new='courseRect.set(m,h*.300f,w-m,h*.650f);drawFullHoleYardageV1102(c,courseRect
 if old not in s: raise SystemExit('v1.10.2 full-hole card anchor missing')
 s=s.replace(old,new,1)
 
-# Repack lower controls so the taller full-hole map never overlaps them.
 repls={
 'drawHazardBarV182(c,h*.587f,h*.633f);':'drawHazardBarV182(c,h*.658f,h*.694f);',
 'RectF strategy=new RectF(m,h*.646f,w-m,h*.700f);':'RectF strategy=new RectF(m,h*.701f,w-m,h*.747f);',

@@ -33,19 +33,35 @@ jobs:
           ls "$ANDROID_HOME/platforms" || true
           ls "$ANDROID_HOME/build-tools" || true
 
-      - name: Hotfix legacy v0.7 source typo
+      - name: Prepare sources
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
+
+          # Keep legacy v0.7 compiling until it is removed in a later cleanup sprint.
+          legacy = Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
+          s = legacy.read_text()
+          s = s.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p));', 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
+          s = s.replace('c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r));', 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);')
+          legacy.write_text(s)
+
+          # V0.8.1 polish: title stays Japanese, all content cards use rounded Korean text.
+          path = Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV08Activity.java')
           s = path.read_text()
-          bad1 = 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p));'
-          bad2 = 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r));'
-          good = 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);'
-          if bad1 in s:
-              s = s.replace(bad1, good)
-          elif bad2 in s:
-              s = s.replace(bad2, good)
+          old = 'p.setColor(ac[i]);c.drawCircle(m+28,y+30,11,p);text(c,"DAY "+(i+1),m+50,y+35,9,GREEN,true);text(c,jp[i],m+22,y+70,18,INK,true);text(c,ko[i],m+22,y+94,10,Color.GRAY,false);'
+          new = 'p.setColor(ac[i]);c.drawCircle(m+28,y+30,11,p);text(c,"DAY "+(i+1),m+50,y+35,9,GREEN,true);text(c,ko[i],m+22,y+72,17,INK,true);text(c,"홋카이도 라운드 · "+variantNames[i][0],m+22,y+98,9,Color.GRAY,false);'
+          if old not in s:
+              raise SystemExit('home card source pattern not found')
+          s = s.replace(old, new)
+
+          # Preview-only synthetic location so screenshots show the distance/GPS state clearly.
+          old = 'if(previewMode){ selected=0; variant=0; }'
+          new = 'if(previewMode){ selected=0; variant=0; Location demo=new Location("preview"); demo.setLatitude(43.2570513); demo.setLongitude(143.2283621); demo.setAccuracy(5f); location=demo; }'
+          if old not in s:
+              raise SystemExit('preview constructor source pattern not found')
+          s = s.replace(old, new)
+          s = s.replace('"V0.8 · FIELD READY LITE"', '"V0.8.1 · FIELD READY LITE"')
+          s = s.replace('"V0.8 · GPS 실거리 / Front·Back은 Center ±12m 추정 · 지도 터치는 공략거리 추정"', '"V0.8.1 · GPS 실거리 / Front·Back은 Center ±12m 추정 · 지도 터치는 공략거리 추정"')
           path.write_text(s)
           PY
 
@@ -53,13 +69,13 @@ jobs:
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v0.8-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v0.8.1-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v0.8-debug-apk
-          path: HokkaidoGolfGPS-v0.8-debug.apk
+          name: HokkaidoGolfGPS-v0.8.1-debug-apk
+          path: HokkaidoGolfGPS-v0.8.1-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -82,7 +98,7 @@ jobs:
       - name: Upload Preview Screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v0.8-preview-screenshots
+          name: HokkaidoGolfGPS-v0.8.1-preview-screenshots
           path: preview/*.png
           if-no-files-found: error
           retention-days: 14

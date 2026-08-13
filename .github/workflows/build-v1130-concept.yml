@@ -103,6 +103,8 @@ jobs:
           name: HokkaidoGolfGPS-v1.13.8-cover-hud-debug-apk
           path: HokkaidoGolfGPS-v1.13.8-cover-hud-debug.apk
           retention-days: 14
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm || true
       - name: Capture V1.13.8 previews
         uses: reactivecircus/android-emulator-runner@v2
         with:

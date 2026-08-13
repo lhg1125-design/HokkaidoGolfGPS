@@ -68,6 +68,7 @@ jobs:
       - name: Apply patch chain through V1.13.5
         run: |
           set -e
+          python3 .github/scripts/fix-patch-v1135-boundaries.py
           for p in \
             patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 \
             patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore \
@@ -98,6 +99,7 @@ jobs:
           grep -q 'LIVE 2D' "$SRC"
           grep -q 'fullFitImageRectV1134' "$SRC"
           grep -q 'drawHoleStepButtonsV1124' "$SRC"
+          grep -q 'saveGreenPoint' "$SRC"
           cp "$APK" HokkaidoGolfGPS-v1.13.5-all-live-geo-debug.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4

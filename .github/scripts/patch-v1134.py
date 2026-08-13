@@ -117,12 +117,12 @@ new='''            RectF dst=fullFitImageRectV1134(stage);'''
 if old not in s: raise SystemExit('v1.13.4 full-fit image anchor missing')
 s=s.replace(old,new,1)
 
-# Small source badge communicates that the displayed bitmap is a full contained
-# real-hole map; it sits in the source footer, never over the hole artwork.
-old='''            textFit(c,srcLabel+" · TEE → GREEN · "+yardageSourceV190(),src.left+10,src.centerY()+3,src.right-10,7.2f,GREEN,true);'''
-new='''            textFit(c,srcLabel+" · FULL FIT · "+yardageSourceV190(),src.left+10,src.centerY()+3,src.right-10,7.2f,GREEN,true);'''
-if old not in s: raise SystemExit('v1.13.4 source footer anchor missing')
-s=s.replace(old,new,1)
+# Footer text is cosmetic. Earlier layout patches may have already changed its
+# wording, so never fail the functional geo/full-fit build just for this label.
+if ' · TEE → GREEN · ' in s:
+    s=s.replace(' · TEE → GREEN · ',' · FULL FIT · ',1)
+elif ' · FULL FIT · ' not in s:
+    print('v1.13.4 footer label anchor changed; keeping current footer text')
 
 p.write_text(s)
 print('applied v1.13.4 JP/KR all-course real-hole 2D geo + full-fit renderer')

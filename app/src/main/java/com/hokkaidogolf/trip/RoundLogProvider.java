@@ -21,13 +21,14 @@ public final class RoundLogProvider extends ContentProvider {
         return f;
     }
 
-    @Override public String getType(Uri uri) { return "application/x-ndjson"; }
+    @Override public String getType(Uri uri) { return "text/plain"; }
 
     @Override public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
         try {
             File f = fileFor(uri);
+            String display = f.getName().replaceFirst("\\.jsonl$", "-ROUND-LOG.txt");
             MatrixCursor c = new MatrixCursor(new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE});
-            c.addRow(new Object[]{f.getName(), f.length()});
+            c.addRow(new Object[]{display, f.length()});
             return c;
         } catch (Exception e) { return null; }
     }

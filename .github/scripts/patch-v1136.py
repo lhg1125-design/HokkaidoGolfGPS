@@ -11,8 +11,6 @@ if field not in s:
     raise SystemExit('v1.13.6 live-fix field anchor missing')
 s=s.replace(field,field+'''\n        private long lastRoundLogElapsedV1136=0L;\n        private final RectF roundLogShareBtnV1136=new RectF();''',1)
 
-# 5-second persistent GPS stream. Insert after auto-hole handling so each sample
-# carries the active course/hole state that the golfer actually sees.
 a=s.find('        void setLocation(Location l) {')
 b=s.find('        private void saveState(){',a)
 if a<0 or b<0:
@@ -58,24 +56,52 @@ helpers=r'''        private void recordRoundLogV1136(Location l){
 '''
 s=s[:idx]+helpers+s[idx:]
 
-# Draw the dedicated export button over the old generic summary share control.
 on_draw='''            drawToast(c); postInvalidateDelayed(screen==1?50:120);'''
 if on_draw not in s:
     raise SystemExit('v1.13.6 onDraw anchor missing')
 s=s.replace(on_draw,'''            if(screen==4)drawRoundLogShareV1136(c);\n            drawToast(c); postInvalidateDelayed(screen==1?50:120);''',1)
 
-# One tap from round summary opens Android share sheet with a .jsonl attachment.
 touch='''            if(e.getAction()!=MotionEvent.ACTION_UP)return true;float x=e.getX(),y=e.getY();'''
 if touch not in s:
     raise SystemExit('v1.13.6 touch anchor missing')
 s=s.replace(touch,touch+'''\n            if(screen==4 && roundLogShareBtnV1136.contains(x,y)){shareRoundLogV1136();return true;}''',1)
 
-# Add explicit TEE/GREEN capture events to the continuous GPS stream.
 save_line='''            confirmKind=0;confirmUntil=0;String mode=n>=3?(" · "+n+"FIX σ"+Math.round(sp)+"m"):(" · ±"+Math.round(rawAcc)+"m");showToast("H"+hole+" "+(kind==1?"GREEN CENTER":"TEE")+" 저장"+mode);navSmoothXV1133=Float.NaN;navSmoothYV1133=Float.NaN;maybeAutoHole();invalidate();'''
 if save_line not in s:
     raise SystemExit('v1.13.6 V1.13.5 saveRef anchor missing')
 save_new='''            confirmKind=0;confirmUntil=0;String mode=n>=3?(" · "+n+"FIX σ"+Math.round(sp)+"m"):(" · ±"+Math.round(rawAcc)+"m");showToast("H"+hole+" "+(kind==1?"GREEN CENTER":"TEE")+" 저장"+mode);RoundLogV1134.event(ctx,kind==1?"GREEN_CENTER_SAVE":"TEE_SAVE",selected,variant,hole,location,"accuracyM="+Math.round(rawAcc)+";fixes="+n+";spreadM="+Math.round(sp));navSmoothXV1133=Float.NaN;navSmoothYV1133=Float.NaN;maybeAutoHole();invalidate();'''
 s=s.replace(save_line,save_new,1)
 
+# V1.13.4/1.13.5 rewrite drawFieldNav up to fieldReadyLabel, which can remove
+# the V1.12.4 circular-hole helpers that used to live in that interval.
+if 'private void drawHoleStepButtonsV1124(' not in s:
+    fa=s.find('        private String fieldReadyLabelV1114(){')
+    if fa<0: raise SystemExit('v1.13.6 fieldReady anchor missing for hole helper restore')
+    hole_helpers=r'''        private void drawHoleStepButtonsV1124(Canvas c,RectF bar){
+            float w=getWidth(),cy=bar.centerY();float rad=Math.min(bar.height()*.35f,w*.038f);
+            float lx=bar.left+rad+8f,rx=bar.right-rad-8f;
+            holePrevTopV1124.set(lx-rad,cy-rad,lx+rad,cy+rad);holeNextTopV1124.set(rx-rad,cy-rad,rx+rad,cy+rad);
+            drawHoleStepButtonV1124(c,lx,cy,rad,-1,hole>1);drawHoleStepButtonV1124(c,rx,cy,rad,1,hole<18);
+        }
+        private void drawHoleStepButtonV1124(Canvas c,float x,float y,float r,int dir,boolean enabled){
+            int aa=enabled?244:92;p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(enabled?26:10,0,45,28));c.drawCircle(x,y+3f,r+2f,p);
+            p.setColor(Color.argb(aa,255,255,255));c.drawCircle(x,y,r,p);p.setStyle(Paint.Style.STROKE);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);
+            p.setStrokeWidth(Math.max(3f,r*.115f));p.setColor(Color.argb(enabled?238:90,8,79,52));c.drawCircle(x,y,r-1.5f,p);
+            float shaft=r*.42f,head=r*.24f,from=x-dir*shaft*.40f,to=x+dir*shaft*.52f;c.drawLine(from,y,to,y,p);c.drawLine(to,y,to-dir*head,y-head,p);c.drawLine(to,y,to-dir*head,y+head,p);
+            p.setStrokeCap(Paint.Cap.BUTT);p.setStrokeJoin(Paint.Join.MITER);p.setStyle(Paint.Style.FILL);
+        }
+        private void stepHoleV1124(int delta){
+            int nh=Math.max(1,Math.min(18,hole+delta));if(nh==hole)return;holeDirection=delta>0?1:-1;hole=nh;lastHoleChange=SystemClock.uptimeMillis();hasTarget=false;
+            navSmoothXV1133=Float.NaN;navSmoothYV1133=Float.NaN;saveState();invalidate();
+        }
+
+'''
+    s=s[:fa]+hole_helpers+s[fa:]
+
+# V1.13.5 replaces the saveRef block; route the visible GREEN CENTER control
+# directly to the canonical saveRef(1) path instead of a removed wrapper.
+s=s.replace('if(greenSave.contains(x,y)){saveGreenPoint();return true;}',
+            'if(greenSave.contains(x,y)){saveRef(1);return true;}')
+
 p.write_text(s)
-print('applied V1.13.6 5-second GPS ROUND LOG + TEE/GREEN events + one-tap JSONL share')
+print('applied V1.13.6 ROUND LOG + restored hole controls/GREEN CENTER capture')

@@ -35,14 +35,12 @@ def premium(name,rawname,dark,light):
     except Exception:
         src=base_fallback.copy();source_ok=False
 
-    # Full-bleed source photography. No gray matte or coarse 2D card framing.
     src=ImageEnhance.Color(src).enhance(1.12)
     src=ImageEnhance.Contrast(src).enhance(1.08)
     src=ImageEnhance.Sharpness(src).enhance(1.08)
     src=src.filter(ImageFilter.UnsharpMask(radius=1.6,percent=105,threshold=3))
     im=fit_cover(src,(W,H)).convert('RGBA')
 
-    # Cinematic top/bottom readability fields. Keep the central course detail untouched.
     shade=Image.new('RGBA',(W,H),(0,0,0,0));sd=ImageDraw.Draw(shade)
     for y in range(H):
         t=y/(H-1)
@@ -52,15 +50,12 @@ def premium(name,rawname,dark,light):
         if a>0: sd.line((0,y,W,y),fill=(dark[0],dark[1],dark[2],a))
     im=Image.alpha_composite(im,shade)
 
-    # Very subtle glass glow/vignette, intentionally far lighter than the V1.8 draft.
     overlay=Image.new('RGBA',(W,H),(0,0,0,0));d=ImageDraw.Draw(overlay,'RGBA')
     d.rectangle((0,0,W,6),fill=(255,255,255,72))
     d.rectangle((0,H-7,W,H),fill=(5,36,22,70))
     d.ellipse((W*.70,-H*.10,W*1.08,H*.30),fill=(255,255,255,15))
     d.ellipse((-W*.18,H*.78,W*.30,H*1.10),fill=(light[0],light[1],light[2],15))
 
-    # Two ultra-light contour glints give the still artwork motion language without
-    # turning the course back into a schematic map.
     for k in range(2):
         y=H*(.37+k*.30);pts=[]
         for x in range(-20,W+21,24):
@@ -75,3 +70,7 @@ def premium(name,rawname,dark,light):
 
 for x in specs: premium(*x)
 print('generated v1.8 immersive premium course-art pack')
+
+# Final visual-only pass for all 135 full-hole yardage images. This module does
+# not crop, resize or warp, so GPS geometry and corridor mapping stay unchanged.
+import storybook_yardage_v1139

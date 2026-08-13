@@ -8,3 +8,11 @@ if old not in s:
 s=s.replace(old,new,1)
 p.write_text(s)
 print('aligned V1.13.2 Naepo SIM references to published Red/Yellow meter pack')
+
+# The next V1.13.3 patch is intentionally robust against small whitespace/body
+# differences in the already-patched preview touch block. Harden that script
+# immediately before it runs in the sequential patch chain.
+fixer=Path('.github/scripts/fix-patch-v1133-touch.py')
+if fixer.exists():
+    code=fixer.read_text()
+    exec(compile(code,str(fixer),'exec'),{})

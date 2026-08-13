@@ -1,4 +1,4 @@
-name: Build V1.13.6 Round Log
+name: Build V1.13.7 Play HUD
 
 on:
   push:
@@ -72,10 +72,10 @@ jobs:
       - name: Convert 135 yardages to concept-art style
         run: python3 .github/scripts/stylize-yardage-v1130.py
 
-      - name: Upload V1.13.6 yardage proofs
+      - name: Upload V1.13.7 yardage proofs
         uses: actions/upload-artifact@v4
         with:
-          name: V1.13.6-real-yardage-style-proof
+          name: V1.13.7-real-yardage-style-proof
           path: |
             .github/tmp/v1130/yardage-concept-samples.jpg
             .github/tmp/v1130/manifest.txt
@@ -98,7 +98,7 @@ jobs:
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
 
-      - name: Apply app patch chain through V1.13.6 ROUND LOG
+      - name: Apply app patch chain through V1.13.7 PLAY HUD
         run: |
           set -e
           for p in \
@@ -107,26 +107,26 @@ jobs:
             patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 \
             patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 \
             patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 \
-            patch-v1134 patch-v1135 patch-v1136
+            patch-v1134 patch-v1135 patch-v1136 patch-v1137
           do
             python3 ".github/scripts/${p}.py"
           done
 
-      - name: Set V1.13.6 package version
+      - name: Set V1.13.7 package version
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           p=Path('app/build.gradle.kts'); s=p.read_text()
-          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 54',s,1)
-          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.6-round-log"',s,1)
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 55',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.7-play-hud"',s,1)
           p.write_text(s)
           PY
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Gate V1.13.6 field APK
+      - name: Gate V1.13.7 field APK
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
           unzip -l "$APK" | grep 'yardage_' > /tmp/yardage-apk.txt
@@ -135,20 +135,19 @@ jobs:
           test "$(grep -c 'yardage_naepo_' /tmp/yardage-apk.txt)" -eq 9
           unzip -l "$APK" | grep -q 'assets/fonts/Jua-Regular.ttf'
           unzip -l "$APK" | grep -q 'assets/fonts/MPLUSRounded1c-ExtraBold.ttf'
-          grep -q 'V1.13.6 · ROUND LOG' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'GEO_SCOPE_V1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'liveGeoChipV1135' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.13.7 · PLAY HUD' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'drawPlayStatusV1137' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'metric(c,"HOLE","H"+hole' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'recordRoundLogV1136' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'ROUND LOG 공유' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'HokkaidoGolfGPS.RoundLog.v1' app/src/main/java/com/hokkaidogolf/trip/RoundLogV1134.java
-          grep -q 'RoundLogProvider' app/src/main/AndroidManifest.xml
-          cp "$APK" HokkaidoGolfGPS-v1.13.6-round-log-debug.apk
+          grep -q 'android:icon="@drawable/ic_launcher_golf"' app/src/main/AndroidManifest.xml
+          test -s app/src/main/res/drawable/ic_launcher_golf.xml
+          cp "$APK" HokkaidoGolfGPS-v1.13.7-play-hud-debug.apk
 
-      - name: Upload V1.13.6 APK
+      - name: Upload V1.13.7 APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.13.6-round-log-debug-apk
-          path: HokkaidoGolfGPS-v1.13.6-round-log-debug.apk
+          name: HokkaidoGolfGPS-v1.13.7-play-hud-debug-apk
+          path: HokkaidoGolfGPS-v1.13.7-play-hud-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -157,7 +156,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Capture V1.13.6 ROUND LOG Android previews
+      - name: Capture V1.13.7 PLAY HUD Android previews
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -166,12 +165,12 @@ jobs:
           profile: pixel_6
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
-          script: bash .github/scripts/capture-preview-v1136-round-log.sh
+          script: bash .github/scripts/capture-preview-v1137-play-hud.sh
 
-      - name: Upload V1.13.6 ROUND LOG previews
+      - name: Upload V1.13.7 PLAY HUD previews
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.13.6-round-log-preview-screenshots
-          path: preview-v1136-round-log/*.png
+          name: HokkaidoGolfGPS-v1.13.7-play-hud-preview-screenshots
+          path: preview-v1137-play-hud/*.png
           if-no-files-found: error
           retention-days: 14

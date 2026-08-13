@@ -1,0 +1,85 @@
+name: Extract Naepo Yura Fast
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/extract-naepo-yura-fast.yml'
+permissions:
+  contents: read
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: python3 -m pip install --disable-pip-version-check selenium pillow requests
+      - name: Extract article images concurrently
+        run: |
+          mkdir -p .github/tmp/naepo-yura/img
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.parse import urljoin,quote
+          from concurrent.futures import ThreadPoolExecutor,as_completed
+          import re,time,html,requests
+          from PIL import Image,ImageDraw,ImageFont
+          from io import BytesIO
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          root=Path('.github/tmp/naepo-yura'); out=root/'img';url='https://m.blog.naver.com/yuraisjustyura/224020582783'
+          ua='Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36'
+          opt=Options()
+          for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1440,2400'):opt.add_argument(a)
+          opt.add_argument('--user-agent='+ua);d=webdriver.Chrome(options=opt)
+          try:
+            d.get(url);time.sleep(2)
+            for _ in range(4):d.execute_script('window.scrollTo(0, document.body.scrollHeight);');time.sleep(.35)
+            s=html.unescape(d.page_source);(root/'page.html').write_text(s,encoding='utf-8',errors='ignore')
+            urls=[]
+            def add(u):
+              if not u:return
+              u=urljoin(d.current_url,u).replace('http://blogfiles.naver.net','https://blogfiles.naver.net').replace('\\/','/')
+              if u.startswith('http') and u not in urls:urls.append(u)
+            for el in d.find_elements('css selector','img'):
+              for at in ('src','data-src','data-lazy-src','data-original'):
+                try:add(el.get_attribute(at) or '')
+                except:pass
+            for pat in [r'"originalUrl":"([^"]+)"',r'"src":"(https?://blogfiles\.naver\.net[^"]+)"',r'"imageUrl":"([^"]+)"']:
+              for m in re.finditer(pat,s):add(m.group(1))
+            for m in re.finditer(r'https?://[^\"\'<>\\ ]+(?:jpg|jpeg|png|webp)[^\"\'<>\\ ]*',s,re.I):add(m.group(0).replace('&amp;','&'))
+          finally:d.quit()
+          print('URLS',len(urls))
+          def get(item):
+            i,u=item
+            if any(x in u.lower() for x in ['profile','icon','emoji','logo','banner']):return None
+            ps='https://search.pstatic.net/common/?src='+quote(u,safe='')+'&type=sc960_832' if 'blogfiles.naver.net' in u else u
+            try:r=requests.get(ps,headers={'User-Agent':ua,'Referer':url},timeout=6)
+            except:return None
+            if r.status_code!=200 or len(r.content)<5000:return None
+            try:im=Image.open(BytesIO(r.content)).convert('RGB')
+            except:return None
+            if im.width<250 or im.height<200:return None
+            return i,u,im
+          got=[]
+          with ThreadPoolExecutor(max_workers=24) as ex:
+            for f in as_completed([ex.submit(get,x) for x in enumerate(urls)]):
+              z=f.result()
+              if z:got.append(z)
+          got.sort(key=lambda x:x[0]);print('GOT',len(got));rows=[]
+          for j,(orig,u,im) in enumerate(got[:120]):
+            p=out/f'{j:03d}_{im.width}x{im.height}.jpg';im.save(p,'JPEG',quality=95,subsampling=0);rows.append(f'{p.name}\t{orig}\t{u}')
+          (root/'manifest.tsv').write_text('\n'.join(rows),encoding='utf-8')
+          cols=4;tw=310;th=360;font=ImageFont.load_default()
+          for pg in range((len(rows)+19)//20):
+            subset=got[pg*20:(pg+1)*20];sheet=Image.new('RGB',(cols*tw,5*th),'white');dr=ImageDraw.Draw(sheet)
+            for k,(orig,u,im) in enumerate(subset):
+              im=im.copy();im.thumbnail((tw-12,th-50),Image.Resampling.LANCZOS);x=(k%cols)*tw+(tw-im.width)//2;y=(k//cols)*th+4;sheet.paste(im,(x,y));dr.text(((k%cols)*tw+6,(k//cols)*th+th-36),f'{pg*20+k:03d} orig{orig}',fill='black',font=font)
+            sheet.save(root/f'contact-{pg:02d}.jpg','JPEG',quality=93)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naepo-yura-full-images-fast
+          path: .github/tmp/naepo-yura/*
+          if-no-files-found: error
+          retention-days: 5

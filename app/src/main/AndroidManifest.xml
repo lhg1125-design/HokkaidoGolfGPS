@@ -10,6 +10,11 @@
         android:roundIcon="@drawable/ic_hokkaido_launcher"
         android:label="北海道ゴルフ GPSキャディ"
         android:theme="@style/AppTheme">
+        <provider
+            android:name=".RoundLogProvider"
+            android:authorities="${applicationId}.roundlog"
+            android:exported="false"
+            android:grantUriPermissions="true" />
         <activity android:name=".FieldGpsV09Activity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

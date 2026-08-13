@@ -4,7 +4,6 @@ p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
 s=p.read_text()
 if 'V1.13.8 · COVER HUD' not in s:
     raise SystemExit('v1.13.9 requires V1.13.8 cover HUD base')
-s=s.replace('V1.13.8 · COVER HUD','V1.13.9 · STORYBOOK UI',1)
 
 def replace_method(src, signature, replacement):
     start=src.find(signature)
@@ -232,4 +231,4 @@ helpers=r'''        private void drawWoodGrainV1139(Canvas c,RectF r){
 s=s[:idx]+helpers+s[idx:]
 
 p.write_text(s)
-print('applied V1.13.9 STORYBOOK UI: illustrated home + wood live HUD + one-tap 4-player score entry')
+print('applied STORYBOOK UI on V1.13.8 build chain: illustrated home + wood live HUD + one-tap 4-player score entry')

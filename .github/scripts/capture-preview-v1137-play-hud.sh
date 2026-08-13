@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.13.7-play-hud-debug.apk"
+APK="HokkaidoGolfGPS-v1.13.8-cover-hud-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
-OUT="preview-v1137-play-hud"
+OUT="preview-v1138-cover-hud"
 mkdir -p "$OUT"; rm -f "$OUT"/*.png
 adb logcat -c || true
 adb install -r "$APK"
@@ -12,33 +12,38 @@ adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
 adb shell settings put global window_animation_scale 0 || true
 adb shell settings put global transition_animation_scale 0 || true
 adb shell settings put global animator_duration_scale 0 || true
-clear_system_dialogs(){ adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true; sleep .3; }
+wake(){ adb shell input keyevent 224 >/dev/null 2>&1 || true; adb shell wm dismiss-keyguard >/dev/null 2>&1 || true; adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true; sleep .4; }
 shot(){
   local course="$1" variant="$2" hole="$3" screen="$4" file="$5"
-  adb shell am force-stop "$PKG" || true; clear_system_dialogs
+  adb shell am force-stop "$PKG" || true
+  wake
   adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse "$course" --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen "$screen" >/dev/null
-  sleep .9; clear_system_dialogs
-  adb exec-out screencap -p > "$OUT/$file"; test -s "$OUT/$file"
+  sleep 1.4
+  wake
+  adb exec-out screencap -p > "$OUT/$file"
+  test -s "$OUT/$file"
 }
 adb shell pm clear "$PKG" >/dev/null || true
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
-shot 3 0 6 1 "00-naepo-h6-play-hud.png"
-shot 3 0 5 1 "01-naepo-h5-play-hud.png"
-shot 2 0 13 1 "02-sahoro-h13-play-hud.png"
+shot 3 0 6 1 "00-naepo-h6-cover-hud.png"
+shot 3 0 5 1 "01-naepo-h5-cover-hud.png"
+shot 2 0 13 1 "02-sahoro-h13-cover-hud.png"
 shot 3 0 1 4 "03-round-summary-log-button.png"
-
-# Near-square Flip cover-display validation based on the user's real capture.
 adb shell wm size 948x1048; adb shell wm density 320; sleep .6
 shot 3 0 6 1 "04-flip-cover-naepo-h6.png"
 shot 3 0 5 1 "05-flip-cover-naepo-h5.png"
-
-# Existing compact-phone regression.
 adb shell wm size 720x1600; adb shell wm density 320; sleep .5
 shot 3 0 6 1 "06-compact-naepo-h6.png"
-adb shell wm size reset; adb shell wm density reset
-
+adb shell wm size reset; adb shell wm density reset; sleep .5
+adb shell am force-stop "$PKG" || true
+wake
+adb shell am start -W -a android.settings.APPLICATION_DETAILS_SETTINGS -d "package:${PKG}" >/dev/null
+sleep 1.4
+wake
+adb exec-out screencap -p > "$OUT/07-app-icon-app-info.png"
+test -s "$OUT/07-app-icon-app-info.png"
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.13.7 PLAY HUD preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.13.8 COVER HUD preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.13.7 PLAY HUD screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.13.8 COVER HUD screenshots:\n'; ls -lh "$OUT"/*.png

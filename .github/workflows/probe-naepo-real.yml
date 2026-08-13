@@ -1,0 +1,54 @@
+name: Probe Naepo Real Course Sources
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch published Naepo source imagery
+        run: |
+          set -e
+          mkdir -p probe-naepo
+          urls=(
+          'https://blog.kakaocdn.net/dna/blvlse/btsOTXfJuCU/AAAAAAAAAAAAAAAAAAAAAMHn6VU5gUAhPdtOyb--INysLnMZ3PhxvHEgR2AfJerY/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=euZlMMqnW1RJoXkgGJzAAwc5hEo%3D'
+          'https://blog.kakaocdn.net/dna/brdoFa/btsOTMLF8Hq/AAAAAAAAAAAAAAAAAAAAAB7owlijiJQnj0mHINwB2k4TpRSE67Ud99e3bFExQFD6/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=utAvohCIBmR3%2FtqDs0u5Aq%2FTJZc%3D'
+          'https://blog.kakaocdn.net/dna/caJaVU/btsOSR1S788/AAAAAAAAAAAAAAAAAAAAANcFHEk0BW7f3t2CZOaAMvtjhhXFvYe4dXgnZyY37QiF/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=PafOrwo0TPXofPKB5JnWr0m7VaI%3D'
+          'https://blog.kakaocdn.net/dna/NC8ld/btsOSwC8RaR/AAAAAAAAAAAAAAAAAAAAALRtU2J6pRflGhvI8ax1g-zMRyyOavgPps4MpN5QPnxR/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=SRY%2Be%2FVdDhkF3X95dDibbD5E6Ps%3D'
+          'https://blog.kakaocdn.net/dna/bRFUz7/btsOUUWycAH/AAAAAAAAAAAAAAAAAAAAAIYsPrvumjWqM00oiTHqoVdth7zJ-pldASvEU0Jk2uQl/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=EynvT5WwTQ%2F%2F8ukVu%2B0o5vLsrUE%3D'
+          'https://blog.kakaocdn.net/dna/SxLrF/btsOTwh3Tgz/AAAAAAAAAAAAAAAAAAAAAHg9m0DHN6Hp_iRfvwOLEvVpL9efCI1zJwKZzYAOQzO_/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=u2wiCp4%2BYxzHTCtHSx2ST%2FYmYDc%3D'
+          'https://blog.kakaocdn.net/dna/4HnJF/btsOSOwNVGd/AAAAAAAAAAAAAAAAAAAAAM5e43_aAp51d-fiv1ldxDDWS6xJwm4odEheZu3ZfNxP/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=gIsS1tmZqVlEHHnVVBY5qjOXMYk%3D'
+          'https://blog.kakaocdn.net/dna/dO7i2U/btsOUzry9tS/AAAAAAAAAAAAAAAAAAAAAEq7oFzmr-YJILu0FF09U5NiOetoLLt7V-bXGUjx9Rwl/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=M5OpelnTDCpTCP7NZM49No%2FRGsE%3D'
+          'https://blog.kakaocdn.net/dna/dikLbE/btsOUSdqwhS/AAAAAAAAAAAAAAAAAAAAAO1tKvGEMxurDBoDsbJcB6FHt10Z_T7ql4Wh0PUbB6OA/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=kC7JfAQm%2FuZTFkqybG0TeDjAahQ%3D'
+          'https://blog.kakaocdn.net/dna/bz0Nkk/btsOTyVEVTY/AAAAAAAAAAAAAAAAAAAAALAj4JKHNcRfqvFvsTM5tWh2EmmjMZoqAEVAUn8dILkK/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=6IJ01YhhkHeXNNma5vmqn6ybDaM%3D'
+          )
+          i=14
+          for u in "${urls[@]}"; do
+            curl -L --fail --retry 2 -A 'Mozilla/5.0' "$u" -o "probe-naepo/kd_${i}.jpg" || true
+            i=$((i+1))
+          done
+          curl -L --fail --retry 2 -A 'Mozilla/5.0' 'https://image.fnnews.com/resource/media/image/2025/07/03/202507031109109114_l.jpg' -o probe-naepo/fnnews_aerial.jpg || true
+          curl -L --fail --retry 2 -A 'Mozilla/5.0' 'https://cdn.apl-golf.com/origin/club/image/main/82041092/np.webp' -o probe-naepo/voicecaddie_main.webp || true
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          for p in sorted(Path('probe-naepo').iterdir()):
+              try:
+                  with Image.open(p) as im: print(p.name, im.size, im.mode)
+              except Exception as e: print('BAD',p,e)
+          PY
+      - name: Upload Naepo sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: naepo-real-source-probe
+          path: probe-naepo/*
+          if-no-files-found: error
+          retention-days: 7

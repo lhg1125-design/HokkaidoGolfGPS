@@ -26,24 +26,35 @@ shot(){
 adb shell pm clear "$PKG" >/dev/null || true
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
-shot 3 0 6 1 "00-naepo-h6-cover-hud.png"
-shot 3 0 5 1 "01-naepo-h5-cover-hud.png"
-shot 2 0 13 1 "02-sahoro-h13-cover-hud.png"
-shot 3 0 1 4 "03-round-summary-log-button.png"
+
+# Full storybook journey: first screen, live yardage and one-tap score entry.
+shot 2 0 7 0 "00-storybook-home.png"
+shot 2 0 7 1 "01-sahoro-h07-storybook-yardage.png"
+shot 2 0 7 2 "02-storybook-score-one-tap.png"
+shot 4 0 7 1 "03-royallinks-queens-h07-storybook.png"
+shot 1 0 15 1 "04-furano-palmer-h15-storybook.png"
+
+# Existing live/cover regression set.
+shot 3 0 6 1 "05-naepo-h6-cover-hud.png"
+shot 3 0 5 1 "06-naepo-h5-cover-hud.png"
+shot 2 0 13 1 "07-sahoro-h13-cover-hud.png"
+shot 3 0 1 4 "08-round-summary-log-button.png"
 adb shell wm size 948x1048; adb shell wm density 320; sleep .6
-shot 3 0 6 1 "04-flip-cover-naepo-h6.png"
-shot 3 0 5 1 "05-flip-cover-naepo-h5.png"
+shot 3 0 6 1 "09-flip-cover-naepo-h6.png"
+shot 3 0 5 1 "10-flip-cover-naepo-h5.png"
 adb shell wm size 720x1600; adb shell wm density 320; sleep .5
-shot 3 0 6 1 "06-compact-naepo-h6.png"
+shot 2 0 7 0 "11-compact-storybook-home.png"
+shot 2 0 7 2 "12-compact-storybook-score.png"
+shot 3 0 6 1 "13-compact-naepo-h6.png"
 adb shell wm size reset; adb shell wm density reset; sleep .5
 adb shell am force-stop "$PKG" || true
 wake
 adb shell am start -W -a android.settings.APPLICATION_DETAILS_SETTINGS -d "package:${PKG}" >/dev/null
 sleep 1.4
 wake
-adb exec-out screencap -p > "$OUT/07-app-icon-app-info.png"
-test -s "$OUT/07-app-icon-app-info.png"
+adb exec-out screencap -p > "$OUT/14-app-icon-app-info.png"
+test -s "$OUT/14-app-icon-app-info.png"
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.13.8 COVER HUD preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.13.8 STORYBOOK + COVER HUD preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.13.8 COVER HUD screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.13.8 STORYBOOK + COVER HUD screenshots:\n'; ls -lh "$OUT"/*.png

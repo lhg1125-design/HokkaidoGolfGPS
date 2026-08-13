@@ -23,6 +23,8 @@ jobs:
           gradle-version: '8.9'
       - name: Install render tools
         run: python3 -m pip install --disable-pip-version-check pillow selenium requests numpy
+      - name: Generate verified launcher icon
+        run: python3 .github/scripts/generate-launcher-icon-v1135b.py
       - name: Restore concept artwork
         run: |
           mkdir -p app/src/main/res/drawable-nodpi
@@ -100,6 +102,16 @@ jobs:
           grep -q 'fullFitImageRectV1134' "$SRC"
           grep -q 'drawHoleStepButtonsV1124' "$SRC"
           grep -q 'saveGreenPoint' "$SRC"
+          unzip -j "$APK" 'res/drawable-nodpi-v4/ic_hokkaido_launcher.jpg' -d /tmp/iconcheck
+          python3 - <<'PY'
+          from PIL import Image
+          p='/tmp/iconcheck/ic_hokkaido_launcher.jpg'
+          with Image.open(p) as im:
+              im.verify()
+          with Image.open(p) as im:
+              assert im.size==(256,256), im.size
+          print('APK launcher icon decode PASS', p)
+          PY
           cp "$APK" HokkaidoGolfGPS-v1.13.5-all-live-geo-debug.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4

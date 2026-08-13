@@ -23,7 +23,6 @@ new='''            RectF range=new RectF(m,h*(coverHudV1138()? .108f:.073f),w-m,
 if old not in s: raise SystemExit('range anchor missing')
 s=s.replace(old,new,1)
 
-# Every top metric is vertically relocated in cover mode.
 s=s.replace('h*.083f','metricYV1138(h)')
 
 old='''            courseRect.set(m,h*.132f,w-m,h*.852f);drawFullHoleYardageV1102(c,courseRect,par,totalM);'''
@@ -31,7 +30,6 @@ new='''            courseRect.set(m,h*(coverHudV1138()? .191f:.132f),w-m,h*.852f
 if old not in s: raise SystemExit('course rect anchor missing')
 s=s.replace(old,new,1)
 
-# In LIVE FRONT/CENTER/BACK mode, H6 must still be the largest first-cell value.
 old='''metric(c,"H"+hole+" · P"+par,"LIVE",w*.18f,metricYV1138(h));metric(c,"FRONT",ds.front<0?"--":ds.front+"m",w*.39f,metricYV1138(h));metric(c,"CENTER",ds.center+"m",w*.61f,metricYV1138(h));metric(c,"BACK",ds.back<0?"--":ds.back+"m",w*.82f,metricYV1138(h));'''
 new='''metric(c,"PAR "+par,"H"+hole,w*.18f,metricYV1138(h));metric(c,"FRONT",ds.front<0?"--":ds.front+"m",w*.39f,metricYV1138(h));metric(c,"CENTER",ds.center+"m",w*.61f,metricYV1138(h));metric(c,"BACK",ds.back<0?"--":ds.back+"m",w*.82f,metricYV1138(h));'''
 if old not in s: raise SystemExit('LIVE metric anchor missing')
@@ -42,7 +40,6 @@ new='''        private void metric(Canvas c,String lab,String val,float x,float 
 if old not in s: raise SystemExit('metric helper anchor missing')
 s=s.replace(old,new,1)
 
-# Responsive title/status positions.
 old='''            text(c,title,m,h*.049f,z,Color.WHITE,true);'''
 new='''            float ty=h*(coverHudV1138()? .073f:.049f);text(c,title,m,ty,z,Color.WHITE,true);'''
 if old not in s: raise SystemExit('title y anchor missing')
@@ -65,3 +62,6 @@ s=s[:pos]+helpers+s[pos:]
 
 p.write_text(s)
 print('applied V1.13.8 COVER HUD: responsive near-square spacing + dominant H# in every live state')
+
+# Final visual layer: approved storybook UI, imported as a normal module.
+import storybook_v1139

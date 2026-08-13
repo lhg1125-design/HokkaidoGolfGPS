@@ -1,0 +1,91 @@
+name: Probe Naepo H2 H6 Separated
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/probe-naepo-h2-h6-separated.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: python3 -m pip install --disable-pip-version-check selenium pillow requests numpy
+      - name: Search each missing hole independently
+        run: |
+          mkdir -p .github/tmp/naepo-separated
+          python3 - <<'PY'
+          from pathlib import Path
+          from urllib.parse import quote
+          from concurrent.futures import ThreadPoolExecutor,as_completed
+          import re,time,requests,html
+          import numpy as np
+          from PIL import Image,ImageDraw,ImageFont
+          from io import BytesIO
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          root=Path('.github/tmp/naepo-separated')
+          ua='Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36'
+          opt=Options()
+          for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1440,1800'):opt.add_argument(a)
+          opt.add_argument('--user-agent='+ua);d=webdriver.Chrome(options=opt)
+          querysets={
+            2:['내포골프클럽 2번홀','내포골프클럽 2홀','내포골프클럽 H2','내포골프클럽 02 HOLE','내포골프클럽 2 HOLE Par','내포골프클럽 2번 홀 공략','내포골프클럽 2홀 야디지'],
+            6:['내포골프클럽 6번홀','내포골프클럽 6홀','내포골프클럽 H6','내포골프클럽 06 HOLE','내포골프클럽 6 HOLE Par','내포골프클럽 6번 홀 공략','내포골프클럽 6홀 야디지']}
+          allitems={2:{},6:{}}
+          try:
+            for hole,queries in querysets.items():
+              for qi,q in enumerate(queries):
+                d.get('https://search.naver.com/search.naver?where=image&sm=tab_jum&query='+quote(q));time.sleep(.9)
+                for _ in range(3):d.execute_script('window.scrollTo(0, document.body.scrollHeight);');time.sleep(.35)
+                s=html.unescape(d.page_source);(root/f'h{hole}-q{qi}.html').write_text(s,encoding='utf-8')
+                for obj in re.findall(r'\{"type":"image".*?\}\s*(?:,|\])',s,re.S):
+                  m=re.search(r'"originalUrl":"([^"]+)"',obj)
+                  if not m:continue
+                  u=m.group(1).replace('http://','https://')
+                  title=re.search(r'"title":"([^"]*)"',obj);link=re.search(r'"link":"([^"]*)"',obj)
+                  allitems[hole].setdefault(u,(u,title.group(1) if title else '',link.group(1) if link else '',q))
+          finally:d.quit()
+          def score_item(item):
+            url,title,link,q=item;pu='https://search.pstatic.net/common/?src='+quote(url,safe='')+'&type=sc960_832'
+            try:
+              r=requests.get(pu,headers={'User-Agent':ua,'Referer':'https://search.naver.com/'},timeout=5)
+              if r.status_code!=200 or len(r.content)<7000:return None
+              im=Image.open(BytesIO(r.content)).convert('RGB')
+              if im.width<320 or im.height<220:return None
+              sm=im.copy();sm.thumbnail((240,180));a=np.asarray(sm).astype(np.int16)
+              white=((a[:,:,0]>225)&(a[:,:,1]>225)&(a[:,:,2]>225)).mean()
+              green=((a[:,:,1]>a[:,:,0]*1.13)&(a[:,:,1]>a[:,:,2]*1.08)&(a[:,:,1]>65)).mean()
+              dark=(a.mean(axis=2)<95).mean()
+              score=white*3.1+green*5.5+min(dark,.16)*1.2
+              if white>.24 and green>.020:return(score,im,url,title,link,q,white,green)
+            except:return None
+          for hole in (2,6):
+            items=list(allitems[hole].values())[:700];print('H',hole,'UNIQUE',len(items));sc=[]
+            with ThreadPoolExecutor(max_workers=30) as ex:
+              for f in as_completed([ex.submit(score_item,x) for x in items]):
+                x=f.result()
+                if x:sc.append(x)
+            sc.sort(key=lambda x:x[0],reverse=True);sc=sc[:80];print('H',hole,'RANKED',len(sc))
+            out=root/f'h{hole}';out.mkdir(exist_ok=True);rows=[]
+            for j,(score,im,url,title,link,q,white,green) in enumerate(sc):
+              p=out/f'{j:03d}.jpg';im.save(p,'JPEG',quality=95,subsampling=0)
+              rows.append(f'{p.name}\t{score:.3f}\tW{white:.3f}\tG{green:.3f}\t{q}\t{title}\t{link}\t{url}')
+            (root/f'h{hole}-ranked.tsv').write_text('\n'.join(rows),encoding='utf-8')
+            cols=4;tw=320;th=370;font=ImageFont.load_default()
+            for pg in range((len(sc)+19)//20):
+              ss=sc[pg*20:(pg+1)*20];sheet=Image.new('RGB',(cols*tw,5*th),'white');dr=ImageDraw.Draw(sheet)
+              for j,x in enumerate(ss):
+                score,im,*_=x;im=im.copy();im.thumbnail((tw-14,th-54),Image.Resampling.LANCZOS);xx=(j%cols)*tw+(tw-im.width)//2;yy=(j//cols)*th+4;sheet.paste(im,(xx,yy));dr.text(((j%cols)*tw+7,(j//cols)*th+th-40),f'{pg*20+j:03d} S{score:.2f}',fill='black',font=font)
+              sheet.save(root/f'h{hole}-contact-{pg:02d}.jpg','JPEG',quality=93)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naepo-h2-h6-separated
+          path: .github/tmp/naepo-separated/*
+          if-no-files-found: error
+          retention-days: 5

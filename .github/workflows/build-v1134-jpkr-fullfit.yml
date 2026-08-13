@@ -91,8 +91,9 @@ jobs:
           test "$(grep -c 'yardage_' /tmp/yardage.txt)" -eq 135
           test "$(grep -c 'yardage_naepo_' /tmp/yardage.txt)" -eq 9
           grep -q 'V1.13.4 · JP/KR 2D GEO FULL FIT' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'FULL_CENTER_X_V1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'FULL_HALF_W_V1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'FULL_CENTER_PACK_V1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'FULL_HALF_W_PACK_V1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'fullGeoSampleV1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'fullFitImageRectV1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'drawHoleStepButtonsV1124' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           cp "$APK" HokkaidoGolfGPS-v1.13.4-jpkr-2d-fullfit-debug.apk

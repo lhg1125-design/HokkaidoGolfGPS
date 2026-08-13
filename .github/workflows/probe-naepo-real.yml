@@ -1,9 +1,9 @@
 name: Probe Naepo Real Course Sources
 
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Install image inspector
+        run: python3 -m pip install --disable-pip-version-check pillow
       - name: Fetch published Naepo source imagery
         run: |
           set -e
@@ -31,10 +33,7 @@ jobs:
           'https://blog.kakaocdn.net/dna/bz0Nkk/btsOTyVEVTY/AAAAAAAAAAAAAAAAAAAAALAj4JKHNcRfqvFvsTM5tWh2EmmjMZoqAEVAUn8dILkK/img.jpg?allow_ip=&allow_referer=&credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1788188399&signature=6IJ01YhhkHeXNNma5vmqn6ybDaM%3D'
           )
           i=14
-          for u in "${urls[@]}"; do
-            curl -L --fail --retry 2 -A 'Mozilla/5.0' "$u" -o "probe-naepo/kd_${i}.jpg" || true
-            i=$((i+1))
-          done
+          for u in "${urls[@]}"; do curl -L --fail --retry 2 -A 'Mozilla/5.0' "$u" -o "probe-naepo/kd_${i}.jpg" || true; i=$((i+1)); done
           curl -L --fail --retry 2 -A 'Mozilla/5.0' 'https://image.fnnews.com/resource/media/image/2025/07/03/202507031109109114_l.jpg' -o probe-naepo/fnnews_aerial.jpg || true
           curl -L --fail --retry 2 -A 'Mozilla/5.0' 'https://cdn.apl-golf.com/origin/club/image/main/82041092/np.webp' -o probe-naepo/voicecaddie_main.webp || true
           python3 - <<'PY'

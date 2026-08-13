@@ -27,6 +27,33 @@ PY
   rm -f "$tmp"; echo "ART FALLBACK  $(basename "$out")"; return 0
 }
 
+# Royal Links intermittently rejects GitHub runner regions with a bare image request.
+# Reproduce a normal Korean browser navigation and try both canonical host forms.
+fetch_royal(){
+  local side="$1" h="$2" out="$3" tmp="${3}.tmp" url host
+  rm -f "$tmp" "$out"
+  for host in 'https://www.royallinks.co.kr' 'https://royallinks.co.kr'; do
+    url="$host/images/course/${side}/${h}.jpg"
+    if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 25 --retry 2 \
+      -A "$UA" -e "$host/course/course01.asp" \
+      -H 'Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8' \
+      -H 'Accept-Language: ko-KR,ko;q=0.9,en-US;q=0.7,en;q=0.6' \
+      -H 'Cache-Control: no-cache' "$url" -o "$tmp"; then
+      if python3 - "$tmp" <<'PY'
+from PIL import Image
+import sys
+try:
+    im=Image.open(sys.argv[1]); im.verify(); ok=im.width>=180 and im.height>=180
+except Exception: ok=False
+raise SystemExit(0 if ok else 1)
+PY
+      then mv "$tmp" "$out"; echo "ROYAL ART OK $(basename "$out") via $host"; return 0; fi
+    fi
+    rm -f "$tmp"
+  done
+  echo "ROYAL ART BLOCKED $(basename "$out")"; return 0
+}
+
 : > "$CAND"
 if curl -L --fail --silent --show-error --connect-timeout 8 --max-time 30 --retry 2 \
   -A "$UA" -c "$GORA_COOKIE" -b "$GORA_COOKIE" -e 'https://booking.gora.golf.rakuten.co.jp/' \
@@ -92,8 +119,8 @@ for h in $(seq -w 1 18); do
   fetch_img "https://www.princehotels.co.jp/golf/kamishihoro/course/images_static/pct-course-m${h}.jpg" "$RES/yardage_kamishihoro_m${h}.jpg" 180 180
   fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-palmer${h}.jpg" "$RES/yardage_furano_palmer${h}.jpg" 180 180
   fetch_img "https://www.princehotels.co.jp/golf/furano/course/images_static/pct-course-king${h}.jpg" "$RES/yardage_furano_king${h}.jpg" 180 180
-  fetch_img "https://www.royallinks.co.kr/images/course/a/${h}.jpg" "$RES/yardage_royallinks_queens${h}.jpg" 180 180
-  fetch_img "https://www.royallinks.co.kr/images/course/b/${h}.jpg" "$RES/yardage_royallinks_kings${h}.jpg" 180 180
+  fetch_royal a "$h" "$RES/yardage_royallinks_queens${h}.jpg"
+  fetch_royal b "$h" "$RES/yardage_royallinks_kings${h}.jpg"
   if [ "$n" -le 9 ]; then
     fetch_gora_img "https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/166_${n}.png" "$RES/yardage_sahoro_${h}.png"
   else
@@ -112,52 +139,32 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from PIL import Image,ImageStat
-
 page=sys.argv[1]; root=Path(sys.argv[2])
 opt=Options()
-for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1600,1200'):
-    opt.add_argument(a)
+for a in ('--headless=new','--no-sandbox','--disable-dev-shm-usage','--disable-gpu','--window-size=1600,1200'): opt.add_argument(a)
 opt.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/143.0.0.0 Safari/537.36')
-d=webdriver.Chrome(options=opt)
-d.set_script_timeout(18)
+d=webdriver.Chrome(options=opt); d.set_script_timeout(18)
 try:
-    d.get(page); time.sleep(2.5)
-    ok_count=0
+    d.get(page); time.sleep(2.5); ok_count=0
     for hole in range(1,19):
         grp='166' if hole<=9 else '167'; num=hole if hole<=9 else hole-9
         src=f'https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/{grp}_{num}.png'
-        result=d.execute_async_script(r'''
-            const url=arguments[0], done=arguments[arguments.length-1];
-            const old=document.getElementById('oaiHoleImage'); if(old) old.remove();
-            const img=document.createElement('img'); img.id='oaiHoleImage';
-            img.style.cssText='position:absolute;left:0;top:0;z-index:2147483647;background:#fff;max-width:none!important;max-height:none!important;object-fit:contain;';
-            img.onload=()=>{img.style.width=img.naturalWidth+'px';img.style.height=img.naturalHeight+'px';done([true,img.naturalWidth,img.naturalHeight]);};
-            img.onerror=()=>done([false,0,0]);
-            document.body.appendChild(img); img.src=url;
-        ''',src)
+        result=d.execute_async_script(r'''const url=arguments[0], done=arguments[arguments.length-1];const old=document.getElementById('oaiHoleImage'); if(old) old.remove();const img=document.createElement('img'); img.id='oaiHoleImage';img.style.cssText='position:absolute;left:0;top:0;z-index:2147483647;background:#fff;max-width:none!important;max-height:none!important;object-fit:contain;';img.onload=()=>{img.style.width=img.naturalWidth+'px';img.style.height=img.naturalHeight+'px';done([true,img.naturalWidth,img.naturalHeight]);};img.onerror=()=>done([false,0,0]);document.body.appendChild(img); img.src=url;''',src)
         loaded=bool(result and result[0]); nw=int(result[1]) if loaded else 0; nh=int(result[2]) if loaded else 0
         print('INJECT LOAD',hole,loaded,nw,nh,src)
-        # GORA maps are deliberately tall/narrow: observed width 71-159px, height 400px.
         if not loaded or nw<60 or nh<300: continue
-        el=d.find_element(By.ID,'oaiHoleImage')
-        d.execute_script("window.scrollTo(0,0);arguments[0].style.left='0px';arguments[0].style.top='0px';",el)
-        time.sleep(.10)
+        el=d.find_element(By.ID,'oaiHoleImage'); d.execute_script("window.scrollTo(0,0);arguments[0].style.left='0px';arguments[0].style.top='0px';",el); time.sleep(.10)
         out=root/f'yardage_sahoro_{hole:02d}.png'
         if not el.screenshot(str(out)): continue
         try:
             with Image.open(out) as im:
-                if im.width<60 or im.height<300:
-                    out.unlink(missing_ok=True); continue
+                if im.width<60 or im.height<300: out.unlink(missing_ok=True); continue
                 st=ImageStat.Stat(im.convert('RGB').resize((32,32)))
-                if sum(st.stddev)<8:
-                    print('INJECT LOW VARIANCE',hole,st.stddev); out.unlink(missing_ok=True); continue
-                print('SELENIUM GORA OK',out.name,im.size,'std',round(sum(st.stddev),2))
-                ok_count+=1
-        except Exception as e:
-            print('INJECT VERIFY FAIL',hole,e); out.unlink(missing_ok=True)
+                if sum(st.stddev)<8: out.unlink(missing_ok=True); continue
+                print('SELENIUM GORA OK',out.name,im.size); ok_count+=1
+        except Exception as e: print('INJECT VERIFY FAIL',hole,e); out.unlink(missing_ok=True)
     print('SELENIUM_GORA_COUNT',ok_count)
-finally:
-    d.quit()
+finally: d.quit()
 PY
 fi
 
@@ -167,7 +174,4 @@ ROYAL=$(find "$RES" -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l
 echo "Prince full-hole assets present: $PRINCE"
 echo "Sahoro GORA full-hole assets present: $SAHORO"
 echo "Royal Links full-hole assets present: $ROYAL"
-if [ "$PRINCE" -ne 72 ] || [ "$SAHORO" -ne 18 ] || [ "$ROYAL" -ne 36 ]; then
-  echo 'FULL-HOLE ASSET GATE FAILED' >&2
-  exit 1
-fi
+if [ "$PRINCE" -ne 72 ] || [ "$SAHORO" -ne 18 ] || [ "$ROYAL" -ne 36 ]; then echo 'FULL-HOLE ASSET GATE FAILED' >&2; exit 1; fi

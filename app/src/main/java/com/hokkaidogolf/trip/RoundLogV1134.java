@@ -46,7 +46,7 @@ public final class RoundLogV1134 {
                 meta.put("type", "meta");
                 meta.put("schema", "HokkaidoGolfGPS.RoundLog.v1");
                 meta.put("createdAt", now);
-                meta.put("version", "1.13.4-round-log");
+                meta.put("version", "1.13.6-round-log");
                 meta.put("note", "Precise GPS coordinates included");
             } catch (Exception ignored) {}
             appendLine(f, meta.toString());

@@ -1,4 +1,5 @@
 from pathlib import Path
+import base64
 import numpy as np
 from PIL import Image
 
@@ -13,9 +14,15 @@ s=s.replace('V1.13.3 · NAEPO 2D GEO PIN','V1.13.4 · JP/KR 2D GEO FULL FIT',1)
 # The source yardage images are already the real full-hole packs. We only
 # analyze their drawn corridor so the live GPS pin follows each hole artwork.
 # Images remain aspect-fit (contain), never center-cropped.
+#
+# IMPORTANT: tables are quantized to 8-bit and Base64-packed. Injecting the
+# 180 x 41 x 2 values as Java float[][] literals makes the class initializer
+# exceed the JVM 64KB method-code limit. 8-bit normalized geometry keeps map
+# accuracy within a few pixels while making initialization tiny and lazy.
 # -----------------------------------------------------------------------------
 root=Path('app/src/main/res/drawable-nodpi')
 SAMPLES=41
+ROWS=5*2*18
 
 def resource_name(course,variant,hole):
     hh=f'{hole:02d}'
@@ -51,7 +58,7 @@ def corridor(fp):
         y1=max(0,yy-band); y2=min(h,yy+band+1)
         ys,xs=np.where(mask[y1:y2])
         if len(xs)<12:
-            band=max(band,int(h*.030)); y1=max(0,yy-band);y2=min(h,yy+band+1);ys,xs=np.where(mask[y1:y2])
+            band=max(band,int(h*.030)); y1=max(0,yy-band); y2=min(h,yy+band+1); ys,xs=np.where(mask[y1:y2])
         if len(xs)<8:
             c=.5; hw=.20
         else:
@@ -63,26 +70,33 @@ def corridor(fp):
         ws=[ws[0]]+[float(np.median(ws[max(0,i-1):min(SAMPLES,i+2)])) for i in range(1,SAMPLES-1)]+[ws[-1]]
     return cs,ws
 
-centers=[]; widths=[]
-cache={}
+centers=[]; widths=[]; cache={}
 for course in range(5):
     for variant in range(2):
         for hole in range(1,19):
             n=resource_name(course,variant,hole)
             if n not in cache: cache[n]=corridor(resolve_image(n))
             c,w=cache[n]; centers.append(c); widths.append(w)
+if len(centers)!=ROWS or len(widths)!=ROWS:
+    raise SystemExit(f'v1.13.4 geo row count mismatch: {len(centers)}/{len(widths)}')
 
-def jarray(name,data):
-    rows=['            {'+','.join(f'{v:.4f}f' for v in row)+'}' for row in data]
-    return '        private static final float[][] '+name+'={\n'+',\n'.join(rows)+'\n        };\n'
+def packed_b64(data):
+    flat=[]
+    for row in data:
+        if len(row)!=SAMPLES: raise SystemExit('v1.13.4 geo sample count mismatch')
+        flat.extend(max(0,min(255,int(round(float(v)*255.0)))) for v in row)
+    raw=bytes(flat)
+    if len(raw)!=ROWS*SAMPLES: raise SystemExit('v1.13.4 packed size mismatch')
+    return base64.b64encode(raw).decode('ascii')
+
+center_b64=packed_b64(centers)
+width_b64=packed_b64(widths)
 
 field_anchor='        private Bitmap cachedHoleBitmapV1133=null; private String cachedHoleNameV1133="";'
 if field_anchor not in s: raise SystemExit('v1.13.4 field anchor missing')
-extra='''\n        private static final String GEO_SCOPE_V1134="JP_KR_ALL_5_COURSES";\n'''+jarray('FULL_CENTER_X_V1134',centers)+jarray('FULL_HALF_W_V1134',widths)
+extra=f'''\n        private static final String GEO_SCOPE_V1134="JP_KR_ALL_5_COURSES";\n        private static final int FULL_GEO_SAMPLES_V1134={SAMPLES};\n        private static final String FULL_CENTER_PACK_V1134="{center_b64}";\n        private static final String FULL_HALF_W_PACK_V1134="{width_b64}";\n        private byte[] fullCenterBytesV1134=null,fullHalfWBytesV1134=null;\n'''
 s=s.replace(field_anchor,field_anchor+extra,1)
 
-# Helpers use the same logical ordering as the build-time table:
-# course(0..4) -> variant(0..1) -> hole(1..18).
 marker='        private float naepoCenterXV1133(float q){'
 pos=s.find(marker)
 if pos<0: raise SystemExit('v1.13.4 corridor helper anchor missing')
@@ -90,12 +104,20 @@ helpers=r'''        private int fullGeoRowV1134(){
             int cc=Math.max(0,Math.min(4,selected)),vv=Math.max(0,Math.min(1,variant)),hh=Math.max(1,Math.min(18,hole));
             return (cc*2+vv)*18+(hh-1);
         }
-        private float fullCenterXV1134(float q){
-            int row=fullGeoRowV1134();float z=Math.max(0f,Math.min(1f,q))*(FULL_CENTER_X_V1134[row].length-1);int i=(int)Math.floor(z);int j=Math.min(i+1,FULL_CENTER_X_V1134[row].length-1);float f=z-i;return FULL_CENTER_X_V1134[row][i]*(1f-f)+FULL_CENTER_X_V1134[row][j]*f;
+        private byte[] fullCenterBytesV1134(){
+            if(fullCenterBytesV1134==null)fullCenterBytesV1134=android.util.Base64.decode(FULL_CENTER_PACK_V1134,android.util.Base64.NO_WRAP);
+            return fullCenterBytesV1134;
         }
-        private float fullHalfWV1134(float q){
-            int row=fullGeoRowV1134();float z=Math.max(0f,Math.min(1f,q))*(FULL_HALF_W_V1134[row].length-1);int i=(int)Math.floor(z);int j=Math.min(i+1,FULL_HALF_W_V1134[row].length-1);float f=z-i;return FULL_HALF_W_V1134[row][i]*(1f-f)+FULL_HALF_W_V1134[row][j]*f;
+        private byte[] fullHalfWBytesV1134(){
+            if(fullHalfWBytesV1134==null)fullHalfWBytesV1134=android.util.Base64.decode(FULL_HALF_W_PACK_V1134,android.util.Base64.NO_WRAP);
+            return fullHalfWBytesV1134;
         }
+        private float fullGeoSampleV1134(byte[] pack,int row,float q){
+            float z=Math.max(0f,Math.min(1f,q))*(FULL_GEO_SAMPLES_V1134-1);int i=(int)Math.floor(z),j=Math.min(i+1,FULL_GEO_SAMPLES_V1134-1);float f=z-i;int base=row*FULL_GEO_SAMPLES_V1134;
+            float a=(pack[base+i]&255)/255f,b=(pack[base+j]&255)/255f;return a*(1f-f)+b*f;
+        }
+        private float fullCenterXV1134(float q){return fullGeoSampleV1134(fullCenterBytesV1134(),fullGeoRowV1134(),q);}
+        private float fullHalfWV1134(float q){return fullGeoSampleV1134(fullHalfWBytesV1134(),fullGeoRowV1134(),q);}
         private RectF fullFitImageRectV1134(RectF stage){
             Bitmap b=fullHoleBitmapV1102();if(b==null)return new RectF(stage);
             RectF safe=new RectF(stage.left+7f,stage.top+7f,stage.right-7f,stage.bottom-7f);
@@ -104,25 +126,20 @@ helpers=r'''        private int fullGeoRowV1134(){
 '''
 s=s[:pos]+helpers+s[pos:]
 
-# Replace the Naepo-only corridor branch with an all-course real-hole branch.
 old='''            RectF img=activeHoleImageRectV1133(stage);\n            float targetY=img.top+(.965f-.93f*q)*img.height();\n            float targetX;\n            if(selected==3){\n                float cx=naepoCenterXV1133(q), hw=naepoHalfWV1133(q);targetX=img.left+cx*img.width();\n                if(!navEstimatedV1113()){\n                    float cross=navCrossTrackMetersV1133();float corridorM=currentPar()==3?30f:45f;float frac=Math.max(-1.15f,Math.min(1.15f,cross/corridorM));\n                    targetX+=Math.max(9f,hw*img.width())*frac*.82f;\n                }\n            }else targetX=img.centerX();'''
 new='''            RectF img=fullFitImageRectV1134(stage);\n            float targetY=img.top+(.965f-.93f*q)*img.height();\n            float cx=fullCenterXV1134(q),hw=fullHalfWV1134(q);\n            float targetX=img.left+cx*img.width();\n            if(!navEstimatedV1113() && getRef("t",hole)!=null && greenCenterRef(hole)!=null){\n                float cross=navCrossTrackMetersV1133();float corridorM=currentPar()==3?30f:45f;float frac=Math.max(-1.15f,Math.min(1.15f,cross/corridorM));\n                targetX+=Math.max(9f,hw*img.width())*frac*.82f;\n            }'''
 if old not in s: raise SystemExit('v1.13.4 all-course nav branch anchor missing')
 s=s.replace(old,new,1)
 
-# Make the full-hole renderer use the exact same safe contain rectangle as the
-# live marker. This prevents visual disagreement and guarantees no bitmap crop.
 old='''            RectF dst=fitCenterV1102(b,new RectF(stage.left+5,stage.top+5,stage.right-5,stage.bottom-5));'''
 new='''            RectF dst=fullFitImageRectV1134(stage);'''
 if old not in s: raise SystemExit('v1.13.4 full-fit image anchor missing')
 s=s.replace(old,new,1)
 
-# Footer text is cosmetic. Earlier layout patches may have already changed its
-# wording, so never fail the functional geo/full-fit build just for this label.
 if ' · TEE → GREEN · ' in s:
     s=s.replace(' · TEE → GREEN · ',' · FULL FIT · ',1)
 elif ' · FULL FIT · ' not in s:
     print('v1.13.4 footer label anchor changed; keeping current footer text')
 
 p.write_text(s)
-print('applied v1.13.4 JP/KR all-course real-hole 2D geo + full-fit renderer')
+print('applied v1.13.4 JP/KR all-course real-hole 2D geo + packed full-fit renderer')

@@ -110,3 +110,15 @@ if qbad in qs:
 
 # Course Pixel Master: transplant the verified 135-hole geometry into the same storybook texture canvas.
 import storybook_v1149_coursepixel
+
+# Final generated-Java repair: later modules can reinsert the legacy distances(g)
+# call, so patch the actual Java source after every visual module has completed.
+p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
+s=p.read_text()
+old='Distances ds=distances(g);int f=ds.front,ce=ds.center,ba=ds.back;'
+new='int dc=(g==null||!gpsUsable())?-1:Math.round(distance(location,g.lat,g.lon));Distances ds=new Distances(dc<0?-1:Math.max(0,dc-12),dc,dc<0?-1:dc+12);int f=ds.front,ce=ds.center,ba=ds.back;'
+if old not in s:
+    raise SystemExit('V1.14.9 final distance-call anchor missing')
+s=s.replace(old,new,1)
+p.write_text(s)
+print('V1.14.9 final Java distance binding fixed')

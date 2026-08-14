@@ -82,5 +82,17 @@ import storybook_v1143_finish
 import storybook_v1145_finalmatch
 # Illustrated master: layered storybook map presentation + 2.5x navigation labels and large score type.
 import storybook_v1146_illustrated
+
+# Repair Pillow API call in the Pixel Master generator before importing it.
+fixp=Path('.github/scripts/storybook_v1148_pixelmaster.py')
+fs=fixp.read_text()
+bad="d.text((26,76),'‹',font(58),fill=(255,255,255,255),anchor='lm')"
+good="d.text((26,76),'‹',font=font(58),fill=(255,255,255,255),anchor='lm')"
+if bad in fs:
+    fs=fs.replace(bad,good,1)
+    fixp.write_text(fs)
+
 # Pixel Master: fixed score/card/button/shadow sprites + approved yardage chrome; dynamic data only overlay.
 import storybook_v1148_pixelmaster
+# Course Pixel Master: transplant the verified 135-hole geometry into the same storybook texture canvas.
+import storybook_v1149_coursepixel

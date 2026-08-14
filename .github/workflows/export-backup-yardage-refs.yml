@@ -1,0 +1,43 @@
+name: Export Backup Yardage References
+
+on:
+  push:
+    branches:
+      - agent/export-backup-yardage-refs
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install fetch dependencies
+        run: python -m pip install --upgrade pillow requests numpy selenium
+      - name: Fetch pre-storybook Sahoro originals
+        run: bash .github/scripts/fetch-v18-premium-course-art.sh
+      - name: Fetch pre-storybook Naepo originals
+        run: python .github/scripts/fetch-naepo-real-yardage-v1132.py
+      - name: Collect only requested original references
+        run: |
+          mkdir -p out
+          cp app/src/main/res/drawable-nodpi/yardage_sahoro_01.png out/sahoro_h01_original.png
+          cp app/src/main/res/drawable-nodpi/yardage_sahoro_02.png out/sahoro_h02_original.png
+          cp app/src/main/res/drawable-nodpi/yardage_naepo_02.jpg out/naepo_h02_original.jpg
+          cp app/src/main/res/drawable-nodpi/yardage_naepo_03.jpg out/naepo_h03_original.jpg
+          cp .github/tmp/v1132-naepo/naepo_h02_source.jpg out/naepo_h02_published_sheet.jpg
+          cp .github/tmp/v1132-naepo/naepo_h03_source.jpg out/naepo_h03_published_sheet.jpg
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          for p in sorted(Path('out').glob('*')):
+              im=Image.open(p)
+              print(p.name, im.size, im.mode)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-yardage-originals-sahoro12-naepo23
+          path: out/*
+          if-no-files-found: error

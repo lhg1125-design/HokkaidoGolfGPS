@@ -66,3 +66,10 @@ print('applied V1.13.8 COVER HUD: responsive near-square spacing + dominant H# i
 # Final visual layer: approved storybook UI, imported as a normal module.
 import storybook_v1139
 import storybook_v1139_fix
+
+# Keep the legacy gate token while also exposing the approved master marker.
+p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
+s=p.read_text()
+if 'V1.14.0 · STORYBOOK MASTER' in s and 'V1.13.8 · COVER HUD' not in s:
+    s=s.replace('V1.14.0 · STORYBOOK MASTER','V1.13.8 · COVER HUD / V1.14.0 · STORYBOOK MASTER',1)
+p.write_text(s)

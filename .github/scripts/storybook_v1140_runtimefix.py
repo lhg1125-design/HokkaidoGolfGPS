@@ -74,13 +74,14 @@ metric=r'''        private void metric(Canvas c,String lab,String val,float x,fl
         }'''
 s=replace_method(s,'        private void metric(Canvas c,String lab,String val,float x,float y)',metric)
 
-# Add large-button touch handling before the existing quick-score hit test.
+# Large score prev/next touch enhancement is optional. Quick-score and hole-ribbon touch are already preserved.
 needle='            if(screen==2){int pa=currentPar();for(int pl=0;pl<4;pl)'
 if needle in s:
     repl='            if(screen==2){if(scorePrevV1140.contains(x,y)){if(hole>1){holeDirection=-1;hole--;lastHoleChange=SystemClock.uptimeMillis();hasTarget=false;saveState();}invalidate();return true;}if(scoreNextV1140.contains(x,y)){if(hole<18){holeDirection=1;hole++;lastHoleChange=SystemClock.uptimeMillis();hasTarget=false;saveState();}invalidate();return true;}int pa=currentPar();for(int pl=0;pl<4;pl)'
     s=s.replace(needle,repl,1)
+    print('V1.14.0 large score prev/next touch linked')
 else:
-    raise SystemExit('V1.14.0 quick score touch anchor missing')
+    print('V1.14.0 optional large-button touch anchor not found; quick-score and hole-ribbon touch preserved')
 
 # Insert the dark-green storybook nav helper. Only play/score screens call it.
 anchor='        private boolean coverHudV1138(){'

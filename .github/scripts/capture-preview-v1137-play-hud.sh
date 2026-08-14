@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.15.0-storybook-recovery-debug.apk"
+APK="HokkaidoGolfGPS-v1.15.1-reference-polish-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 OUT="preview-v1138-cover-hud"
@@ -27,14 +27,12 @@ adb shell pm clear "$PKG" >/dev/null || true
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
 
-# V1.15.0 recovery checks: no Pixel-Master overlap, compact footer, relative score -1..5.
+# V1.15.1 reference checks: 3-column yardage, dark nav, clean landscape, relative PAR score.
 shot 2 0 7 0 "00-storybook-home.png"
 shot 2 0 7 1 "01-sahoro-h07-storybook-yardage.png"
 shot 2 0 7 2 "02-storybook-score-relative-par.png"
 shot 4 0 7 1 "03-royallinks-queens-h07-storybook.png"
 shot 1 0 15 1 "04-furano-palmer-h15-storybook.png"
-
-# Existing live/cover regression set.
 shot 3 0 6 1 "05-naepo-h6-cover-hud.png"
 shot 3 0 5 1 "06-naepo-h5-cover-hud.png"
 shot 2 0 13 1 "07-sahoro-h13-cover-hud.png"
@@ -55,6 +53,6 @@ wake
 adb exec-out screencap -p > "$OUT/14-app-icon-app-info.png"
 test -s "$OUT/14-app-icon-app-info.png"
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.15.0 STORYBOOK RECOVERY preview run"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.15.1 REFERENCE POLISH preview run"; adb logcat -d | tail -500; exit 1
 fi
-printf 'V1.15.0 STORYBOOK RECOVERY screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.15.1 REFERENCE POLISH screenshots:\n'; ls -lh "$OUT"/*.png

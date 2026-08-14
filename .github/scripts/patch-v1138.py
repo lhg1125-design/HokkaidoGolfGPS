@@ -83,14 +83,18 @@ import storybook_v1145_finalmatch
 # Illustrated master: layered storybook map presentation + 2.5x navigation labels and large score type.
 import storybook_v1146_illustrated
 
-# Repair Pillow API call in the Pixel Master generator before importing it.
+# Repair Pillow API call and bind distance calculation before importing Pixel Master.
 fixp=Path('.github/scripts/storybook_v1148_pixelmaster.py')
 fs=fixp.read_text()
 bad="d.text((26,76),'‹',font(58),fill=(255,255,255,255),anchor='lm')"
 good="d.text((26,76),'‹',font=font(58),fill=(255,255,255,255),anchor='lm')"
 if bad in fs:
     fs=fs.replace(bad,good,1)
-    fixp.write_text(fs)
+dbad='Distances ds=distances(g);int f=ds.front,ce=ds.center,ba=ds.back;'
+dgood='int dc=(g==null||!gpsUsable())?-1:Math.round(distance(location,g.lat,g.lon));Distances ds=new Distances(dc<0?-1:Math.max(0,dc-12),dc,dc<0?-1:dc+12);int f=ds.front,ce=ds.center,ba=ds.back;'
+if dbad in fs:
+    fs=fs.replace(dbad,dgood,1)
+fixp.write_text(fs)
 
 # Pixel Master: fixed score/card/button/shadow sprites + approved yardage chrome; dynamic data only overlay.
 import storybook_v1148_pixelmaster

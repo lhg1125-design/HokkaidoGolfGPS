@@ -82,3 +82,5 @@ import storybook_v1143_finish
 import storybook_v1145_finalmatch
 # Illustrated master: layered storybook map presentation + 2.5x navigation labels and large score type.
 import storybook_v1146_illustrated
+# Pixel Master: fixed score/card/button/shadow sprites + approved yardage chrome; dynamic data only overlay.
+import storybook_v1148_pixelmaster

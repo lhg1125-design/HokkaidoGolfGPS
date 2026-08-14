@@ -80,3 +80,5 @@ import storybook_v1140_runtimefix
 import storybook_v1143_finish
 # Final visual match: widened illustrated maps, cleaned false bunker strips, dark yardage nav.
 import storybook_v1145_finalmatch
+# Illustrated master: layered storybook map presentation + 2.5x navigation labels and large score type.
+import storybook_v1146_illustrated

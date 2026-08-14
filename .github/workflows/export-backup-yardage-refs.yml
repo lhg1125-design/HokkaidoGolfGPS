@@ -16,25 +16,64 @@ jobs:
           python-version: '3.12'
       - name: Install fetch dependencies
         run: python -m pip install --upgrade pillow requests numpy selenium
-      - name: Fetch pre-storybook Sahoro originals
-        run: bash .github/scripts/fetch-v18-premium-course-art.sh
-      - name: Fetch pre-storybook Naepo originals
-        run: python .github/scripts/fetch-naepo-real-yardage-v1132.py
-      - name: Collect only requested original references
+      - name: Fetch only requested pre-storybook originals
         run: |
           mkdir -p out
-          cp app/src/main/res/drawable-nodpi/yardage_sahoro_01.png out/sahoro_h01_original.png
-          cp app/src/main/res/drawable-nodpi/yardage_sahoro_02.png out/sahoro_h02_original.png
-          cp app/src/main/res/drawable-nodpi/yardage_naepo_02.jpg out/naepo_h02_original.jpg
-          cp app/src/main/res/drawable-nodpi/yardage_naepo_03.jpg out/naepo_h03_original.jpg
-          cp .github/tmp/v1132-naepo/naepo_h02_source.jpg out/naepo_h02_published_sheet.jpg
-          cp .github/tmp/v1132-naepo/naepo_h03_source.jpg out/naepo_h03_published_sheet.jpg
+          python - <<'PY'
+          from pathlib import Path
+          from io import BytesIO
+          import requests, numpy as np
+          from PIL import Image
+
+          out=Path('out')
+          ua='Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36'
+
+          # Sahoro H1/H2: exact pre-storybook GORA source URLs from backup fetch script.
+          s=requests.Session(); s.headers.update({'User-Agent':ua,'Referer':'https://booking.gora.golf.rakuten.co.jp/guide/course_info/drone/disp/c_id/10068'})
+          for h in (1,2):
+              u=f'https://image.gora.golf.rakuten.co.jp/img/golf/10068/new_hole_info/166_{h}.png'
+              r=s.get(u,timeout=30); r.raise_for_status()
+              im=Image.open(BytesIO(r.content)); im.load()
+              if im.width<60 or im.height<300: raise RuntimeError(f'Sahoro H{h} invalid size {im.size}')
+              im.save(out/f'sahoro_h{h:02d}_original.png')
+              print('SAHORO',h,im.size)
+
+          # Naepo H2/H3: exact source URLs stored by the backup branch manifest.
+          manifest=Path('.github/data/naepo-real-yardage-v1132.tsv').read_text().splitlines()
+          urls={int(line.split('\t',1)[0]):line.split('\t',1)[1].strip() for line in manifest if line.strip()}
+          n=requests.Session(); n.headers.update({'User-Agent':ua,'Referer':'https://m.blog.naver.com/jc_song/224012917731'})
+
+          def map_crop(im):
+              im=im.convert('RGB'); a=np.asarray(im).astype(np.int16); hh,ww,_=a.shape
+              x0=int(ww*.60); b=a[:,x0:,:]; mx=b.max(axis=2)
+              g=(b[:,:,1]>b[:,:,0]*1.03)&(b[:,:,1]>b[:,:,2]*1.02)&(b[:,:,1]>55)
+              blue=(b[:,:,2]>b[:,:,0]*1.04)&(b[:,:,2]>b[:,:,1]*.92)&(b[:,:,2]>70)
+              red=(b[:,:,0]>120)&(b[:,:,0]>b[:,:,1]*1.13)
+              mask=(g|blue|red)&(mx<250)
+              cols=mask.sum(axis=0); rws=mask.sum(axis=1)
+              xs=np.where(cols>max(2,hh*.018))[0]; ys=np.where(rws>max(2,(ww-x0)*.015))[0]
+              if len(xs)==0 or len(ys)==0: raise RuntimeError('Naepo detector failed')
+              x1=x0+int(xs.min()); x2=x0+int(xs.max())+1; y1=int(ys.min()); y2=int(ys.max())+1; m=9
+              x1=max(0,x1-m); x2=min(ww,x2+m); y1=max(0,y1-m); y2=min(hh,y2+m)
+              return im.crop((x1,y1,x2,y2))
+
+          for h in (2,3):
+              r=n.get(urls[h],timeout=30); r.raise_for_status()
+              src=Image.open(BytesIO(r.content)).convert('RGB'); src.load()
+              src.save(out/f'naepo_h{h:02d}_published_sheet.jpg','JPEG',quality=96,subsampling=0)
+              crop=map_crop(src)
+              # This is the PRE-STORYBOOK real-map crop. No stylize, no redraw.
+              crop.save(out/f'naepo_h{h:02d}_original.png','PNG')
+              print('NAEPO',h,'sheet',src.size,'crop',crop.size)
+          PY
+      - name: Verify originals
+        run: |
           python - <<'PY'
           from PIL import Image
           from pathlib import Path
           for p in sorted(Path('out').glob('*')):
-              im=Image.open(p)
-              print(p.name, im.size, im.mode)
+              im=Image.open(p); print(p.name, im.size, im.mode)
+          assert all((Path('out')/n).exists() for n in ['sahoro_h01_original.png','sahoro_h02_original.png','naepo_h02_original.png','naepo_h03_original.png'])
           PY
       - uses: actions/upload-artifact@v4
         with:

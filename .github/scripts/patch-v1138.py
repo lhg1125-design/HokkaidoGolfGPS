@@ -78,3 +78,5 @@ p.write_text(s)
 import storybook_v1140_runtimefix
 # Final approved visual polish: dominant yardage image, illustrated score header, dark readable nav.
 import storybook_v1143_finish
+# Final visual match: widened illustrated maps, cleaned false bunker strips, dark yardage nav.
+import storybook_v1145_finalmatch

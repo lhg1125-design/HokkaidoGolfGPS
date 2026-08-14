@@ -1,4 +1,4 @@
-name: Build V1.13.8 Cover HUD
+name: Build V1.14.9 Pixel Master
 
 on:
   push:
@@ -68,7 +68,7 @@ jobs:
           PY
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
-      - name: Apply patch chain through V1.13.8
+      - name: Apply patch chain through V1.14.9
         run: |
           set -e
           for p in patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 patch-v1134 patch-v1135 patch-v1136 patch-v1137 patch-v1138; do
@@ -80,32 +80,37 @@ jobs:
           from pathlib import Path
           import re
           p=Path('app/build.gradle.kts'); s=p.read_text()
-          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 56',s,1)
-          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.8-cover-hud"',s,1)
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 57',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.14.9-pixel-master"',s,1)
           p.write_text(s)
           PY
-      - name: Build debug APK
+      - name: Build V1.14.9 debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
-      - name: Gate V1.13.8 APK
+      - name: Gate V1.14.9 Pixel Master APK
         run: |
+          set -e
           APK=app/build/outputs/apk/debug/app-debug.apk
           unzip -l "$APK" | grep 'yardage_' > /tmp/yardage-apk.txt
-          test "$(grep -c 'yardage_' /tmp/yardage-apk.txt)" -eq 135
-          test "$(grep -c 'yardage_naepo_' /tmp/yardage-apk.txt)" -eq 9
-          grep -q 'V1.13.8 · COVER HUD' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -E 'yardage_(kamishihoro_|furano_|sahoro_|naepo_|royallinks_)' /tmp/yardage-apk.txt > /tmp/course-yardage-apk.txt
+          test "$(wc -l < /tmp/course-yardage-apk.txt)" -eq 135
+          test "$(grep -c 'yardage_naepo_' /tmp/course-yardage-apk.txt)" -eq 9
+          test "$(grep -c 'yardage_chrome_v1148' /tmp/yardage-apk.txt)" -eq 1
+          unzip -l "$APK" | grep -q 'score_pixel_master_v1148'
+          grep -q 'V1.14.9 · COURSE PIXEL' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.14.8 · PIXEL MASTER' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'coverHudV1138' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'android:icon="@drawable/ic_launcher_golf"' app/src/main/AndroidManifest.xml
           test -s app/src/main/res/drawable/ic_launcher_golf.xml
-          cp "$APK" HokkaidoGolfGPS-v1.13.8-cover-hud-debug.apk
-      - name: Upload V1.13.8 APK
+          cp "$APK" HokkaidoGolfGPS-v1.14.9-pixel-master-debug.apk
+      - name: Upload V1.14.9 APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.13.8-cover-hud-debug-apk
-          path: HokkaidoGolfGPS-v1.13.8-cover-hud-debug.apk
+          name: HokkaidoGolfGPS-v1.14.9-pixel-master-debug-apk
+          path: HokkaidoGolfGPS-v1.14.9-pixel-master-debug.apk
           retention-days: 14
       - name: Enable KVM
         run: sudo chmod 666 /dev/kvm || true
-      - name: Capture V1.13.8 previews
+      - name: Capture V1.14.9 previews
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -115,10 +120,10 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
           script: bash .github/scripts/capture-preview-v1137-play-hud.sh
-      - name: Upload V1.13.8 previews
+      - name: Upload V1.14.9 previews
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.13.8-cover-hud-preview-screenshots
+          name: HokkaidoGolfGPS-v1.14.9-pixel-master-preview-screenshots
           path: preview-v1138-cover-hud/*.png
           if-no-files-found: error
           retention-days: 14

@@ -74,5 +74,7 @@ if 'V1.14.0 · STORYBOOK MASTER' in s and 'V1.13.8 · COVER HUD' not in s:
     s=s.replace('V1.14.0 · STORYBOOK MASTER','V1.13.8 · COVER HUD / V1.14.0 · STORYBOOK MASTER',1)
 p.write_text(s)
 
-# Last runtime route fix: the app actually draws scoreInput(), not score().
+# Actual score route + large type/layout tune.
 import storybook_v1140_runtimefix
+# Final approved visual polish: dominant yardage image, illustrated score header, dark readable nav.
+import storybook_v1143_finish

@@ -1,5 +1,6 @@
 from pathlib import Path
-from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageDraw, ImageFont, ImageChops
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import numpy as np
 import random
 
 ROOT=Path('app/src/main/res/drawable-nodpi')
@@ -7,114 +8,213 @@ TMP=Path('.github/tmp/v1130')
 TMP.mkdir(parents=True,exist_ok=True)
 FILES=sorted(ROOT.glob('yardage_*.jpg'))
 if len(FILES)!=135:
-    raise SystemExit(f'V1.14.1 expects 135 full-hole JPGs including Naepo 9, got {len(FILES)}')
+    raise SystemExit(f'V1.14.2 expects 135 full-hole JPGs including Naepo 9, got {len(FILES)}')
 
-CREAM=(249,249,231)
-MEADOW=(226,240,194)
-MEADOW2=(213,233,174)
-INK=(48,72,45)
-GREEN=(76,157,91)
-TREE1=(80,151,69)
-TREE2=(103,176,72)
-FLOWER=(245,185,72)
+CREAM=(250,226,158)
+FOREST=(31,103,56)
+COURSE=(55,136,63)
+ROUGH=(80,164,70)
+FAIR=(127,205,75)
+FAIR_ALT=(132,213,76)
+FAIR_EDGE=(72,157,54)
+ROUGH_EDGE=(48,121,52)
+COURSE_EDGE=(27,87,45)
+WATER=(65,169,219)
+WATER_EDGE=(43,126,176)
+BUNKER_EDGE=(203,166,96)
+TRUNK=(102,70,39)
+TREE_A=(48,128,57)
+TREE_B=(58,147,62)
+TREE_C=(75,160,64)
+FLOWER=(247,184,66)
+INK=(49,72,44)
 
-
-def is_matte_pixel(rgb):
-    hi=max(rgb);lo=min(rgb);sat=hi-lo
-    return (sat<48 and (lo>190 or hi<175)) or hi<24
-
-
-def clean_border_matte(im):
-    src=im.convert('RGB');w,h=src.size
-    step=max(18,min(w,h)//28);seeds=[]
-    for x in range(0,w,step):seeds.extend([(x,0),(x,h-1)])
-    for y in range(0,h,step):seeds.extend([(0,y),(w-1,y)])
-    seeds.extend([(0,0),(w-1,0),(0,h-1),(w-1,h-1)])
-    for xy in seeds:
-        try:
-            if is_matte_pixel(src.getpixel(xy)):
-                ImageDraw.floodfill(src,xy,CREAM,thresh=48)
-        except Exception:
-            pass
-    return src
+WORK_W=600
+WORK_H=900
+OUT_W=1200
+OUT_H=1800
 
 
-def strip_outside_course(im,strong=False):
-    src=im.convert('RGB');hsv=src.convert('HSV');_,sat,val=hsv.split()
-    sm=sat.point(lambda v:255 if v>(20 if strong else 24) else 0)
-    vm=val.point(lambda v:255 if v>22 else 0)
-    sig=ImageChops.multiply(sm,vm)
-    w,h=src.size;k=max(7,min(35,int(min(w,h)*.045)))
-    if k%2==0:k+=1
-    keep=sig.filter(ImageFilter.MaxFilter(k)).filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(3))
-    return Image.composite(src,Image.new('RGB',src.size,CREAM),keep)
+def runs(xs):
+    if len(xs)==0:return []
+    out=[];start=int(xs[0]);prev=int(xs[0])
+    for v in xs[1:]:
+        v=int(v)
+        if v-prev>7:
+            out.append((start,prev));start=v
+        prev=v
+    out.append((start,prev));return out
 
 
-def crop_to_full_hole(im):
-    bg=Image.new('RGB',im.size,CREAM);diff=ImageChops.difference(im,bg).convert('L')
-    mask=diff.point(lambda v:255 if v>18 else 0);bbox=mask.getbbox()
-    if not bbox:return im
-    l,t,r,b=bbox;pad=max(8,round(max(im.size)*.012))
-    return im.crop((max(0,l-pad),max(0,t-pad),min(im.width,r+pad),min(im.height,b+pad)))
+def interpolate_nan(a):
+    a=np.asarray(a,dtype=np.float32);good=np.isfinite(a)
+    if not good.any():return np.full_like(a,a.shape[0]*0.5)
+    x=np.arange(a.size);a[~good]=np.interp(x[~good],x[good],a[good]);return a
 
 
-def meadow_gradient(size):
-    w,h=size;strip=Image.new('RGB',(1,h));pix=strip.load()
+def smooth1d(a,win=31):
+    if win<3:return a
+    k=np.ones(win,dtype=np.float32)/win
+    pad=win//2;ap=np.pad(a,(pad,pad),mode='edge')
+    return np.convolve(ap,k,mode='valid')[:a.size]
+
+
+def choose_fairway_corridor(arr):
+    r=arr[:,:,0].astype(np.int16);g=arr[:,:,1].astype(np.int16);b=arr[:,:,2].astype(np.int16)
+    hi=np.max(arr,axis=2).astype(np.int16);lo=np.min(arr,axis=2).astype(np.int16);sat=hi-lo
+    cand=(g>132)&((g-r)>25)&((g-b)>38)&(sat>55)
+    # Ignore the outer 2% to avoid source-page borders.
+    cand[:,:12]=False;cand[:,-12:]=False
+    left=np.full(WORK_H,np.nan,dtype=np.float32);right=left.copy();prev=WORK_W*.5
+    for y in range(WORK_H):
+        rs=runs(np.flatnonzero(cand[y]))
+        valid=[q for q in rs if q[1]-q[0]>=14]
+        if not valid:continue
+        def score(q):
+            c=(q[0]+q[1])*.5;ln=q[1]-q[0]+1
+            center_pen=abs(c-prev)*.34
+            edge_pen=70 if q[0]<8 or q[1]>WORK_W-9 else 0
+            return ln*1.7-center_pen-edge_pen
+        q=max(valid,key=score);left[y]=q[0];right[y]=q[1];prev=(q[0]+q[1])*.5
+    left=interpolate_nan(left);right=interpolate_nan(right)
+    left=smooth1d(left,39);right=smooth1d(right,39)
+    # Give every hole a friendly broad illustrated fairway while preserving its centerline/dogleg.
+    center=(left+right)*.5;width=np.maximum(86,(right-left)*.86)
+    width=smooth1d(width,35)
+    left=np.clip(center-width*.5,28,WORK_W-110);right=np.clip(center+width*.5,110,WORK_W-28)
+    return left,right,center
+
+
+def polygon_from_lr(left,right,pad=0):
+    pts=[]
+    for y in range(0,WORK_H,6):pts.append((float(max(0,left[y]-pad)),float(y)))
+    for y in range(WORK_H-1,-1,-6):pts.append((float(min(WORK_W-1,right[y]+pad)),float(y)))
+    return pts
+
+
+def contour(draw,pts,fill,outline,width):
+    draw.polygon(pts,fill=fill)
+    draw.line(pts+[pts[0]],fill=outline,width=width,joint='curve')
+
+
+def component_blobs(mask,min_area=12,max_area=12000):
+    # Fast row-run grouping is enough for bunker/water illustration; merge nearby runs vertically.
+    h,w=mask.shape;boxes=[];active=[]
     for y in range(h):
-        t=y/max(1,h-1);pix[0,y]=(round(MEADOW[0]*(1-t)+MEADOW2[0]*t),round(MEADOW[1]*(1-t)+MEADOW2[1]*t),round(MEADOW[2]*(1-t)+MEADOW2[2]*t))
-    return strip.resize((w,h),Image.Resampling.BILINEAR)
+        row=np.flatnonzero(mask[y]);rr=runs(row);next_active=[]
+        for l,r in rr:
+            if r-l<2:continue
+            match=None
+            for idx,b in enumerate(active):
+                if l<=b[2]+5 and r>=b[0]-5:
+                    match=idx;break
+            if match is None:next_active.append([l,y,r,y,(r-l+1)])
+            else:
+                b=active.pop(match);b[0]=min(b[0],l);b[2]=max(b[2],r);b[3]=y;b[4]+=r-l+1;next_active.append(b)
+        for b in active:
+            if min_area<=b[4]<=max_area:boxes.append(tuple(b))
+        active=next_active
+    for b in active:
+        if min_area<=b[4]<=max_area:boxes.append(tuple(b))
+    return boxes
 
 
-def replace_flat_matte_with_meadow(im):
-    src=im.convert('RGB');hsv=src.convert('HSV');_,sat,val=hsv.split()
-    low_sat=sat.point(lambda v:255 if v<40 else 0);hi_val=val.point(lambda v:255 if v>188 else 0)
-    mask=ImageChops.multiply(low_sat,hi_val).filter(ImageFilter.GaussianBlur(max(1,min(src.size)//220)))
-    return Image.composite(meadow_gradient(src.size),src,mask)
+def rounded_blob(draw,box,fill,outline,width=3):
+    l,t,r,b,_=box
+    if r-l<5 or b-t<4:return
+    pad=2
+    draw.rounded_rectangle((l-pad,t-pad,r+pad,b+pad),radius=max(3,min((r-l)//3,(b-t)//3,14)),fill=fill,outline=outline,width=width)
 
 
-def add_storybook_edge_details(im,seed):
-    out=im.convert('RGB');w,h=out.size;d=ImageDraw.Draw(out,'RGBA');rnd=random.Random(seed)
-    for side in (0,1):
-        for i in range(16):
-            y=int(h*(.07+i/17*.86)+rnd.randint(-14,14));x=int(w*(.055 if side==0 else .945)+rnd.randint(-10,10));rad=rnd.randint(max(7,w//100),max(10,w//64));col=TREE1 if i%2==0 else TREE2
-            d.ellipse((x-rad,y-rad,x+rad,y+rad),fill=col+(108,));d.ellipse((x-rad*.55,y-rad*.72,x+rad*.45,y+rad*.22),fill=(138,196,85,92))
-    for i in range(10):
-        side=0 if i%2==0 else 1;x=int(w*(.09 if side==0 else .91)+rnd.randint(-8,8));y=rnd.randint(int(h*.13),int(h*.85));rr=max(2,w//220)
-        d.ellipse((x-rr,y-rr,x+rr,y+rr),fill=FLOWER+(170,))
+def tree(draw,x,y,rad,rnd):
+    draw.rounded_rectangle((x-3,y+rad*.38,x+3,y+rad+9),radius=2,fill=TRUNK+(235,))
+    cols=[TREE_A,TREE_B,TREE_C]
+    blobs=[(-rad*.48,1,rad*.67),(rad*.36,-2,rad*.70),(0,-rad*.38,rad*.78)]
+    for i,(dx,dy,rr) in enumerate(blobs):
+        c=cols[(i+rnd.randint(0,2))%3];draw.ellipse((x+dx-rr,y+dy-rr,x+dx+rr,y+dy+rr),fill=c+(255,))
+    draw.ellipse((x-rad*.18,y-rad*.70,x+rad*.22,y-rad*.30),fill=(117,188,73,180))
+
+
+def reillustrate(im,name):
+    # Fixed canvas keeps normalized x/y mapping stable but makes every hole fill the phone like the reference.
+    src=im.convert('RGB').resize((WORK_W,WORK_H),Image.Resampling.LANCZOS)
+    arr=np.asarray(src)
+    left,right,center=choose_fairway_corridor(arr)
+    out=Image.new('RGB',(WORK_W,WORK_H),FOREST);d=ImageDraw.Draw(out,'RGBA')
+
+    course_pts=polygon_from_lr(left,right,72);rough_pts=polygon_from_lr(left,right,38);fair_pts=polygon_from_lr(left,right,0)
+    contour(d,course_pts,COURSE+(255,),COURSE_EDGE+(255,),5)
+    contour(d,rough_pts,ROUGH+(255,),ROUGH_EDGE+(255,),4)
+    contour(d,fair_pts,FAIR+(255,),FAIR_EDGE+(255,),4)
+
+    # Broad alternating mowing bands, clipped approximately to the fairway row span.
+    for y0 in range(18,WORK_H,58):
+        y1=min(WORK_H-1,y0+29)
+        poly=[]
+        for y in range(y0,y1+1,5):poly.append((left[y]+4,y))
+        for y in range(y1,y0-1,-5):poly.append((right[y]-4,y))
+        if len(poly)>3:d.polygon(poly,fill=FAIR_ALT+(92,))
+
+    r=arr[:,:,0].astype(np.int16);g=arr[:,:,1].astype(np.int16);b=arr[:,:,2].astype(np.int16)
+    hi=np.max(arr,axis=2).astype(np.int16);lo=np.min(arr,axis=2).astype(np.int16);sat=hi-lo
+    yy,xx=np.indices((WORK_H,WORK_W));inside=(xx>=left[:,None]-72)&(xx<=right[:,None]+72)
+    bunker=(hi>184)&(sat<92)&inside
+    water=(b>105)&((b-g)>4)&((b-r)>18)&(sat>55)&inside
+    for box in component_blobs(bunker,18,5200):rounded_blob(d,box,CREAM+(255,),BUNKER_EDGE+(255,),3)
+    for box in component_blobs(water,20,16000):rounded_blob(d,box,WATER+(255,),WATER_EDGE+(255,),3)
+
+    rnd=random.Random(sum(ord(c) for c in name)*7919)
+    # Tree rows closely hug the fairway like the approved animation reference.
+    for y in range(42,WORK_H-42,47):
+        for side in (-1,1):
+            x=(left[y]-rnd.randint(27,54)) if side<0 else (right[y]+rnd.randint(27,54))
+            x=max(14,min(WORK_W-14,x));tree(d,x,y,rnd.randint(11,18),rnd)
+    # Small flowers and bushes break up empty margins.
+    for i in range(28):
+        y=rnd.randint(55,WORK_H-65);side=-1 if i%2==0 else 1
+        x=(left[y]-rnd.randint(42,68)) if side<0 else (right[y]+rnd.randint(42,68));x=max(8,min(WORK_W-8,x))
+        rr=rnd.randint(2,4);col=FLOWER if i%3 else (235,107,104)
+        d.ellipse((x-rr,y-rr,x+rr,y+rr),fill=col+(240,))
+
+    # Green target zone, pin and tee marker.
+    gy=54;gx=center[gy];gw=max(62,(right[gy]-left[gy])*.58)
+    d.ellipse((gx-gw*.48,gy-31,gx+gw*.48,gy+32),fill=(145,216,82,185),outline=(74,158,55,230),width=3)
+    d.line((gx,gy+22,gx,gy-24),fill=(103,65,38,255),width=5)
+    d.polygon([(gx,gy-24),(gx+25,gy-15),(gx,gy-5)],fill=(240,77,49,255))
+    ty=WORK_H-48;tx=center[ty]
+    d.ellipse((tx-15,ty-15,tx+15,ty+15),fill=(255,255,250,255),outline=(61,92,54,255),width=4)
+
+    # Friendly dotted strategy route. The live orange GPS marker remains the authoritative player position.
+    route=[]
+    for y in range(WORK_H-85,95,-28):route.append((center[y],y))
+    for i,(x,y) in enumerate(route):
+        if i%2==0:d.ellipse((x-3,y-3,x+3,y+3),fill=(255,255,244,225))
+
+    # Slight paper-softening keeps it illustrative rather than vector-flat.
+    out=out.filter(ImageFilter.GaussianBlur(.35)).resize((OUT_W,OUT_H),Image.Resampling.LANCZOS)
     return out
 
-
-def toon_grade(im,strong=False,naepo=False,name=''):
-    im=clean_border_matte(im);im=strip_outside_course(im,strong);im=crop_to_full_hole(im)
-    longest=max(im.size);target=1900 if naepo else 1800
-    if longest<target:
-        sc=target/float(longest);im=im.resize((round(im.width*sc),round(im.height*sc)),Image.Resampling.LANCZOS)
-    med=5 if (strong or naepo) else 3
-    smooth=im.filter(ImageFilter.MedianFilter(med)).filter(ImageFilter.SMOOTH_MORE).filter(ImageFilter.SMOOTH_MORE)
-    base=Image.blend(im,smooth,.70 if strong else .63);base=ImageEnhance.Color(base).enhance(1.44 if not naepo else 1.38);base=ImageEnhance.Contrast(base).enhance(1.10);base=ImageEnhance.Brightness(base).enhance(1.05)
-    colors=22 if strong else (26 if naepo else 28);cell=base.quantize(colors=colors,method=Image.Quantize.MEDIANCUT,dither=Image.Dither.NONE).convert('RGB');base=Image.blend(base,cell,.87 if strong else .81)
-    edges=base.convert('L').filter(ImageFilter.FIND_EDGES);edges=ImageOps.autocontrast(edges);alpha=edges.point(lambda v:0 if v<64 else min(128,int((v-64)*1.05))).filter(ImageFilter.MaxFilter(3))
-    contour=Image.new('RGBA',base.size,INK+(0,));contour.putalpha(alpha);out=Image.alpha_composite(base.convert('RGBA'),contour).convert('RGB')
-    out=replace_flat_matte_with_meadow(out);out=add_storybook_edge_details(out,hash(name)&0xffffffff)
-    stretch=1.90 if not naepo else 1.75;out=out.resize((round(out.width*stretch),out.height),Image.Resampling.LANCZOS);return out.filter(ImageFilter.UnsharpMask(radius=.75,percent=62,threshold=3))
-
 manifest=[];samples=[]
+SAMPLE={'yardage_kamishihoro_c01.jpg','yardage_furano_palmer15.jpg','yardage_sahoro_07.jpg','yardage_royallinks_queens07.jpg','yardage_naepo_01.jpg'}
 for p in FILES:
-    naepo=p.name.startswith('yardage_naepo_');strong=p.name.startswith('yardage_sahoro_')
-    with Image.open(p) as src:before=src.size;out=toon_grade(src,strong,naepo,p.name)
-    out.save(p,'JPEG',quality=95,subsampling=0,optimize=True,progressive=True);manifest.append(f'{p.name}\t{before[0]}x{before[1]} -> {out.width}x{out.height}')
-    if p.name in {'yardage_kamishihoro_c01.jpg','yardage_furano_palmer15.jpg','yardage_sahoro_07.jpg','yardage_royallinks_queens07.jpg','yardage_naepo_01.jpg'}:samples.append((p.name,out.copy()))
+    with Image.open(p) as src:
+        before=src.size;out=reillustrate(src,p.name)
+    out.save(p,'JPEG',quality=95,subsampling=0,optimize=True,progressive=True)
+    manifest.append(f'{p.name}\t{before[0]}x{before[1]} -> {OUT_W}x{OUT_H}')
+    if p.name in SAMPLE:samples.append((p.name,out.copy()))
 
 (TMP/'manifest.txt').write_text('\n'.join(manifest)+'\n')
 if samples:
-    cols=5;tile_w=300;tile_h=610;W=cols*312+30;H=700;sheet=Image.new('RGB',(W,H),CREAM);d=ImageDraw.Draw(sheet)
-    try:f=ImageFont.truetype('/tmp/Jua-Regular.ttf',25);sf=ImageFont.truetype('/tmp/Jua-Regular.ttf',17)
+    samples.sort();tile_w=300;tile_h=500;W=len(samples)*315+30;H=590
+    sheet=Image.new('RGB',(W,H),(249,249,231));d=ImageDraw.Draw(sheet)
+    try:f=ImageFont.truetype('/tmp/Jua-Regular.ttf',26);sf=ImageFont.truetype('/tmp/Jua-Regular.ttf',17)
     except Exception:f=sf=None
-    d.text((28,22),'V1.14.1 · APPROVED STORYBOOK YARDAGE',fill=INK,font=f)
-    for idx,(name,im) in enumerate(samples):
-        x=20+idx*312;y=66;sc=min(tile_w/im.width,tile_h/im.height);thumb=im.resize((round(im.width*sc),round(im.height*sc)),Image.Resampling.LANCZOS);bx=x+(tile_w-thumb.width)//2;by=y+(tile_h-thumb.height)//2
-        sheet.paste(thumb,(bx,by));d.rounded_rectangle((x,y,x+tile_w,y+tile_h),radius=24,outline=GREEN,width=4);d.text((x+8,y+625),name.replace('yardage_','').replace('.jpg',''),fill=INK,font=sf)
+    d.text((26,18),'V1.14.2 · REAL HOLE → STORYBOOK REDRAW',fill=INK,font=f)
+    for idx,(nm,im) in enumerate(samples):
+        x=20+idx*315;y=58;thumb=im.copy();thumb.thumbnail((tile_w,tile_h),Image.Resampling.LANCZOS);bx=x+(tile_w-thumb.width)//2;by=y+(tile_h-thumb.height)//2
+        sheet.paste(thumb,(bx,by));d.rounded_rectangle((x,y,x+tile_w,y+tile_h),radius=24,outline=(76,157,91),width=4);d.text((x+6,y+510),nm.replace('yardage_','').replace('.jpg',''),fill=INK,font=sf)
     sheet.save(TMP/'yardage-concept-samples.jpg','JPEG',quality=94,subsampling=0)
 
-print('V1.14.1 135 yardages converted to wider high-contrast storybook illustration style')
+print('V1.14.2: 135 real holes re-illustrated into fixed 1200x1800 storybook maps')
+print('Preserved: normalized hole centerline/dogleg, bunker/water extraction, TEE→GREEN direction')
 print('sample sheet:',TMP/'yardage-concept-samples.jpg')

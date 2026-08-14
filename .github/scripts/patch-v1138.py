@@ -122,3 +122,6 @@ if old not in s:
 s=s.replace(old,new,1)
 p.write_text(s)
 print('V1.14.9 final Java distance binding fixed')
+
+# Recovery layer: remove full-screen raster overlap and switch score to relative-to-par input.
+import storybook_v1150_recovery

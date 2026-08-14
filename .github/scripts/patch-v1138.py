@@ -63,7 +63,7 @@ s=s[:pos]+helpers+s[pos:]
 p.write_text(s)
 print('applied V1.13.8 COVER HUD: responsive near-square spacing + dominant H# in every live state')
 
-# Final visual layer: approved storybook UI, imported as a normal module.
+# Final visual layer: approved storybook UI, imported as normal modules.
 import storybook_v1139
 import storybook_v1139_fix
 
@@ -73,3 +73,6 @@ s=p.read_text()
 if 'V1.14.0 · STORYBOOK MASTER' in s and 'V1.13.8 · COVER HUD' not in s:
     s=s.replace('V1.14.0 · STORYBOOK MASTER','V1.13.8 · COVER HUD / V1.14.0 · STORYBOOK MASTER',1)
 p.write_text(s)
+
+# Last runtime route fix: the app actually draws scoreInput(), not score().
+import storybook_v1140_runtimefix

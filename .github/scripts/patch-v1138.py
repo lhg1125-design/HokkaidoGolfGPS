@@ -94,5 +94,15 @@ if bad in fs:
 
 # Pixel Master: fixed score/card/button/shadow sprites + approved yardage chrome; dynamic data only overlay.
 import storybook_v1148_pixelmaster
+
+# Guard very narrow water-mask spans before painting highlight arcs.
+fixq=Path('.github/scripts/storybook_v1149_coursepixel.py')
+qs=fixq.read_text()
+qbad="l,r0=int(xs.min()),int(xs.max());d.arc((l+8,y-13,r0-8,y+14),10,170,fill=(215,244,248,120),width=4)"
+qgood="l,r0=int(xs.min()),int(xs.max())\n                if r0-l>18:d.arc((l+8,y-13,r0-8,y+14),10,170,fill=(215,244,248,120),width=4)"
+if qbad in qs:
+    qs=qs.replace(qbad,qgood,1)
+    fixq.write_text(qs)
+
 # Course Pixel Master: transplant the verified 135-hole geometry into the same storybook texture canvas.
 import storybook_v1149_coursepixel

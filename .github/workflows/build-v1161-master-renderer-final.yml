@@ -1,4 +1,4 @@
-name: Build V1.16.1 Master Renderer Final
+name: Build V1.16.2 User Golden Master Restore
 
 on:
   push:
@@ -40,6 +40,9 @@ jobs:
           cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
           cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
 
+      - name: Generate exact approved Golden Master chrome
+        run: python3 .github/scripts/generate-v1162-golden-chrome.py
+
       - name: Fetch Royal Links official 36-hole raw sources
         run: |
           set -euo pipefail
@@ -68,7 +71,7 @@ jobs:
           PY
           sha256sum "$RES"/yardage_royallinks_*.jpg > /tmp/royal-source.sha256
 
-      - name: Render only shared support UI assets
+      - name: Render shared support UI assets
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -82,7 +85,7 @@ jobs:
           PY
           python3 .github/scripts/generate-v12-ui.py
 
-      - name: Apply functional core and reusable Master Renderer V1.16.1
+      - name: Apply functional core and Golden Master renderer V1.16.2
         run: |
           set -e
           for p in patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix; do
@@ -90,52 +93,56 @@ jobs:
           done
           python3 .github/scripts/patch-v1160-master-renderer.py
           python3 .github/scripts/patch-v1161-raw-map.py
+          python3 .github/scripts/patch-v1162-golden-master.py
 
       - name: Verify raw Royal sources are byte-identical after renderer preparation
         run: sha256sum -c /tmp/royal-source.sha256
 
-      - name: Set V1.16.1 field version
+      - name: Set V1.16.2 field version
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           p=Path('app/build.gradle.kts');s=p.read_text()
-          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 66',s,1)
-          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.16.1-master-renderer-final"',s,1)
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 67',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.16.2-golden-master-restore"',s,1)
           p.write_text(s)
           PY
 
-      - name: Build V1.16.1 field APK
+      - name: Build V1.16.2 field APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Gate Master Renderer architecture and raw source integrity
+      - name: Gate Golden Master architecture and raw source integrity
         run: |
           set -euxo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           JAVA=app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -Fq 'MASTER TEMPLATE RENDERER V1.16.0' "$JAVA"
+          grep -Fq 'GOLDEN MASTER V1.16.2' "$JAVA"
+          grep -Fq 'drawGoldenMasterV1162' "$JAVA"
+          grep -Fq 'goldenCourseV1162' "$JAVA"
           grep -Fq 'masterSourceRectV1161' "$JAVA"
-          grep -Fq 'masterFitSourceV1161' "$JAVA"
           grep -Fq 'applyMasterEdgeToEdgeV1161' "$JAVA"
-          grep -Fq 'LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES' "$JAVA"
-          grep -Fq 'setDecorFitsSystemWindows(false)' "$JAVA"
-          grep -Fq 'if(selected==4){roundMasterMappedV1160(c);return;}' "$JAVA"
+          grep -Fq 'if(masterSourceMappedV1161()){drawGoldenMasterV1162(c);return;}' "$JAVA"
+          test -s app/src/main/res/drawable-nodpi/master_golden_chrome_v1162.webp
+          test -s app/src/main/assets/master_golden_v1162.lock
+          grep -Fq 'source=V1.15.2/V1.15.4 approved chrome' app/src/main/assets/master_golden_v1162.lock
           sha256sum -c /tmp/royal-source.sha256
           unzip -l "$APK" | grep 'yardage_royallinks_' > /tmp/royal.txt
           test "$(wc -l < /tmp/royal.txt)" -eq 36
-          cp "$APK" HokkaidoGolfGPS-v1.16.1-master-renderer-final-debug.apk
+          unzip -l "$APK" | grep -q 'master_golden_chrome_v1162'
+          cp "$APK" HokkaidoGolfGPS-v1.16.2-golden-master-restore-debug.apk
 
-      - name: Upload V1.16.1 field APK
+      - name: Upload V1.16.2 field APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.16.1-master-renderer-final-debug-apk
-          path: HokkaidoGolfGPS-v1.16.1-master-renderer-final-debug.apk
+          name: HokkaidoGolfGPS-v1.16.2-golden-master-restore-debug-apk
+          path: HokkaidoGolfGPS-v1.16.2-golden-master-restore-debug.apk
           retention-days: 14
 
       - name: Enable KVM
         run: sudo chmod 666 /dev/kvm || true
 
-      - name: Capture Royal Links final master mapping
+      - name: Capture and pixel-gate Royal Links against approved Golden Master
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -144,15 +151,13 @@ jobs:
           profile: pixel_6
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
-          script: |
-            cp HokkaidoGolfGPS-v1.16.1-master-renderer-final-debug.apk HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug.apk
-            bash .github/scripts/capture-preview-v1160-royallinks.sh
+          script: bash .github/scripts/capture-preview-v1162-royallinks-golden.sh
 
-      - name: Upload V1.16.1 Royal Links previews
+      - name: Upload V1.16.2 Golden Master previews
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.16.1-master-renderer-final-previews
-          path: preview-v1160-royallinks/*.png
+          name: HokkaidoGolfGPS-v1.16.2-golden-master-restore-previews
+          path: preview-v1162-royallinks-golden/*.png
           if-no-files-found: warn
           retention-days: 14

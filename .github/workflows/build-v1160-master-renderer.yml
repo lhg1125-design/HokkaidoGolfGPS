@@ -35,11 +35,16 @@ jobs:
           curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o app/src/main/assets/fonts/Jua-Regular.ttf
           curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Fetch raw official course sources
-        run: bash .github/scripts/fetch-v18-premium-course-art.sh
-
-      - name: Fetch Naepo structured source pack
-        run: python3 .github/scripts/fetch-naepo-real-yardage-v1132.py
+      - name: Fetch Royal Links official 36-hole sources only
+        run: |
+          set -euo pipefail
+          RES=app/src/main/res/drawable-nodpi
+          mkdir -p "$RES"
+          for h in $(seq -w 1 18); do
+            curl -L --fail --retry 3 --connect-timeout 8 --max-time 25 "https://www.royallinks.co.kr/images/course/a/${h}.jpg" -o "$RES/yardage_royallinks_queens${h}.jpg"
+            curl -L --fail --retry 3 --connect-timeout 8 --max-time 25 "https://www.royallinks.co.kr/images/course/b/${h}.jpg" -o "$RES/yardage_royallinks_kings${h}.jpg"
+          done
+          test "$(find "$RES" -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l)" -eq 36
 
       - name: Render shared legacy support assets
         run: |
@@ -54,7 +59,6 @@ jobs:
           p.write_text(s)
           PY
           python3 .github/scripts/generate-v12-ui.py
-          python3 .github/scripts/generate-v18-premium-art.py
 
       - name: Apply stable functional patch chain
         run: |

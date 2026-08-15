@@ -1,9 +1,9 @@
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
-import numpy as np, base64, io, random, hashlib
+import numpy as np, base64, io, random, hashlib, math
 
 # V1.16.2 GOLDEN MASTER CHROME
-# This is intentionally derived from the user-approved V1.15.2/V1.15.4 visual master.
+# Directly reconstructs the user-approved V1.15.3/V1.15.4 Storybook chrome.
 # Static chrome is built once. Runtime overlays only dynamic course/text/GPS data.
 ASSET=Path('.github/assets/furano-v1152')
 RES=Path('app/src/main/res/drawable-nodpi')
@@ -27,18 +27,29 @@ def F(sz,jp=False): return ImageFont.truetype(MPLUS if jp else JUA,sz)
 def txt(d,xy,s,sz,fill,anchor='mm',stroke=0,sf=(15,15,10,255),jp=False):
     d.text(xy,s,font=F(sz,jp),fill=fill,anchor=anchor,stroke_width=stroke,stroke_fill=sf)
 
-# Preserve the exact approved sky/weather/back/icon source, but clear only the
-# baked course title/subtitle so runtime data can be inserted without drift.
-HEADER=HEADER_SOURCE.copy(); ha=np.array(HEADER.convert('RGBA')); hs=np.array(HEADER_SOURCE.convert('RGB'))
-for y in range(14,84):
-    col=np.median(hs[y,520:680],axis=0).astype(np.uint8)
-    ha[y,78:650,:3]=col; ha[y,78:650,3]=255
-for y in range(84,151):
-    col=np.median(hs[y,520:680],axis=0).astype(np.uint8)
-    ha[y,78:610,:3]=col; ha[y,78:610,3]=255
-HEADER=Image.fromarray(ha,'RGBA')
-# Restore the approved small course icon at lower left of the header.
-HEADER.alpha_composite(HEADER_SOURCE.crop((25,87,100,150)),(25,87))
+# Exact V1.15.3 approved header grammar from postprocess-furano-king123-v1153.py.
+# Course name and H/PAR line are deliberately left blank for runtime text, while
+# the back arrow, course icon, sky gradient and 22°C weather chrome remain fixed.
+def make_header():
+    im=Image.new('RGBA',(W,156),(0,0,0,0)); d=ImageDraw.Draw(im,'RGBA')
+    for y in range(156):
+        t=y/155.; col=(int(8+5*t),int(52+47*t),int(143+58*t),255); d.line((0,y,W,y),fill=col,width=1)
+    # approved back arrow
+    d.line((66,33,39,56),fill='white',width=8); d.line((39,56,66,79),fill='white',width=8); d.line((40,56,87,56),fill='white',width=8)
+    # approved small course/cart icon
+    d.rounded_rectangle((39,103,78,129),radius=7,outline=(255,255,255,255),width=4)
+    d.line((47,103,54,93),fill='white',width=4); d.line((54,93,72,93),fill='white',width=4); d.line((72,93,78,103),fill='white',width=4)
+    d.ellipse((45,125,53,133),fill='white'); d.ellipse((67,125,75,133),fill='white')
+    # approved weather icon and 22°C
+    sx,sy=780,45; d.ellipse((sx-15,sy-15,sx+15,sy+15),fill=(255,196,20,255))
+    for ang in range(0,360,45):
+        r=27; x0=sx+math.cos(math.radians(ang))*20; y0=sy+math.sin(math.radians(ang))*20
+        x1=sx+math.cos(math.radians(ang))*r; y1=sy+math.sin(math.radians(ang))*r
+        d.line((x0,y0,x1,y1),fill=(255,196,20,255),width=4)
+    d.ellipse((742,44,786,79),fill=(255,255,247,255)); d.ellipse((768,35,811,80),fill=(255,255,247,255)); d.ellipse((793,49,825,79),fill=(255,255,247,255)); d.rounded_rectangle((744,59,825,81),radius=11,fill=(255,255,247,255))
+    txt(d,(842,59),'22°C',31,(255,255,255,255),anchor='lm',stroke=2,sf=(0,42,110,170),jp=True)
+    return im
+HEADER=make_header()
 
 # Exact approved V1.15.2 wood grammar, including grain, separators and leaves.
 def make_wood():
@@ -104,13 +115,14 @@ def target(base):
 
 def bubble(base):
     d=ImageDraw.Draw(base,'RGBA'); x0,y0,x1,y1=714,397,918,575
-    sh=Image.new('RGBA',base.size,(0,0,0,0)); ImageDraw.Draw(sh).rounded_rectangle((x0+6,y0+7,x1+6,y1+7),radius=28,fill=(0,0,0,70)); sh=sh.filter(ImageFilter.GaussianBlur(7)); base.alpha_composite(sh)
-    d.rounded_rectangle((x0,y0,x1,y1),radius=28,fill=(255,248,224,255),outline=(34,31,24,255),width=3)
-    d.polygon([(x0+6,y1-48),(x0-20,y1),(x0+38,y1-24)],fill=(255,248,224,255),outline=(34,31,24,255))
+    sh=Image.new('RGBA',base.size,(0,0,0,0)); sd=ImageDraw.Draw(sh,'RGBA')
+    sd.rounded_rectangle((x0+6,y0+7,x1+6,y1+7),radius=28,fill=(0,0,0,70)); sd.polygon([(x0+12,y1-42),(x0-14,y1+5),(x0+43,y1-18)],fill=(0,0,0,55)); sh=sh.filter(ImageFilter.GaussianBlur(7)); base.alpha_composite(sh)
+    d=ImageDraw.Draw(base,'RGBA'); d.rounded_rectangle((x0,y0,x1,y1),radius=28,fill=(255,248,224,255),outline=(34,31,24,255),width=3)
+    d.polygon([(x0+6,y1-48),(x0-20,y1),(x0+38,y1-24)],fill=(255,248,224,255)); d.line((x0-20,y1,x0+7,y1-49),fill=(34,31,24,255),width=3); d.line((x0-20,y1,x0+38,y1-24),fill=(34,31,24,255),width=3)
     txt(d,(816,432),'남은 거리',25,(31,30,24,255)); d.line((752,520,880,520),fill=(194,156,95,255),width=2); txt(d,(816,548),'핀까지',23,(31,30,24,255))
 
 base=background(); base.alpha_composite(HEADER,(0,0)); base.alpha_composite(WOOD,(18,156)); base.alpha_composite(PANEL,(18,477)); bubble(base); target(base); base.alpha_composite(NAV,(18,1458))
 out=RES/'master_golden_chrome_v1162.webp'; base.save(out,'WEBP',lossless=True,method=6)
 sha=hashlib.sha256(out.read_bytes()).hexdigest()
-(ARES/'master_golden_v1162.lock').write_text('V1.16.2 USER GOLDEN MASTER CHROME\nsize=941x1672\nsource=V1.15.2/V1.15.4 approved chrome\nsha256='+sha+'\ncourse_geometry=runtime_raw_untouched\n')
+(ARES/'master_golden_v1162.lock').write_text('V1.16.2 USER GOLDEN MASTER CHROME\nsize=941x1672\nsource=V1.15.3/V1.15.4 approved chrome\nsha256='+sha+'\ncourse_geometry=runtime_raw_untouched\nheader=approved gradient+back+course-icon+weather\n')
 print('V1.16.2 GOLDEN MASTER CHROME',out,base.size,sha)

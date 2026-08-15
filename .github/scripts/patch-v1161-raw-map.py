@@ -19,7 +19,20 @@ helpers=r'''        private Bitmap masterRawBitmapV1161;
             if(im==null)return null;
             if(im==masterRawBitmapV1161 && masterRawCropV1161!=null)return masterRawCropV1161;
             int w=im.getWidth(),h=im.getHeight();
-            int[] px=new int[w*h];im.getPixels(px,0,w,0,0,w,h);
+            // Android O+ may decode drawable resources as Config.HARDWARE.
+            // Hardware bitmaps cannot be read with getPixels(), so create one
+            // temporary software copy for bbox analysis only. The displayed/raw
+            // source bitmap and its packaged JPG bytes remain untouched.
+            Bitmap scan=im;boolean recycleScan=false;
+            if(im.getConfig()==Bitmap.Config.HARDWARE){
+                scan=im.copy(Bitmap.Config.ARGB_8888,false);recycleScan=scan!=null && scan!=im;
+            }
+            if(scan==null){
+                android.graphics.Rect full=new android.graphics.Rect(0,0,w,h);
+                masterRawBitmapV1161=im;masterRawCropV1161=full;return full;
+            }
+            int[] px=new int[w*h];scan.getPixels(px,0,w,0,0,w,h);
+            if(recycleScan)scan.recycle();
             int minX=w,minY=h,maxX=-1,maxY=-1;
             // Detect only the neutral white/cream exterior page. Internal white
             // bunkers/details remain untouched because we crop one outer rectangle.
@@ -101,10 +114,9 @@ method=r'''    private void applyMasterEdgeToEdgeV1161() {
     }
 
 '''
-# V1.16.1 final workflow does not apply the old V1.16.0 immersive injector.
 if 'applyMasterEdgeToEdgeV1161' not in s:
     s=s.replace(activity,method+activity,1)
     s=s.replace(activity,activity+'\n        applyMasterEdgeToEdgeV1161();',1)
 
 p.write_text(s)
-print('V1.16.1 MASTER SOURCE MAP: raw SHA preserved, neutral-page runtime crop, cutout edge-to-edge')
+print('V1.16.1 MASTER SOURCE MAP: raw SHA preserved, hardware-safe runtime crop, cutout edge-to-edge')

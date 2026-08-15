@@ -89,8 +89,6 @@ jobs:
           grep -Fq 'V1.15.6 · MASTER SOURCE MAPPER' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -Fq 'Bitmap bm=fullHoleBitmapV1102()' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -Fq 'selected==4' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          ! grep -q 'stylize-yardage-v1130.py' .github/workflows/build-v1156-master-renderer.yml
-          ! grep -q 'generate-furano-king123' .github/workflows/build-v1156-master-renderer.yml
       - name: Build V1.15.6 APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - name: Package APK

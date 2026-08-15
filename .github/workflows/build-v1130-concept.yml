@@ -1,4 +1,4 @@
-name: Build V1.15.2 Furano KING123 Golden
+name: Build V1.15.3 Furano KING123 Review Lock
 
 on:
   push:
@@ -67,6 +67,9 @@ jobs:
       - name: Generate approved Furano KING H1-H3 bases
         run: python3 .github/scripts/generate-furano-king123-v1152.py
 
+      - name: Apply reviewed H1-H3 strict clip and clean header
+        run: python3 .github/scripts/postprocess-furano-king123-v1153.py
+
       - name: Stylize 135 yardages
         run: python3 .github/scripts/stylize-yardage-v1130.py
 
@@ -85,7 +88,7 @@ jobs:
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
 
-      - name: Apply patch chain through V1.15.2
+      - name: Apply patch chain through V1.15.3
         run: |
           set -e
           for p in patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 patch-v1134 patch-v1135 patch-v1136 patch-v1137 patch-v1138; do
@@ -100,15 +103,15 @@ jobs:
           from pathlib import Path
           import re
           p=Path('app/build.gradle.kts'); s=p.read_text()
-          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 60',s,1)
-          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.15.2-furano-king123-golden"',s,1)
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 61',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.15.3-furano-king123-review-lock"',s,1)
           p.write_text(s)
           PY
 
-      - name: Build V1.15.2 debug APK
+      - name: Build V1.15.3 debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Gate V1.15.2 Furano KING123 APK
+      - name: Gate V1.15.3 Furano KING123 APK
         run: |
           set -e
           APK=app/build/outputs/apk/debug/app-debug.apk
@@ -119,24 +122,25 @@ jobs:
           grep -q 'V1.15.2 · FURANO KING123 GOLDEN' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'drawFuranoKing123V1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'furanoInitialV1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'PAR' .github/scripts/generate-furano-king123-v1152.py
-          grep -q 'str(par),33,(255,188,36,255)' .github/scripts/generate-furano-king123-v1152.py
+          test -s app/src/main/res/drawable-nodpi/furano_king123_v1153.lock
+          grep -q 'H2=exact 408_2.webp' app/src/main/res/drawable-nodpi/furano_king123_v1153.lock
+          grep -q 'H3=exact 408_3.webp' app/src/main/res/drawable-nodpi/furano_king123_v1153.lock
           test -s app/src/main/res/drawable-nodpi/furano_king_h1_base_v1152.webp
           test -s app/src/main/res/drawable-nodpi/furano_king_h2_base_v1152.webp
           test -s app/src/main/res/drawable-nodpi/furano_king_h3_base_v1152.webp
-          cp "$APK" HokkaidoGolfGPS-v1.15.2-furano-king123-golden-debug.apk
+          cp "$APK" HokkaidoGolfGPS-v1.15.3-furano-king123-review-lock-debug.apk
 
-      - name: Upload V1.15.2 APK
+      - name: Upload V1.15.3 APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.15.2-furano-king123-golden-debug-apk
-          path: HokkaidoGolfGPS-v1.15.2-furano-king123-golden-debug.apk
+          name: HokkaidoGolfGPS-v1.15.3-furano-king123-review-lock-debug-apk
+          path: HokkaidoGolfGPS-v1.15.3-furano-king123-review-lock-debug.apk
           retention-days: 14
 
       - name: Enable KVM
         run: sudo chmod 666 /dev/kvm || true
 
-      - name: Capture V1.15.2 Furano KING H1-H3
+      - name: Capture V1.15.3 Furano KING H1-H3
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -147,10 +151,10 @@ jobs:
           disable-animations: false
           script: bash .github/scripts/capture-preview-v1152-furano123.sh
 
-      - name: Upload V1.15.2 Furano previews
+      - name: Upload V1.15.3 Furano previews
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.15.2-furano-king123-golden-preview-screenshots
+          name: HokkaidoGolfGPS-v1.15.3-furano-king123-review-lock-preview-screenshots
           path: preview-v1152-furano123/*.png
           if-no-files-found: error
           retention-days: 14

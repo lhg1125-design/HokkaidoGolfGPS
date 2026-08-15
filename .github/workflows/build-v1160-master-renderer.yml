@@ -27,13 +27,15 @@ jobs:
       - name: Install render tools
         run: python3 -m pip install --disable-pip-version-check pillow requests numpy
 
-      - name: Restore shared UI assets
+      - name: Restore shared UI assets and fonts
         run: |
           mkdir -p app/src/main/res/drawable-nodpi app/src/main/assets/fonts
           cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
           cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
-          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o app/src/main/assets/fonts/Jua-Regular.ttf
-          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o /tmp/Jua-Regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o /tmp/MPLUSRounded1c-ExtraBold.ttf
+          cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
+          cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
 
       - name: Fetch Royal Links official 36-hole sources only
         run: |

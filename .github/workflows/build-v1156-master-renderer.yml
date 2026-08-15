@@ -36,7 +36,9 @@ jobs:
           cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
           cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
       - name: Fetch raw external course sources
-        run: bash .github/scripts/fetch-v18-premium-course-art.sh
+        run: |
+          bash .github/scripts/fetch-v18-premium-course-art.sh
+          sha256sum app/src/main/res/drawable-nodpi/yardage_royallinks_* > /tmp/royallinks-raw.sha256
       - name: Preserve Sahoro as JPG
         run: |
           python3 - <<'PY'
@@ -50,7 +52,7 @@ jobs:
           PY
       - name: Fetch Naepo raw yardage
         run: python3 .github/scripts/fetch-naepo-real-yardage-v1132.py
-      - name: Render base UI dependencies only
+      - name: Render base UI dependencies without touching yardage sources
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -61,9 +63,12 @@ jobs:
           s=s.replace('라운드 시작  →','라운드 시작  >').replace('COURSES OFFLINE ✓','COURSES OFFLINE').replace('GPS READY ✓','GPS READY')
           s=s.replace('24~26 AUG · HOKKAIDO TRIP','24~26 AUG - HOKKAIDO TRIP').replace('GPS × 코스맵 × 스코어 관리','GPS + 코스맵 + 스코어 관리').replace('4명 함께 · 자동 합계','4명 함께 / 자동 합계')
           p.write_text(s)
+          q=Path('.github/scripts/generate-v18-premium-art.py'); t=q.read_text(); t=t.replace('import storybook_yardage_v1139','# V1.15.6 source-safe: no yardage postprocess')
+          q.write_text(t)
           PY
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
+          sha256sum -c /tmp/royallinks-raw.sha256
       - name: Apply stable feature chain and master renderer
         run: |
           set -e
@@ -72,6 +77,7 @@ jobs:
           done
           python3 .github/scripts/storybook_v1151_polish.py
           python3 .github/scripts/storybook_v1156_master_renderer.py
+          sha256sum -c /tmp/royallinks-raw.sha256
       - name: Set V1.15.6 package version
         run: |
           python3 - <<'PY'
@@ -88,7 +94,8 @@ jobs:
           test "$(find app/src/main/res/drawable-nodpi -maxdepth 1 -type f -name 'yardage_royallinks_*' | wc -l)" -eq 36
           grep -Fq 'V1.15.6 · MASTER SOURCE MAPPER' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -Fq 'Bitmap bm=fullHoleBitmapV1102()' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -Fq 'selected==4' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'selected>=0' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          sha256sum -c /tmp/royallinks-raw.sha256
       - name: Build V1.15.6 APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
       - name: Package APK

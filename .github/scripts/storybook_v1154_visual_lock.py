@@ -4,7 +4,7 @@ p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
 s=p.read_text()
 
 # V1.15.4 user-approved visual lock:
-# - real fullscreen app viewport (no Android status/navigation bars)
+# - real fullscreen app viewport (no Android status/navigation/cutout inset)
 # - Furano KING H1 official center distance restored to 412m (451yd source)
 # - preview remaining distances match the reviewed screenshots
 # - preview never adds the live GPS position dot on top of the reviewed art
@@ -39,7 +39,7 @@ if 'private void applyImmersiveV1154()' not in s:
     anchor='    private void startGps() {'
     if anchor not in s:
         raise SystemExit('V1.15.4 startGps anchor missing')
-    immersive='''    private void applyImmersiveV1154() {\n        getWindow().getDecorView().setSystemUiVisibility(\n                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY\n                | View.SYSTEM_UI_FLAG_FULLSCREEN\n                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION\n                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN\n                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION\n                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);\n    }\n\n    @Override public void onWindowFocusChanged(boolean hasFocus) {\n        super.onWindowFocusChanged(hasFocus);\n        if (hasFocus) applyImmersiveV1154();\n    }\n\n'''
+    immersive='''    private void applyImmersiveV1154() {\n        android.view.Window w = getWindow();\n        if (android.os.Build.VERSION.SDK_INT >= 28) {\n            android.view.WindowManager.LayoutParams lp = w.getAttributes();\n            lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;\n            w.setAttributes(lp);\n        }\n        if (android.os.Build.VERSION.SDK_INT >= 30) w.setDecorFitsSystemWindows(false);\n        w.setStatusBarColor(android.graphics.Color.TRANSPARENT);\n        w.setNavigationBarColor(android.graphics.Color.TRANSPARENT);\n        w.getDecorView().setSystemUiVisibility(\n                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY\n                | View.SYSTEM_UI_FLAG_FULLSCREEN\n                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION\n                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN\n                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION\n                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);\n    }\n\n    @Override public void onWindowFocusChanged(boolean hasFocus) {\n        super.onWindowFocusChanged(hasFocus);\n        if (hasFocus) applyImmersiveV1154();\n    }\n\n'''
     s=s.replace(anchor,immersive+anchor,1)
 
 if 'V1.15.4 · USER GOLDEN VISUAL LOCK' not in s:
@@ -48,4 +48,4 @@ if 'V1.15.4 · USER GOLDEN VISUAL LOCK' not in s:
     s=s.replace('V1.15.3 · FURANO H1 MASTER RECT','V1.15.3 · FURANO H1 MASTER RECT / V1.15.4 · USER GOLDEN VISUAL LOCK',1)
 
 p.write_text(s)
-print('V1.15.4 USER GOLDEN VISUAL LOCK: fullscreen + H1 412m + reviewed preview remain + no preview GPS dot')
+print('V1.15.4 USER GOLDEN VISUAL LOCK: edge-to-edge cutout fullscreen + H1 412m + reviewed preview remain')

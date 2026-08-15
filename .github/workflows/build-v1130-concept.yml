@@ -22,7 +22,7 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Install render tools
-        run: python3 -m pip install --disable-pip-version-check pillow selenium requests numpy opencv-python-headless
+        run: python3 -m pip install --disable-pip-version-check pillow selenium requests numpy
       - name: Restore approved concept artwork
         run: |
           mkdir -p app/src/main/res/drawable-nodpi
@@ -52,8 +52,6 @@ jobs:
           PY
       - name: Fetch Naepo real yardage
         run: python3 .github/scripts/fetch-naepo-real-yardage-v1132.py
-      - name: Prepare exact Furano KING H2-H3 sources
-        run: python3 .github/scripts/prepare-furano-v1152-assets.py
       - name: Generate approved Furano KING H1-H3 bases
         run: python3 .github/scripts/generate-furano-king123-v1152.py
       - name: Stylize 135 yardages

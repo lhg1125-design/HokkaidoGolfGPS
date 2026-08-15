@@ -6,53 +6,53 @@ ASSET=Path('.github/assets/furano-v1152')
 RES=Path('app/src/main/res/drawable-nodpi')
 RES.mkdir(parents=True,exist_ok=True)
 H1SRC=RES/'yardage_furano_king01.jpg'
-for fp in [H1SRC,ASSET/'king02.b64',ASSET/'king03.b64']+[ASSET/f'master_{i}.b64' for i in range(1,5)]:
+for fp in [H1SRC,ASSET/'king02.b64',ASSET/'king03.b64',ASSET/'header.b64',ASSET/'wood.b64',ASSET/'nav.b64']:
     if not fp.exists(): raise SystemExit(f'V1.15.2 missing source {fp}')
 
-def b64_image(paths):
-    raw=base64.b64decode(''.join(Path(x).read_text().strip() for x in paths));return Image.open(io.BytesIO(raw)).convert('RGBA')
-master=b64_image([ASSET/f'master_{i}.b64' for i in range(1,5)]); W,H=master.size
-if (W,H)!=(941,1672): raise SystemExit(f'V1.15.2 master size {(W,H)} != (941,1672)')
-mrgb=np.array(master.convert('RGB'))
+def b64_image(path):
+    raw=base64.b64decode(Path(path).read_text().strip());return Image.open(io.BytesIO(raw)).convert('RGBA')
+HEADER_SOURCE=b64_image(ASSET/'header.b64'); WOOD_SOURCE=b64_image(ASSET/'wood.b64'); NAV_SOURCE=b64_image(ASSET/'nav.b64')
+W,H=941,1672
+if HEADER_SOURCE.size!=(941,156) or WOOD_SOURCE.size!=(905,194) or NAV_SOURCE.size!=(905,194): raise SystemExit('V1.15.2 chrome source dimensions changed')
 JUA='/tmp/Jua-Regular.ttf'; MPLUS='/tmp/MPLUSRounded1c-ExtraBold.ttf'
 def F(sz,jp=False): return ImageFont.truetype(MPLUS if jp else JUA,sz)
 def txt(d,xy,s,sz,fill,anchor='mm',stroke=0,sf=(15,15,10,255),jp=False):
     d.text(xy,s,font=F(sz,jp),fill=fill,anchor=anchor,stroke_width=stroke,stroke_fill=sf)
 
-# Keep Furano course pixels untouched. Only strip the near-white page background from H1.
 def alpha_h1(src):
     im=Image.open(src).convert('RGB'); a=np.array(im); mx=a.max(2);mn=a.min(2);sat=mx-mn
     bg=(a[:,:,0]>235)&(a[:,:,1]>235)&(a[:,:,2]>225)&(sat<42)
     alpha=(~bg).astype(np.uint8)*255
     alpha=cv2.morphologyEx(alpha,cv2.MORPH_CLOSE,np.ones((3,3),np.uint8),1)
-    rgba=np.dstack([a,alpha])
-    return Image.fromarray(rgba,'RGBA')
+    return Image.fromarray(np.dstack([a,alpha]),'RGBA')
 
-course={1:alpha_h1(H1SRC),2:b64_image([ASSET/'king02.b64']),3:b64_image([ASSET/'king03.b64'])}
+course={1:alpha_h1(H1SRC),2:b64_image(ASSET/'king02.b64'),3:b64_image(ASSET/'king03.b64')}
 for hh in (2,3):
     if course[hh].getchannel('A').getextrema()[0]==255: raise SystemExit(f'V1.15.2 H{hh} source lost alpha')
 
-HEADER=master.crop((0,0,W,156)).copy(); ha=np.array(HEADER.convert('RGBA'))
+HEADER=HEADER_SOURCE.copy(); ha=np.array(HEADER.convert('RGBA')); hsrc=np.array(HEADER_SOURCE.convert('RGB'))
 for y in range(84,151):
-    col=np.median(mrgb[y,520:700],axis=0).astype(np.uint8);ha[y,78:505,:3]=col;ha[y,78:505,3]=255
-HEADER=Image.fromarray(ha,'RGBA');HEADER.alpha_composite(master.crop((25,87,100,150)),(25,87))
+    col=np.median(hsrc[y,520:700],axis=0).astype(np.uint8);ha[y,78:505,:3]=col;ha[y,78:505,3]=255
+HEADER=Image.fromarray(ha,'RGBA');HEADER.alpha_composite(HEADER_SOURCE.crop((25,87,100,150)),(25,87))
 
-orig_wood=master.crop((18,156,923,350)); wood=np.array(orig_wood.convert('RGB'));wm=np.zeros(wood.shape[:2],np.uint8)
+orig_wood=WOOD_SOURCE.copy(); wood=np.array(orig_wood.convert('RGB'));wm=np.zeros(wood.shape[:2],np.uint8)
 for x0,x1 in [(55,285),(335,590),(640,865)]: cv2.rectangle(wm,(x0,25),(x1,178),255,-1)
 clean=cv2.inpaint(wood,wm,12,cv2.INPAINT_TELEA);WOOD=Image.fromarray(clean).convert('RGBA')
 for box,pos in [((0,0,905,14),(0,0)),((0,182,905,194),(0,182)),((0,0,54,194),(0,0)),((866,0,905,194),(866,0))]: WOOD.alpha_composite(orig_wood.crop(box),pos)
 for x in [294,595]: WOOD.alpha_composite(orig_wood.crop((x-3,10,x+4,184)),(x-3,10))
 
-NAV=master.crop((18,1458,923,1652)).copy();nw,nh=NAV.size
+NAV=NAV_SOURCE.copy();nw,nh=NAV.size
 na=Image.new('L',(nw,nh),0);nd=ImageDraw.Draw(na);nd.rounded_rectangle((1,1,nw-2,nh-2),radius=50,fill=255)
 sh=Image.new('L',(nw,nh),0);sd=ImageDraw.Draw(sh);sd.rounded_rectangle((4,6,nw-4,nh-1),radius=50,fill=90);sh=sh.filter(ImageFilter.GaussianBlur(7))
 NAV.putalpha(Image.fromarray(np.maximum(np.array(na),np.array(sh)).astype(np.uint8)))
 
-PANEL=master.crop((18,477,238,1320)).copy();pd=ImageDraw.Draw(PANEL,'RGBA')
+PANEL=Image.new('RGBA',(220,843),(0,0,0,0));pd=ImageDraw.Draw(PANEL,'RGBA')
+psh=Image.new('RGBA',PANEL.size,(0,0,0,0));psd=ImageDraw.Draw(psh);psd.rounded_rectangle((7,9,217,840),radius=28,fill=(0,0,0,72));psh=psh.filter(ImageFilter.GaussianBlur(7));PANEL.alpha_composite(psh)
+pd=ImageDraw.Draw(PANEL,'RGBA');pd.rounded_rectangle((1,1,208,833),radius=28,fill=(13,84,15,255),outline=(8,48,7,255),width=4)
 for yy in range(12,824):
-    t=(yy-12)/(824-12);col=(17-int(5*t),96-int(15*t),18-int(5*t),255);pd.line((12,yy,201,yy),fill=col,width=1)
-pd.rounded_rectangle((5,5,208,833),radius=26,outline=(71,139,30,255),width=3)
-for yy in [220,370,520,670]: pd.line((25,yy,195,yy),fill=(130,175,70,150),width=1)
+    t=(yy-12)/(824-12);col=(18-int(6*t),98-int(16*t),19-int(5*t),255);pd.line((12,yy,201,yy),fill=col,width=1)
+pd.rounded_rectangle((5,5,204,829),radius=25,outline=(77,145,31,255),width=3)
+for yy in [220,370,520,670]: pd.line((25,yy,190,yy),fill=(130,175,70,150),width=1)
 
 def background():
     a=np.zeros((H,W,4),np.uint8)

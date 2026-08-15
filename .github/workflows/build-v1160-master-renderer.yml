@@ -1,0 +1,121 @@
+name: Build V1.16.0 Master Renderer Field
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  master-field:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install render tools
+        run: python3 -m pip install --disable-pip-version-check pillow requests numpy
+
+      - name: Restore shared UI assets
+        run: |
+          mkdir -p app/src/main/res/drawable-nodpi app/src/main/assets/fonts
+          cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o app/src/main/assets/fonts/Jua-Regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
+
+      - name: Fetch raw official course sources
+        run: bash .github/scripts/fetch-v18-premium-course-art.sh
+
+      - name: Fetch Naepo structured source pack
+        run: python3 .github/scripts/fetch-naepo-real-yardage-v1132.py
+
+      - name: Render shared legacy support assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/generate-v12-ui.py'); s=p.read_text(); lines=[]
+          for line in s.splitlines():
+              parts=line.split(';'); parts=[seg.replace(',font(', ',font=font(') if 'd.text(' in seg else seg for seg in parts]; lines.append(';'.join(parts))
+          s='\n'.join(lines)+'\n'
+          s=s.replace('라운드 시작  →','라운드 시작  >').replace('COURSES OFFLINE ✓','COURSES OFFLINE').replace('GPS READY ✓','GPS READY')
+          s=s.replace('24~26 AUG · HOKKAIDO TRIP','24~26 AUG - HOKKAIDO TRIP').replace('GPS × 코스맵 × 스코어 관리','GPS + 코스맵 + 스코어 관리').replace('4명 함께 · 자동 합계','4명 함께 / 자동 합계')
+          p.write_text(s)
+          PY
+          python3 .github/scripts/generate-v12-ui.py
+          python3 .github/scripts/generate-v18-premium-art.py
+
+      - name: Apply stable functional patch chain
+        run: |
+          set -e
+          for p in patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 patch-v1134 patch-v1135 patch-v1136 patch-v1137 patch-v1138; do
+            python3 ".github/scripts/${p}.py"
+          done
+          python3 .github/scripts/patch-v1160-master-renderer.py
+
+      - name: Set V1.16.0 field version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/build.gradle.kts'); s=p.read_text()
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 64',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.16.0-master-renderer-field"',s,1)
+          p.write_text(s)
+          PY
+
+      - name: Build field APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Gate source-to-master architecture
+        run: |
+          set -euxo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          grep -Fq 'MASTER TEMPLATE RENDERER V1.16.0' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'if(selected==4){roundMasterMappedV1160(c);return;}' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'fullHoleBitmapV1102()' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          test "$(find app/src/main/res/drawable-nodpi -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l)" -eq 36
+          unzip -l "$APK" | grep 'yardage_royallinks_' > /tmp/royal.txt
+          test "$(wc -l < /tmp/royal.txt)" -eq 36
+          cp "$APK" HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug.apk
+
+      - name: Upload field APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug-apk
+          path: HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug.apk
+          retention-days: 14
+
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm || true
+
+      - name: Capture Royal Links master mapping
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: bash .github/scripts/capture-preview-v1160-royallinks.sh
+
+      - name: Upload Royal Links master previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HokkaidoGolfGPS-v1.16.0-master-renderer-royallinks-previews
+          path: preview-v1160-royallinks/*.png
+          if-no-files-found: warn
+          retention-days: 14

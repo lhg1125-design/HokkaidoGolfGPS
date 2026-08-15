@@ -19,13 +19,27 @@ shot(){
   adb shell am force-stop "$PKG" || true
   adb logcat -c || true
   adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse 4 --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen 1 || true
+  sleep .25
+  local pid
+  pid="$(adb shell pidof "$PKG" 2>/dev/null | tr -d '\r' | awk '{print $1}')"
+  echo "ROYAL APP PID after launch: ${pid:-NONE} variant=$variant hole=$hole"
   sleep 2.0
   adb exec-out screencap -p > "$OUT/$file"
   adb logcat -d -v threadtime > "$OUT/${file%.png}.log" || true
   test -s "$OUT/$file"
   if ! adb shell pidof "$PKG" >/dev/null 2>&1; then
-    echo "APP PROCESS EXITED: variant=$variant hole=$hole" >&2
-    grep -E -A40 -B8 "FATAL EXCEPTION|AndroidRuntime|Process: ${PKG}|Caused by:|OutOfMemoryError|ArrayIndexOutOfBoundsException|NullPointerException|IllegalArgumentException" "$OUT/${file%.png}.log" | tail -240 >&2 || true
+    echo "APP PROCESS EXITED: pid=${pid:-NONE} variant=$variant hole=$hole" >&2
+    echo '===== APPLICATION EXIT INFO =====' >&2
+    adb shell dumpsys activity exit-info "$PKG" 2>&1 | head -160 >&2 || true
+    echo '===== PID/PACKAGE LOGCAT =====' >&2
+    if [ -n "${pid:-}" ]; then
+      grep -E "[[:space:]]${pid}[[:space:]]|${PKG}|am_crash|am_anr|am_kill|am_proc_died|lmkd|lowmemory|DEBUG.*pid" "$OUT/${file%.png}.log" | tail -260 >&2 || true
+    else
+      grep -E "${PKG}|am_crash|am_anr|am_kill|am_proc_died|lmkd|lowmemory" "$OUT/${file%.png}.log" | tail -260 >&2 || true
+    fi
+    echo '===== DROPBOX APP CRASH / NATIVE CRASH =====' >&2
+    adb shell dumpsys dropbox --print data_app_crash 2>/dev/null | tail -160 >&2 || true
+    adb shell dumpsys dropbox --print data_app_native_crash 2>/dev/null | tail -160 >&2 || true
     return 77
   fi
 }

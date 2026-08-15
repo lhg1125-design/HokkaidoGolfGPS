@@ -21,8 +21,8 @@ if idx<0:
 
 helpers=r'''
         // MASTER TEMPLATE RENDERER V1.16.0
-        // One built-in design renderer + external/source yardage bitmaps.
-        // New courses only need source images and structured yardage data.
+        // One built-in design renderer + raw/source yardage bitmaps + structured data.
+        // New courses do NOT require per-hole finished UI images.
         private int masterRemainV1160(int totalM){
             GeoRef g=greenCenterRef(hole);
             if(g!=null && gpsUsable())return Math.max(0,Math.round(distance(location,g.lat,g.lon)));
@@ -52,8 +52,9 @@ helpers=r'''
         }
         private void masterScorePanelV1160(Canvas c){
             RectF q=new RectF(18,477,220,1320);
-            p.setColor(Color.rgb(10,80,15));c.drawRoundRect(q,28,28,p);
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);p.setColor(Color.rgb(5,43,8));c.drawRoundRect(q,28,28,p);p.setStyle(Paint.Style.FILL);
+            LinearGradient g=new LinearGradient(q.left,q.top,q.left,q.bottom,Color.rgb(18,105,18),Color.rgb(5,58,11),Shader.TileMode.CLAMP);
+            p.setShader(g);c.drawRoundRect(q,28,28,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);p.setColor(Color.rgb(4,39,7));c.drawRoundRect(q,28,28,p);p.setStyle(Paint.Style.FILL);
             masterTextV1160(c,"PAR",106,542,31,Color.WHITE,Paint.Align.RIGHT,true);
             masterTextV1160(c,""+currentPar(),114,542,31,Color.rgb(255,190,35),Paint.Align.LEFT,true);
             masterTextV1160(c,"H"+hole,119,620,70,Color.WHITE,Paint.Align.CENTER,true);
@@ -94,6 +95,27 @@ helpers=r'''
                 p.setColor(Color.WHITE);c.drawCircle(x,y,13,p);p.setColor(Color.rgb(255,140,30));c.drawCircle(x,y,7,p);
             }
         }
+        private void masterNavV1160(Canvas c){
+            RectF n=new RectF(18,1458,923,1652);
+            LinearGradient g=new LinearGradient(n.left,n.top,n.left,n.bottom,Color.rgb(3,83,65),Color.rgb(1,55,45),Shader.TileMode.CLAMP);
+            p.setShader(g);c.drawRoundRect(n,50,50,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(Color.rgb(2,42,34));c.drawRoundRect(n,50,50,p);p.setStrokeWidth(1);p.setColor(Color.argb(90,150,210,180));
+            c.drawLine(244,1483,244,1628,p);c.drawLine(470,1483,470,1628,p);c.drawLine(696,1483,696,1628,p);p.setStyle(Paint.Style.FILL);
+            int white=Color.rgb(245,247,239),active=Color.rgb(188,226,21);
+            // score icon
+            p.setColor(Color.WHITE);c.drawRoundRect(new RectF(103,1495,153,1545),8,8,p);p.setColor(Color.rgb(0,77,64));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(5);c.drawLine(112,1535,145,1503,p);p.setStyle(Paint.Style.FILL);
+            // course flag icon
+            p.setColor(Color.WHITE);c.drawRect(345,1494,350,1548,p);Path fl=new Path();fl.moveTo(350,1496);fl.lineTo(385,1510);fl.lineTo(350,1524);fl.close();c.drawPath(fl,p);p.setColor(Color.rgb(120,179,24));c.drawOval(new RectF(324,1536,383,1553),p);
+            // target icon
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(5);p.setColor(Color.WHITE);c.drawCircle(583,1523,24,p);c.drawCircle(583,1523,7,p);c.drawLine(583,1488,583,1499,p);c.drawLine(583,1547,583,1558,p);c.drawLine(548,1523,559,1523,p);c.drawLine(607,1523,618,1523,p);p.setStyle(Paint.Style.FILL);
+            // menu icon
+            p.setColor(Color.WHITE);for(int k=0;k<3;k++)c.drawRoundRect(new RectF(760,1499+k*18,817,1505+k*18),3,3,p);
+            masterTextV1160(c,"스코어",128,1603,28,white,Paint.Align.CENTER,false);
+            masterTextV1160(c,"코스",357,1603,28,active,Paint.Align.CENTER,false);
+            masterTextV1160(c,"타겟",583,1603,28,white,Paint.Align.CENTER,false);
+            masterTextV1160(c,"메뉴",789,1603,28,white,Paint.Align.CENTER,false);
+            p.setColor(active);c.drawRoundRect(new RectF(326,1617,389,1622),3,3,p);
+        }
         private void roundMasterMappedV1160(Canvas c){
             float w=getWidth(),h=getHeight(),sx=w/941f,sy=h/1672f;
             int par=currentPar(),totalM=verifiedMetersV190(),remain=masterRemainV1160(totalM);
@@ -104,7 +126,7 @@ helpers=r'''
             p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(7);p.setStrokeCap(Paint.Cap.SQUARE);p.setColor(Color.WHITE);c.drawLine(64,55,38,78,p);c.drawLine(38,78,64,101,p);p.setStyle(Paint.Style.FILL);p.setStrokeCap(Paint.Cap.BUTT);
             masterTextV1160(c,ko[selected],90,64,38,Color.WHITE,Paint.Align.LEFT,false);
             masterTextV1160(c,variants[selected][variant]+" · H"+hole+" · PAR "+par,91,126,28,Color.WHITE,Paint.Align.LEFT,false);
-            masterTextV1160(c,gpsStatusShort(),866,72,24,Color.WHITE,Paint.Align.RIGHT,false);
+            masterTextV1160(c,gpsStatusShort(),866,72,22,Color.WHITE,Paint.Align.RIGHT,false);
 
             RectF board=new RectF(18,156,923,350);masterWoodV1160(c,board);
             p.setColor(Color.argb(100,35,18,7));c.drawRect(318,170,321,330,p);c.drawRect(620,170,623,330,p);
@@ -125,13 +147,16 @@ helpers=r'''
             }else{
                 p.setColor(Color.rgb(222,235,205));c.drawRoundRect(slot,30,30,p);masterTextV1160(c,"COURSE SOURCE",slot.centerX(),slot.centerY(),26,Color.rgb(35,90,50),Paint.Align.CENTER,false);
             }
-            masterRulerV1160(c,totalM);masterTargetButtonV1160(c);
+            if(hasTarget){
+                float tx=targetX/sx,ty=targetY/sy;p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(5);p.setColor(Color.rgb(244,91,55));c.drawCircle(tx,ty,20,p);p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(244,91,55));c.drawCircle(tx,ty,6,p);
+            }
+            masterRulerV1160(c,totalM);masterTargetButtonV1160(c);masterNavV1160(c);
             c.restore();
 
             courseRect.set(248*sx,360*sy,650*sx,1450*sy);
             mapLaunch.set(638*sx,1261*sy,908*sx,1388*sy);
-            greenSave.setEmpty();teeSave.setEmpty();autoBtn.setEmpty();prev.setEmpty();next.setEmpty();mapTab.setEmpty();scoreTab.setEmpty();
-            setFourNav(w,h);drawGoldenNav(c);
+            scoreTab.set(18*sx,1458*sy,244*sx,1652*sy);mapTab.set(244*sx,1458*sy,470*sx,1652*sy);
+            greenSave.setEmpty();teeSave.setEmpty();autoBtn.setEmpty();prev.setEmpty();next.setEmpty();
         }
         private void roundKorea(Canvas c){
             if(selected==4){roundMasterMappedV1160(c);return;}
@@ -141,5 +166,25 @@ helpers=r'''
 '''
 s=s[:idx]+helpers+s[idx:]
 
+# Royal Links master renderer owns its four-tab navigation and target gestures;
+# no later storybook/per-hole image module is required.
+touch='            if(e.getAction()!=MotionEvent.ACTION_UP)return true;float x=e.getX(),y=e.getY();'
+if touch not in s:
+    raise SystemExit('V1.16.0 touch anchor missing')
+block=r'''
+            if(screen==1 && selected==4){
+                float sx=getWidth()/941f,sy=getHeight()/1672f;
+                RectF n0=new RectF(18*sx,1458*sy,244*sx,1652*sy),n1=new RectF(244*sx,1458*sy,470*sx,1652*sy),n2=new RectF(470*sx,1458*sy,696*sx,1652*sy),n3=new RectF(696*sx,1458*sy,923*sx,1652*sy);
+                if(x<105*sx&&y<118*sy){screen=0;saveState();invalidate();return true;}
+                if(n0.contains(x,y)){screen=2;invalidate();return true;}
+                if(n1.contains(x,y)){invalidate();return true;}
+                if(n2.contains(x,y)||mapLaunch.contains(x,y)){showToast("코스 위 목표 지점을 터치하세요");invalidate();return true;}
+                if(n3.contains(x,y)){screen=0;saveState();invalidate();return true;}
+                if(courseRect.contains(x,y)){targetX=x;targetY=y;hasTarget=true;showToast("타겟 지정 완료");invalidate();return true;}
+                return true;
+            }
+'''
+s=s.replace(touch,touch+block,1)
+
 p.write_text(s)
-print('V1.16.0 MASTER TEMPLATE RENDERER: Royal Links uses one built-in UI renderer + raw official hole source bitmaps; no per-hole UI image generation')
+print('V1.16.0 MASTER TEMPLATE RENDERER: self-contained design/nav + raw Royal Links source mapping; no per-hole UI image generation')

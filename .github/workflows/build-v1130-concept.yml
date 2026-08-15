@@ -70,6 +70,7 @@ jobs:
       - name: Apply reviewed H1-H3 strict clip and clean header
         run: |
           python3 .github/scripts/postprocess-furano-king123-v1153.py
+          python3 .github/scripts/restore-furano-king123-chrome-v1153.py
           mkdir -p app/src/main/assets
           mv app/src/main/res/drawable-nodpi/furano_king123_v1153.lock app/src/main/assets/furano_king123_v1153.lock
 

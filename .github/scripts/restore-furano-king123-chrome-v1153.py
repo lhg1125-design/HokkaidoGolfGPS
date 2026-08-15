@@ -3,10 +3,11 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 RES=Path('app/src/main/res/drawable-nodpi')
 JUA='/tmp/Jua-Regular.ttf'
+MPLUS='/tmp/MPLUSRounded1c-ExtraBold.ttf'
 
-def F(sz): return ImageFont.truetype(JUA,sz)
-def txt(d,xy,s,sz,fill,anchor='mm'):
-    d.text(xy,s,font=F(sz),fill=fill,anchor=anchor)
+def F(sz,jp=False): return ImageFont.truetype(MPLUS if jp else JUA,sz)
+def txt(d,xy,s,sz,fill,anchor='mm',stroke=0,stroke_fill=(10,20,16,255),jp=False):
+    d.text(xy,s,font=F(sz,jp),fill=fill,anchor=anchor,stroke_width=stroke,stroke_fill=stroke_fill)
 
 def bubble(base):
     # Restore the exact fixed right speech-bubble shell after central course cleanup.
@@ -40,9 +41,35 @@ def target(base):
     d.line((cx,cy-34,cx,cy-20),fill=(20,20,15,255),width=5);d.line((cx,cy+20,cx,cy+34),fill=(20,20,15,255),width=5)
     txt(d,(804,1324),'타겟',34,(25,23,17,255))
 
+def ruler(base,hole):
+    # The central cleanup intentionally erases x<700. Rebuild the ruler LAST so
+    # the 200m pill can never be hidden by the course or by cleanup pixels.
+    d=ImageDraw.Draw(base,'RGBA')
+    top={1:250,2:250,3:400}[hole]
+    rx,yt,yb=798,655,1165
+    d.line((rx,yt,rx,yb),fill=(76,71,54,255),width=2)
+    for v in range(top,49,-50):
+        yy=yb-(v/top)*(yb-yt)
+        d.line((rx,yy,rx+18,yy),fill=(76,71,54,255),width=2)
+        txt(d,(832,yy),f'{v}m',20,(42,40,31,255),anchor='lm',jp=True)
+    if top>=200:
+        yy=yb-(200/top)*(yb-yt)
+        # Keep full pill to the RIGHT of the strict course safe area. H3 has the
+        # narrowest course, H1 the widest; x=655 is clear in both after compositing.
+        x0,x1=655,782
+        sh=Image.new('RGBA',base.size,(0,0,0,0));sd=ImageDraw.Draw(sh,'RGBA')
+        sd.rounded_rectangle((x0+3,yy-27+4,x1+3,yy+27+4),radius=24,fill=(20,40,90,55))
+        sh=sh.filter(ImageFilter.GaussianBlur(4));base.alpha_composite(sh)
+        d=ImageDraw.Draw(base,'RGBA')
+        d.rounded_rectangle((x0,yy-27,x1,yy+27),radius=24,fill=(32,91,194,255),outline=(255,255,255,255),width=3)
+        txt(d,((x0+x1)/2,yy),'200m',25,(255,255,255,255),stroke=1,stroke_fill=(20,54,115,255),jp=True)
+        d.ellipse((rx-13,yy-13,rx+13,yy+13),fill=(255,255,255,255),outline=(39,38,27,255),width=2)
+        d.ellipse((rx-7,yy-7,rx+7,yy+7),fill=(255,140,30,255))
+
 for hole in (1,2,3):
     fp=RES/f'furano_king_h{hole}_base_v1152.webp'
     base=Image.open(fp).convert('RGBA')
-    bubble(base);target(base)
+    # All right-side chrome is rebuilt after the strict course clip.
+    bubble(base);ruler(base,hole);target(base)
     base.save(fp,'WEBP',lossless=True,method=6)
     print('V1153 CHROME RESTORED',hole,fp)

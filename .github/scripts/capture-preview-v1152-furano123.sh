@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.15.3-furano-king123-review-lock-debug.apk"
+APK="HokkaidoGolfGPS-v1.15.4-user-golden-visual-lock-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
-OUT="preview-v1152-furano123"
+OUT="preview-v1154-furano123"
 mkdir -p "$OUT"; rm -f "$OUT"/*.png
 adb logcat -c || true
 adb install -r "$APK"
@@ -12,7 +12,9 @@ adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
 adb shell settings put global window_animation_scale 0 || true
 adb shell settings put global transition_animation_scale 0 || true
 adb shell settings put global animator_duration_scale 0 || true
-adb shell wm size 1080x1920
+# Render at the exact reviewed 941x1672 master ratio. The app itself must hide
+# Android status/navigation bars; screenshots are never cropped to fake a pass.
+adb shell wm size 941x1672
 adb shell wm density 420
 sleep .5
 wake(){ adb shell input keyevent 224 >/dev/null 2>&1 || true; adb shell wm dismiss-keyguard >/dev/null 2>&1 || true; adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true; sleep .35; }
@@ -29,31 +31,45 @@ shot(){
 adb shell pm clear "$PKG" >/dev/null || true
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
-shot 1 "00-furano-king-h1-review-lock.png"
-shot 2 "01-furano-king-h2-exact-408_2.png"
-shot 3 "02-furano-king-h3-exact-408_3.png"
+shot 1 "00-furano-king-h1-user-golden.png"
+shot 2 "01-furano-king-h2-user-golden.png"
+shot 3 "02-furano-king-h3-user-golden.png"
 python3 - <<'PY'
 from PIL import Image,ImageChops
 from pathlib import Path
-p=Path('preview-v1152-furano123'); fs=sorted(p.glob('*.png'))
+import numpy as np
+p=Path('preview-v1154-furano123'); fs=sorted(p.glob('*.png'))
 assert len(fs)==3,fs
 ims=[Image.open(x).convert('RGB') for x in fs]
 for f,im in zip(fs,ims):
-    assert im.width<im.height,(f,im.size)
+    assert im.size==(941,1672),(f,'must be uncropped reviewed viewport',im.size)
     assert im.getbbox(),f
-# The three holes must be distinct and the fixed top/bottom UI must be present.
+# All holes must remain distinct.
 for a,b in zip(ims,ims[1:]): assert ImageChops.difference(a,b).getbbox() is not None
+# Real immersive-fullscreen gate. A system status bar would make the top-center
+# dark green/black instead of the reviewed blue header; a nav bar would replace
+# the dark-green app nav at the bottom-center.
 for f,im in zip(fs,ims):
-    # top header should be blue, not white/black/corrupted; bottom nav should be dark green.
-    top=im.crop((0,0,im.width,int(im.height*.08))).resize((1,1)).getpixel((0,0))
-    bot=im.crop((0,int(im.height*.88),im.width,im.height)).resize((1,1)).getpixel((0,0))
-    assert top[2]>top[0] and top[2]>top[1]*.75,(f,'header',top)
-    assert bot[1]>bot[0] and bot[1]>bot[2],(f,'nav',bot)
-print([(f.name,im.size) for f,im in zip(fs,ims)])
+    top=np.asarray(im.crop((260,8,680,42)),dtype=np.float32).mean(axis=(0,1))
+    bot=np.asarray(im.crop((300,1590,640,1645)),dtype=np.float32).mean(axis=(0,1))
+    assert top[2]>105 and top[2]>top[0]*1.45 and top[2]>top[1]*1.15,(f,'system/status bar visible',top.tolist())
+    assert bot[1]>bot[0]*1.35 and bot[1]>bot[2]*1.05,(f,'system/navigation bar visible',bot.tolist())
+# Course-art detail gate. The previous broken 127x400 / 99x400 upscales scored
+# about 9.6 / 6.8 here; reviewed art is ~19 / 17.5. Keep a conservative floor
+# that still rejects those visibly pixelated regressions.
+def detail(im,box):
+    a=np.asarray(im.convert('L').crop(box),dtype=np.float32)
+    return float(np.abs(np.diff(a,axis=1)).mean()+np.abs(np.diff(a,axis=0)).mean())
+boxes=[(240,350,720,1470),(250,320,700,1470),(300,320,680,1470)]
+scores=[detail(im,b) for im,b in zip(ims,boxes)]
+assert scores[0]>11.0,('H1 detail regression',scores)
+assert scores[1]>11.0,('H2 low-resolution regression',scores)
+assert scores[2]>10.0,('H3 low-resolution regression',scores)
+print('V1.15.4 visual QA',[(f.name,im.size) for f,im in zip(fs,ims)],'detail',scores)
 PY
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.15.3 Furano KING H1-H3 preview"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.15.4 Furano KING H1-H3 preview"; adb logcat -d | tail -500; exit 1
 fi
 adb shell wm size reset || true
 adb shell wm density reset || true
-printf 'V1.15.3 Furano KING H1-H3 screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.15.4 Furano KING H1-H3 reviewed screenshots:\n'; ls -lh "$OUT"/*.png

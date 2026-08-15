@@ -100,6 +100,7 @@ jobs:
           done
           python3 .github/scripts/storybook_v1151_polish.py
           python3 .github/scripts/storybook_v1152_furano123.py
+          python3 .github/scripts/storybook_v1153_h1masterfix.py
 
       - name: Set package version
         run: |
@@ -124,6 +125,8 @@ jobs:
           test "$(wc -l < /tmp/course-yardage-apk.txt)" -eq 135
           test "$(grep -c 'yardage_naepo_' /tmp/course-yardage-apk.txt)" -eq 9
           grep -q 'V1.15.2 · FURANO KING123 GOLDEN' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.15.3 · FURANO H1 MASTER RECT' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'return new RectF(260f,390f,625f,1452f)' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'drawFuranoKing123V1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'furanoInitialV1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           test -s app/src/main/assets/furano_king123_v1153.lock

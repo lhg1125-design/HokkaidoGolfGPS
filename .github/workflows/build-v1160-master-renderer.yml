@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   master-field:
@@ -41,26 +40,34 @@ jobs:
           cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
           cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Download verified V1.15.5 field source cache
-        uses: actions/download-artifact@v4
-        with:
-          name: HokkaidoGolfGPS-v1.15.5-normalized-approved-debug-apk
-          path: /tmp/v1155-field
-          github-token: ${{ github.token }}
-          repository: lhg1125-design/HokkaidoGolfGPS
-          run-id: 31888433985
-
-      - name: Reuse Royal Links raw 36-hole source cache
+      - name: Fetch Royal Links official 36-hole raw sources
         run: |
           set -euo pipefail
           RES=app/src/main/res/drawable-nodpi
-          APK=$(find /tmp/v1155-field -type f -name '*.apk' | head -1)
-          test -s "$APK"
-          rm -rf /tmp/royal-cache
-          mkdir -p /tmp/royal-cache "$RES"
-          unzip -q "$APK" 'res/drawable-nodpi-v4/yardage_royallinks_*.jpg' -d /tmp/royal-cache
-          cp /tmp/royal-cache/res/drawable-nodpi-v4/yardage_royallinks_*.jpg "$RES"/
-          test "$(find "$RES" -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l)" -eq 36
+          mkdir -p "$RES"
+          UA='Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/143 Safari/537.36'
+          BASE='https://www.royallinks.co.kr'
+          curl --http1.1 -fsSL --retry 8 --retry-all-errors --retry-delay 1 -A "$UA" -c /tmp/royal.cookies "$BASE/course/course01.asp" -o /tmp/royal-course.html
+          for n in $(seq 1 18); do
+            h=$(printf '%02d' "$n")
+            qref=$(printf '%s/course/course%02d.asp' "$BASE" "$n")
+            kref=$(printf '%s/course/course%02d.asp' "$BASE" "$((n+18))")
+            curl --http1.1 -fsSL --retry 10 --retry-all-errors --retry-delay 1 -A "$UA" -b /tmp/royal.cookies -e "$qref" "$BASE/images/course/a/${h}.jpg" -o "$RES/yardage_royallinks_queens${h}.jpg"
+            curl --http1.1 -fsSL --retry 10 --retry-all-errors --retry-delay 1 -A "$UA" -b /tmp/royal.cookies -e "$kref" "$BASE/images/course/b/${h}.jpg" -o "$RES/yardage_royallinks_kings${h}.jpg"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          fs=sorted(Path('app/src/main/res/drawable-nodpi').glob('yardage_royallinks_*.jpg'))
+          assert len(fs)==36, len(fs)
+          for f in fs:
+              assert f.stat().st_size>30000,(f,f.stat().st_size)
+              with Image.open(f) as im:
+                  im.verify()
+              with Image.open(f) as im:
+                  assert im.width>=300 and im.height>=300,(f,im.size)
+          print('ROYAL OFFICIAL RAW SOURCE PASS',len(fs))
+          PY
           sha256sum "$RES"/yardage_royallinks_*.jpg > /tmp/royal-source.sha256
 
       - name: Render shared legacy support assets
@@ -77,15 +84,28 @@ jobs:
           PY
           python3 .github/scripts/generate-v12-ui.py
 
-      - name: Apply functional core then reusable Master Renderer
+      - name: Apply functional core and reusable Master Renderer
         run: |
           set -e
           for p in patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix; do
             python3 ".github/scripts/${p}.py"
           done
           python3 .github/scripts/patch-v1160-master-renderer.py
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java')
+          s=p.read_text()
+          if 'applyMasterImmersiveV1160' not in s:
+              anchor='    @Override protected void onCreate(Bundle b) {'
+              if anchor not in s: raise SystemExit('immersive onCreate anchor missing')
+              method='''    private void applyMasterImmersiveV1160() {\n        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN, android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN);\n        getWindow().getDecorView().setSystemUiVisibility(\n                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |\n                View.SYSTEM_UI_FLAG_FULLSCREEN |\n                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |\n                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |\n                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |\n                View.SYSTEM_UI_FLAG_LAYOUT_STABLE);\n    }\n\n    @Override public void onWindowFocusChanged(boolean hasFocus) {\n        super.onWindowFocusChanged(hasFocus);\n        if (hasFocus) applyMasterImmersiveV1160();\n    }\n\n'''
+              s=s.replace(anchor,method+anchor,1)
+              s=s.replace(anchor,anchor+'\n        applyMasterImmersiveV1160();',1)
+              p.write_text(s)
+          print('V1.16.0 TRUE FULLSCREEN PATCH PASS')
+          PY
 
-      - name: Verify raw Royal sources were not reprocessed
+      - name: Verify official Royal raw sources were not reprocessed
         run: sha256sum -c /tmp/royal-source.sha256
 
       - name: Set V1.16.0 field version
@@ -94,8 +114,8 @@ jobs:
           from pathlib import Path
           import re
           p=Path('app/build.gradle.kts'); s=p.read_text()
-          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 64',s,1)
-          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.16.0-master-renderer-field"',s,1)
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 65',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.16.0-master-renderer-royal-raw"',s,1)
           p.write_text(s)
           PY
 
@@ -110,16 +130,17 @@ jobs:
           grep -Fq 'if(selected==4){roundMasterMappedV1160(c);return;}' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -Fq 'fullHoleBitmapV1102()' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -Fq 'masterNavV1160' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'applyMasterImmersiveV1160' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           sha256sum -c /tmp/royal-source.sha256
           unzip -l "$APK" | grep 'yardage_royallinks_' > /tmp/royal.txt
           test "$(wc -l < /tmp/royal.txt)" -eq 36
-          cp "$APK" HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug.apk
+          cp "$APK" HokkaidoGolfGPS-v1.16.0-master-renderer-royal-raw-debug.apk
 
       - name: Upload field APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug-apk
-          path: HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug.apk
+          name: HokkaidoGolfGPS-v1.16.0-master-renderer-royal-raw-debug-apk
+          path: HokkaidoGolfGPS-v1.16.0-master-renderer-royal-raw-debug.apk
           retention-days: 14
 
       - name: Enable KVM
@@ -134,13 +155,15 @@ jobs:
           profile: pixel_6
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
-          script: bash .github/scripts/capture-preview-v1160-royallinks.sh
+          script: |
+            cp HokkaidoGolfGPS-v1.16.0-master-renderer-royal-raw-debug.apk HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug.apk
+            bash .github/scripts/capture-preview-v1160-royallinks.sh
 
       - name: Upload Royal Links master previews
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.16.0-master-renderer-royallinks-previews
+          name: HokkaidoGolfGPS-v1.16.0-master-renderer-royal-raw-previews
           path: preview-v1160-royallinks/*.png
           if-no-files-found: warn
           retention-days: 14

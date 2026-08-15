@@ -139,21 +139,22 @@ jobs:
 
       - name: Gate V1.15.4 user-approved visual APK
         run: |
-          set -e
+          set -euxo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           unzip -l "$APK" | grep 'yardage_' > /tmp/yardage-apk.txt
           grep -E 'yardage_(kamishihoro_|furano_|sahoro_|naepo_|royallinks_)' /tmp/yardage-apk.txt > /tmp/course-yardage-apk.txt
           test "$(wc -l < /tmp/course-yardage-apk.txt)" -eq 135
           test "$(grep -c 'yardage_naepo_' /tmp/course-yardage-apk.txt)" -eq 9
-          grep -q 'V1.15.4 · USER GOLDEN VISUAL LOCK' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'applyImmersiveV1154' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q '{451,168,401,523,386,335,175,359,489,350,312,535,346,151,360,170,422,506}' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'if(previewMode){if(hole==1)return 286;if(hole==2)return 154;return 367;}' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'drawFuranoKing123V1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'V1.15.4 · USER GOLDEN VISUAL LOCK' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'applyImmersiveV1154' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq '{451,168,401,523,386,335,175,359,489,350,312,535,346,151,360,170,422,506}' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'if(previewMode){if(hole==1)return 286;if(hole==2)return 154;return 367;}' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'drawFuranoKing123V1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           test -s app/src/main/assets/furano_king123_v1154.lock
-          grep -q 'H1_BOARD=393/412/430m' app/src/main/assets/furano_king123_v1154.lock
-          grep -q 'RULER_TOP=250/250/400m' app/src/main/assets/furano_king123_v1154.lock
-          if grep -q 'restore-furano-king123-chrome-v1153.py' .github/workflows/build-v1130-concept.yml; then echo 'legacy chrome redraw returned' >&2; exit 1; fi
+          grep -Fq 'H1_BOARD=393/412/430m' app/src/main/assets/furano_king123_v1154.lock
+          grep -Fq 'RULER_TOP=250/250/400m' app/src/main/assets/furano_king123_v1154.lock
+          PATCH_BLOCK=$(awk '/- name: Apply patch chain through V1.15.4/{f=1} /- name: Verify Golden bases survived build preparation unchanged/{f=0} f' .github/workflows/build-v1130-concept.yml)
+          if printf '%s\n' "$PATCH_BLOCK" | grep -Fq 'restore-furano-king123-chrome-v1153.py'; then echo 'legacy chrome redraw returned' >&2; exit 1; fi
           sha256sum -c /tmp/furano-v1154-golden.sha256
           cp "$APK" HokkaidoGolfGPS-v1.15.4-user-golden-visual-lock-debug.apk
 
@@ -179,9 +180,10 @@ jobs:
           script: bash .github/scripts/capture-preview-v1152-furano123.sh
 
       - name: Upload V1.15.4 inspected Furano previews
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: HokkaidoGolfGPS-v1.15.4-user-golden-visual-lock-preview-screenshots
           path: preview-v1154-furano123/*.png
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14

@@ -1,6 +1,7 @@
 from pathlib import Path
 import base64
 import atexit
+import shutil
 import sys
 
 # CI launcher hotfix: materialize the selected Hokkaido Golf GPS icon from the
@@ -14,6 +15,16 @@ if not out.exists():
     if candidates:
         raw = ''.join(candidates[0].read_text(encoding='utf-8').split())
         out.write_bytes(base64.b64decode(raw, validate=True))
+
+# Shared design generators historically read fonts from /tmp. Fast field builds
+# store the same bundled fonts under app assets, so expose that canonical copy
+# at the legacy generator path without downloading or regenerating anything.
+font_dir = root / 'app' / 'src' / 'main' / 'assets' / 'fonts'
+for name in ('Jua-Regular.ttf', 'MPLUSRounded1c-ExtraBold.ttf'):
+    src = font_dir / name
+    dst = Path('/tmp') / name
+    if src.exists() and not dst.exists():
+        shutil.copyfile(src, dst)
 
 # patch-v1138 imports the Storybook UI as its final layer. Apply the small
 # navigation compatibility correction immediately after that script finishes,

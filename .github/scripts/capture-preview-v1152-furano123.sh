@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.15.2-furano-king123-golden-debug.apk"
+APK="HokkaidoGolfGPS-v1.15.3-furano-king123-review-lock-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
 OUT="preview-v1152-furano123"
@@ -29,10 +29,9 @@ shot(){
 adb shell pm clear "$PKG" >/dev/null || true
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
-shot 1 "00-furano-king-h1-golden.png"
-shot 2 "01-furano-king-h2-approved-408_2.png"
-shot 3 "02-furano-king-h3-approved-408_3.png"
-# Basic screenshot sanity: portrait, nonempty, three distinct captures.
+shot 1 "00-furano-king-h1-review-lock.png"
+shot 2 "01-furano-king-h2-exact-408_2.png"
+shot 3 "02-furano-king-h3-exact-408_3.png"
 python3 - <<'PY'
 from PIL import Image,ImageChops
 from pathlib import Path
@@ -42,12 +41,19 @@ ims=[Image.open(x).convert('RGB') for x in fs]
 for f,im in zip(fs,ims):
     assert im.width<im.height,(f,im.size)
     assert im.getbbox(),f
+# The three holes must be distinct and the fixed top/bottom UI must be present.
 for a,b in zip(ims,ims[1:]): assert ImageChops.difference(a,b).getbbox() is not None
+for f,im in zip(fs,ims):
+    # top header should be blue, not white/black/corrupted; bottom nav should be dark green.
+    top=im.crop((0,0,im.width,int(im.height*.08))).resize((1,1)).getpixel((0,0))
+    bot=im.crop((0,int(im.height*.88),im.width,im.height)).resize((1,1)).getpixel((0,0))
+    assert top[2]>top[0] and top[2]>top[1]*.75,(f,'header',top)
+    assert bot[1]>bot[0] and bot[1]>bot[2],(f,'nav',bot)
 print([(f.name,im.size) for f,im in zip(fs,ims)])
 PY
 if adb logcat -d | grep -E "FATAL EXCEPTION|Process: ${PKG}" | grep -q "${PKG}\|FATAL EXCEPTION"; then
-  echo "App crash detected during V1.15.2 Furano KING H1-H3 preview"; adb logcat -d | tail -500; exit 1
+  echo "App crash detected during V1.15.3 Furano KING H1-H3 preview"; adb logcat -d | tail -500; exit 1
 fi
 adb shell wm size reset || true
 adb shell wm density reset || true
-printf 'V1.15.2 Furano KING H1-H3 screenshots:\n'; ls -lh "$OUT"/*.png
+printf 'V1.15.3 Furano KING H1-H3 screenshots:\n'; ls -lh "$OUT"/*.png

@@ -118,7 +118,8 @@ if 'if(masterSourceMappedV1161())' not in s:
 s=s.replace('if(screen==1 && selected==4){','if(screen==1 && masterSourceMappedV1161()){',1)
 
 # True edge-to-edge including display cutout. This is a single app-level policy,
-# not a per-course image workaround.
+# not a per-course image workaround. Apply it only after Activity creation so
+# the DecorView/InsetsController exists on API 30+.
 activity='    @Override protected void onCreate(Bundle b) {'
 if activity not in s:
     raise SystemExit('V1.16.1 activity anchor missing')
@@ -131,15 +132,16 @@ method=r'''    private void applyMasterEdgeToEdgeV1161() {
             lp.layoutInDisplayCutoutMode=android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             getWindow().setAttributes(lp);
         }
-        if (android.os.Build.VERSION.SDK_INT >= 30) {
+        View decor=getWindow().getDecorView();
+        if (android.os.Build.VERSION.SDK_INT >= 30 && decor!=null) {
             getWindow().setDecorFitsSystemWindows(false);
-            android.view.WindowInsetsController ic=getWindow().getInsetsController();
+            android.view.WindowInsetsController ic=decor.getWindowInsetsController();
             if(ic!=null){
                 ic.hide(android.view.WindowInsets.Type.statusBars() | android.view.WindowInsets.Type.navigationBars());
                 ic.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
         }
-        getWindow().getDecorView().setSystemUiVisibility(
+        if(decor!=null) decor.setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
                 View.SYSTEM_UI_FLAG_FULLSCREEN |
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
@@ -156,7 +158,10 @@ method=r'''    private void applyMasterEdgeToEdgeV1161() {
 '''
 if 'applyMasterEdgeToEdgeV1161' not in s:
     s=s.replace(activity,method+activity,1)
-    s=s.replace(activity,activity+'\n        applyMasterEdgeToEdgeV1161();',1)
+    super_anchor='        super.onCreate(b);'
+    if super_anchor not in s:
+        raise SystemExit('V1.16.1 super.onCreate anchor missing')
+    s=s.replace(super_anchor,super_anchor+'\n        applyMasterEdgeToEdgeV1161();',1)
 
 p.write_text(s)
-print('V1.16.1 MASTER SOURCE MAP: course-agnostic registry + one-time raw bitmap/crop cache; raw SHA preserved; edge-to-edge')
+print('V1.16.1 MASTER SOURCE MAP: reusable renderer + bitmap/crop cache + safe post-create edge-to-edge')

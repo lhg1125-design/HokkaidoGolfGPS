@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   master-field:
     runs-on: ubuntu-latest
@@ -37,16 +41,27 @@ jobs:
           cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
           cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Fetch Royal Links official 36-hole sources only
+      - name: Download verified V1.15.5 field source cache
+        uses: actions/download-artifact@v4
+        with:
+          name: HokkaidoGolfGPS-v1.15.5-normalized-approved-debug-apk
+          path: /tmp/v1155-field
+          github-token: ${{ github.token }}
+          repository: lhg1125-design/HokkaidoGolfGPS
+          run-id: 31888433985
+
+      - name: Reuse Royal Links raw 36-hole source cache
         run: |
           set -euo pipefail
           RES=app/src/main/res/drawable-nodpi
-          mkdir -p "$RES"
-          for h in $(seq -w 1 18); do
-            curl -L --fail --retry 3 --connect-timeout 8 --max-time 25 "https://www.royallinks.co.kr/images/course/a/${h}.jpg" -o "$RES/yardage_royallinks_queens${h}.jpg"
-            curl -L --fail --retry 3 --connect-timeout 8 --max-time 25 "https://www.royallinks.co.kr/images/course/b/${h}.jpg" -o "$RES/yardage_royallinks_kings${h}.jpg"
-          done
+          APK=$(find /tmp/v1155-field -type f -name '*.apk' | head -1)
+          test -s "$APK"
+          rm -rf /tmp/royal-cache
+          mkdir -p /tmp/royal-cache "$RES"
+          unzip -q "$APK" 'res/drawable-nodpi-v4/yardage_royallinks_*.jpg' -d /tmp/royal-cache
+          cp /tmp/royal-cache/res/drawable-nodpi-v4/yardage_royallinks_*.jpg "$RES"/
           test "$(find "$RES" -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l)" -eq 36
+          sha256sum "$RES"/yardage_royallinks_*.jpg > /tmp/royal-source.sha256
 
       - name: Render shared legacy support assets
         run: |
@@ -70,6 +85,9 @@ jobs:
           done
           python3 .github/scripts/patch-v1160-master-renderer.py
 
+      - name: Verify raw Royal sources were not reprocessed
+        run: sha256sum -c /tmp/royal-source.sha256
+
       - name: Set V1.16.0 field version
         run: |
           python3 - <<'PY'
@@ -91,7 +109,7 @@ jobs:
           grep -Fq 'MASTER TEMPLATE RENDERER V1.16.0' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -Fq 'if(selected==4){roundMasterMappedV1160(c);return;}' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -Fq 'fullHoleBitmapV1102()' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          test "$(find app/src/main/res/drawable-nodpi -maxdepth 1 -type f -name 'yardage_royallinks_*.jpg' | wc -l)" -eq 36
+          sha256sum -c /tmp/royal-source.sha256
           unzip -l "$APK" | grep 'yardage_royallinks_' > /tmp/royal.txt
           test "$(wc -l < /tmp/royal.txt)" -eq 36
           cp "$APK" HokkaidoGolfGPS-v1.16.0-master-renderer-field-debug.apk

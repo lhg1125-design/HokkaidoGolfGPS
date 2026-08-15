@@ -9,7 +9,9 @@ if 'masterSourceRectV1161' in s:
 if 'roundMasterMappedV1160' not in s:
     raise SystemExit('V1.16.1 requires V1.16.0 Master Renderer')
 
-# Runtime-only crop cache. The source JPG itself is never rewritten or transformed.
+# Runtime-only bitmap/crop cache. Raw source JPG bytes are never rewritten.
+# Decode and exterior-page scanning happen only when course/variant/hole changes,
+# never on every Canvas frame.
 anchor='        private void roundMasterMappedV1160(Canvas c){'
 if anchor not in s:
     raise SystemExit('V1.16.1 master renderer anchor missing')
@@ -18,29 +20,43 @@ helpers=r'''        private boolean masterSourceMappedV1161(){
             // its raw yardage resource/data. No per-course finished UI image.
             return screen==1 && selected>=0 && fullHoleResourceV1102()!=null;
         }
+        private String masterRawKeyV1161;
         private Bitmap masterRawBitmapV1161;
         private android.graphics.Rect masterRawCropV1161;
+        private Bitmap masterCourseBitmapV1161(){
+            String key=fullHoleResourceV1102();
+            if(key==null)return null;
+            if(key.equals(masterRawKeyV1161) && masterRawBitmapV1161!=null && !masterRawBitmapV1161.isRecycled())return masterRawBitmapV1161;
+            if(masterRawBitmapV1161!=null && !masterRawBitmapV1161.isRecycled()){
+                try{masterRawBitmapV1161.recycle();}catch(Exception ignored){}
+            }
+            masterRawKeyV1161=key;masterRawBitmapV1161=null;masterRawCropV1161=null;
+            int id=getResources().getIdentifier(key,"drawable",ctx.getPackageName());
+            if(id==0)return null;
+            try{
+                BitmapFactory.Options opt=new BitmapFactory.Options();
+                opt.inPreferredConfig=Bitmap.Config.ARGB_8888;opt.inMutable=false;
+                masterRawBitmapV1161=BitmapFactory.decodeResource(getResources(),id,opt);
+            }catch(Throwable ignored){masterRawBitmapV1161=null;}
+            return masterRawBitmapV1161;
+        }
         private android.graphics.Rect masterSourceRectV1161(Bitmap im){
             if(im==null)return null;
             if(im==masterRawBitmapV1161 && masterRawCropV1161!=null)return masterRawCropV1161;
             int w=im.getWidth(),h=im.getHeight();
-            // Android O+ may decode drawable resources as Config.HARDWARE.
-            // Hardware bitmaps cannot be read with getPixels(), so create one
-            // temporary software copy for bbox analysis only. The displayed/raw
-            // source bitmap and its packaged JPG bytes remain untouched.
             Bitmap scan=im;boolean recycleScan=false;
             if(im.getConfig()==Bitmap.Config.HARDWARE){
                 scan=im.copy(Bitmap.Config.ARGB_8888,false);recycleScan=scan!=null && scan!=im;
             }
             if(scan==null){
                 android.graphics.Rect full=new android.graphics.Rect(0,0,w,h);
-                masterRawBitmapV1161=im;masterRawCropV1161=full;return full;
+                masterRawCropV1161=full;return full;
             }
             int[] px=new int[w*h];scan.getPixels(px,0,w,0,0,w,h);
             if(recycleScan)scan.recycle();
             int minX=w,minY=h,maxX=-1,maxY=-1;
-            // Detect only the neutral white/cream exterior page. Internal white
-            // bunkers/details remain untouched because we crop one outer rectangle.
+            // Only crop the neutral white/cream exterior page. Internal bunkers,
+            // paths and every course pixel remain untouched.
             for(int y=0;y<h;y+=2){
                 int row=y*w;
                 for(int x=0;x<w;x+=2){
@@ -57,7 +73,7 @@ helpers=r'''        private boolean masterSourceMappedV1161(){
                 int l=Math.max(0,minX-pad),t=Math.max(0,minY-pad),r=Math.min(w,maxX+pad+2),b=Math.min(h,maxY+pad+2);
                 out=new android.graphics.Rect(l,t,r,b);
             }
-            masterRawBitmapV1161=im;masterRawCropV1161=out;return out;
+            masterRawCropV1161=out;return out;
         }
         private RectF masterFitSourceV1161(android.graphics.Rect src,RectF box){
             if(src==null||src.width()<=0||src.height()<=0)return new RectF(box);
@@ -68,6 +84,14 @@ helpers=r'''        private boolean masterSourceMappedV1161(){
         }
 '''
 s=s.replace(anchor,helpers+anchor,1)
+
+# Master renderer must use the cached raw bitmap rather than decoding the JPG
+# again on every 50 ms draw frame.
+old_course='            Bitmap course=fullHoleBitmapV1102();'
+new_course='            Bitmap course=masterCourseBitmapV1161();'
+if old_course not in s:
+    raise SystemExit('V1.16.1 master bitmap decode anchor missing')
+s=s.replace(old_course,new_course,1)
 
 old='''            if(course!=null){
                 RectF dst=fitCenterV1102(course,slot);Paint bp=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);c.drawBitmap(course,null,dst,bp);
@@ -135,4 +159,4 @@ if 'applyMasterEdgeToEdgeV1161' not in s:
     s=s.replace(activity,activity+'\n        applyMasterEdgeToEdgeV1161();',1)
 
 p.write_text(s)
-print('V1.16.1 MASTER SOURCE MAP: course-agnostic raw registry -> one master renderer; raw SHA preserved; hardware-safe crop; edge-to-edge')
+print('V1.16.1 MASTER SOURCE MAP: course-agnostic registry + one-time raw bitmap/crop cache; raw SHA preserved; edge-to-edge')

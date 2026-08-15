@@ -1,9 +1,17 @@
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import runpy
 
 RES=Path('app/src/main/res/drawable-nodpi')
 JUA='/tmp/Jua-Regular.ttf'
 MPLUS='/tmp/MPLUSRounded1c-ExtraBold.ttf'
+
+# H1 is the approved Golden Master. Apply its exact 365x1062 pixel sprite after
+# generic H1-H3 cleanup, then rebuild all right-side chrome on top. H2/H3 remain
+# the exact user-approved 408_2.webp / 408_3.webp geometry from the preceding step.
+H1_MASTER=Path('.github/scripts/apply-furano-h1-master-v1152.py')
+if not H1_MASTER.exists(): raise SystemExit('missing approved Furano H1 master applicator')
+runpy.run_path(str(H1_MASTER),run_name='__main__')
 
 def F(sz,jp=False): return ImageFont.truetype(MPLUS if jp else JUA,sz)
 def txt(d,xy,s,sz,fill,anchor='mm',stroke=0,stroke_fill=(10,20,16,255),jp=False):

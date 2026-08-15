@@ -13,7 +13,12 @@ if 'roundMasterMappedV1160' not in s:
 anchor='        private void roundMasterMappedV1160(Canvas c){'
 if anchor not in s:
     raise SystemExit('V1.16.1 master renderer anchor missing')
-helpers=r'''        private Bitmap masterRawBitmapV1161;
+helpers=r'''        private boolean masterSourceMappedV1161(){
+            // Course-agnostic dispatch: adding a course only requires registering
+            // its raw yardage resource/data. No per-course finished UI image.
+            return screen==1 && selected>=0 && fullHoleResourceV1102()!=null;
+        }
+        private Bitmap masterRawBitmapV1161;
         private android.graphics.Rect masterRawCropV1161;
         private android.graphics.Rect masterSourceRectV1161(Bitmap im){
             if(im==null)return null;
@@ -77,6 +82,17 @@ if old not in s:
     raise SystemExit('V1.16.1 raw course draw anchor missing')
 s=s.replace(old,new,1)
 
+# Route every registered raw course through the same Master Renderer before any
+# legacy country/course-specific renderer. Future courses only extend the raw
+# source registry/data, not the UI rendering code.
+round_sig='        private void round(Canvas c){'
+if round_sig not in s:
+    raise SystemExit('V1.16.1 round dispatch anchor missing')
+if 'if(masterSourceMappedV1161())' not in s:
+    s=s.replace(round_sig,round_sig+'\n            if(masterSourceMappedV1161()){roundMasterMappedV1160(c);return;}',1)
+# Reuse the same generic predicate for target/nav touch routing.
+s=s.replace('if(screen==1 && selected==4){','if(screen==1 && masterSourceMappedV1161()){',1)
+
 # True edge-to-edge including display cutout. This is a single app-level policy,
 # not a per-course image workaround.
 activity='    @Override protected void onCreate(Bundle b) {'
@@ -119,4 +135,4 @@ if 'applyMasterEdgeToEdgeV1161' not in s:
     s=s.replace(activity,activity+'\n        applyMasterEdgeToEdgeV1161();',1)
 
 p.write_text(s)
-print('V1.16.1 MASTER SOURCE MAP: raw SHA preserved, hardware-safe runtime crop, cutout edge-to-edge')
+print('V1.16.1 MASTER SOURCE MAP: course-agnostic raw registry -> one master renderer; raw SHA preserved; hardware-safe crop; edge-to-edge')

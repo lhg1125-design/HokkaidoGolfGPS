@@ -125,7 +125,8 @@ jobs:
           grep -Fq 'if(masterSourceMappedV1161()){drawGoldenMasterV1162(c);return;}' "$JAVA"
           test -s app/src/main/res/drawable-nodpi/master_golden_chrome_v1162.webp
           test -s app/src/main/assets/master_golden_v1162.lock
-          grep -Fq 'source=V1.15.2/V1.15.4 approved chrome' app/src/main/assets/master_golden_v1162.lock
+          grep -Fq 'source=V1.15.3/V1.15.4 approved chrome' app/src/main/assets/master_golden_v1162.lock
+          grep -Fq 'header=approved gradient+back+course-icon+weather' app/src/main/assets/master_golden_v1162.lock
           sha256sum -c /tmp/royal-source.sha256
           unzip -l "$APK" | grep 'yardage_royallinks_' > /tmp/royal.txt
           test "$(wc -l < /tmp/royal.txt)" -eq 36

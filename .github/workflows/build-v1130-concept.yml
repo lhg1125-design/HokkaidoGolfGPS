@@ -12,22 +12,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
       - name: Install render tools
         run: python3 -m pip install --disable-pip-version-check pillow selenium requests numpy
+
       - name: Restore approved concept artwork
         run: |
           mkdir -p app/src/main/res/drawable-nodpi
           cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
           cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
+
       - name: Bundle concept fonts
         run: |
           curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o /tmp/Jua-Regular.ttf
@@ -35,8 +40,10 @@ jobs:
           mkdir -p app/src/main/assets/fonts
           cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
           cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
+
       - name: Fetch full-hole imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
+
       - name: Preserve Sahoro as JPG
         run: |
           python3 - <<'PY'
@@ -50,12 +57,19 @@ jobs:
               with Image.open(src) as im: im.convert('RGB').save(dst,'JPEG',quality=96,subsampling=0,optimize=True)
               src.unlink()
           PY
+
       - name: Fetch Naepo real yardage
         run: python3 .github/scripts/fetch-naepo-real-yardage-v1132.py
+
+      - name: Lock approved Furano KING H2-H3 sources
+        run: python3 .github/scripts/lock-furano-king23-approved-v1152.py
+
       - name: Generate approved Furano KING H1-H3 bases
         run: python3 .github/scripts/generate-furano-king123-v1152.py
+
       - name: Stylize 135 yardages
         run: python3 .github/scripts/stylize-yardage-v1130.py
+
       - name: Render concept UI assets
         run: |
           python3 - <<'PY'
@@ -70,6 +84,7 @@ jobs:
           PY
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
+
       - name: Apply patch chain through V1.15.2
         run: |
           set -e
@@ -78,6 +93,7 @@ jobs:
           done
           python3 .github/scripts/storybook_v1151_polish.py
           python3 .github/scripts/storybook_v1152_furano123.py
+
       - name: Set package version
         run: |
           python3 - <<'PY'
@@ -88,8 +104,10 @@ jobs:
           s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.15.2-furano-king123-golden"',s,1)
           p.write_text(s)
           PY
+
       - name: Build V1.15.2 debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
+
       - name: Gate V1.15.2 Furano KING123 APK
         run: |
           set -e
@@ -101,18 +119,23 @@ jobs:
           grep -q 'V1.15.2 · FURANO KING123 GOLDEN' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'drawFuranoKing123V1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'furanoInitialV1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'PAR' .github/scripts/generate-furano-king123-v1152.py
+          grep -q 'str(par),33,(255,188,36,255)' .github/scripts/generate-furano-king123-v1152.py
           test -s app/src/main/res/drawable-nodpi/furano_king_h1_base_v1152.webp
           test -s app/src/main/res/drawable-nodpi/furano_king_h2_base_v1152.webp
           test -s app/src/main/res/drawable-nodpi/furano_king_h3_base_v1152.webp
           cp "$APK" HokkaidoGolfGPS-v1.15.2-furano-king123-golden-debug.apk
+
       - name: Upload V1.15.2 APK
         uses: actions/upload-artifact@v4
         with:
           name: HokkaidoGolfGPS-v1.15.2-furano-king123-golden-debug-apk
           path: HokkaidoGolfGPS-v1.15.2-furano-king123-golden-debug.apk
           retention-days: 14
+
       - name: Enable KVM
         run: sudo chmod 666 /dev/kvm || true
+
       - name: Capture V1.15.2 Furano KING H1-H3
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -123,6 +146,7 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
           script: bash .github/scripts/capture-preview-v1152-furano123.sh
+
       - name: Upload V1.15.2 Furano previews
         uses: actions/upload-artifact@v4
         with:

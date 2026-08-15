@@ -14,5 +14,16 @@ for old,new in repls.items():
     elif new not in s:
         raise SystemExit(f'V1.15.4 reviewed generator anchor missing: {old}')
 
+# Official Prince images are high-resolution page canvases. After removing only
+# edge-connected neutral page pixels, crop the now-transparent exterior before
+# aspect-fit. This changes no course pixel/shape; it prevents the full page
+# canvas from shrinking a tall hole into a tiny strip.
+old="    return Image.fromarray(np.dstack([a,alpha]),'RGBA')"
+new="    out=Image.fromarray(np.dstack([a,alpha]),'RGBA')\n    bbox=out.getbbox()\n    return out.crop(bbox) if bbox else out"
+if old in s:
+    s=s.replace(old,new,1)
+elif "return out.crop(bbox) if bbox else out" not in s:
+    raise SystemExit('V1.15.4 alpha-tight crop anchor missing')
+
 p.write_text(s)
-print('V1.15.4 REVIEWED GENERATOR: H1=393/412/430, ruler tops H1/H2/H3=250/250/400, one 200m marker')
+print('V1.15.4 REVIEWED GENERATOR: H1=393/412/430, ruler tops=250/250/400, alpha-tight official H2/H3')

@@ -11,11 +11,13 @@ EXPECTED={
 }
 
 def decoded_h2():
-    text=''.join((ASSET/f'king02.part{i}').read_text().strip() for i in (1,2,3))
-    return base64.b64decode(text)
+    # The user-approved 408_2.webp is 21,048 Base64 chars and is intentionally
+    # split into four equal 5,262-char repository parts.  All four are required.
+    text=''.join((ASSET/f'king02.part{i}').read_text().strip() for i in (1,2,3,4))
+    return base64.b64decode(text,validate=True)
 
 def decoded_h3():
-    return base64.b64decode((ASSET/'king03.b64').read_text().strip())
+    return base64.b64decode((ASSET/'king03.b64').read_text().strip(),validate=True)
 
 def lock(h, raw):
     sha=hashlib.sha256(raw).hexdigest()
@@ -29,17 +31,12 @@ def lock(h, raw):
     lo,hi=alpha.getextrema()
     if lo>=255:
         raise SystemExit(f'Furano KING H{h} approved source lost transparency')
-    # Existing golden-base generator reads the yardage JPG path and removes only
-    # edge-connected neutral page background.  Materialize the USER-APPROVED
-    # Rakuten GORA WebP on that neutral canvas without changing map coordinates,
-    # orientation, aspect ratio or internal pixels.
+    # Materialize the exact user-approved GORA geometry onto a neutral page for
+    # the existing golden-base extractor.  No crop, warp, rotation or redraw.
     page=Image.new('RGBA',im.size,(247,244,232,255))
     page.alpha_composite(im)
     dst=RES/f'yardage_furano_king{h:02d}.jpg'
     page.convert('RGB').save(dst,format='PNG',optimize=True)
-    # PNG bytes under the legacy .jpg resource name are intentional: Pillow and
-    # Android identify image data by content, while the old 135-file resource
-    # naming/count contract remains unchanged.
     print(f'LOCKED Furano KING H{h}: approved 408_{h}.webp sha256={sha} size={im.size} -> {dst}')
 
 lock(2,decoded_h2())

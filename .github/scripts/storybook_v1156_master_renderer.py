@@ -14,7 +14,8 @@ if pos<0: raise SystemExit('V1.15.6 helper insertion anchor missing')
 
 helpers=r'''        // V1.15.6 MASTER DESIGN RENDERER
         // One UI grammar + raw external yardage bitmap/data. No per-hole screen generation.
-        private boolean masterRendererV1156(){return screen==1 && selected==4 && hole>=1 && hole<=18;}
+        // Any registered course index uses the same renderer automatically.
+        private boolean masterRendererV1156(){return screen==1 && selected>=0 && hole>=1 && hole<=18;}
         private void masterTextV1156(Canvas c,String s,float x,float y,float z,int col,Paint.Align a,boolean stroke){
             p.setShader(null);p.clearShadowLayer();p.setAlpha(255);p.setTextAlign(a);p.setTextSize(z);p.setTypeface(conceptTypefaceV1130(s,true));
             if(stroke){p.setStyle(Paint.Style.STROKE);p.setStrokeJoin(Paint.Join.ROUND);p.setStrokeWidth(Math.max(2f,z*.095f));p.setColor(Color.rgb(15,18,12));c.drawText(s,x,y,p);}
@@ -77,4 +78,4 @@ if 'private String furanoInitialV1152' not in s:
 
 if 'V1.15.6 · MASTER SOURCE MAPPER' not in s:s=s.replace('V1.15.1 · REFERENCE POLISH','V1.15.1 · REFERENCE POLISH / V1.15.6 · MASTER SOURCE MAPPER',1)
 p.write_text(s)
-print('V1.15.6 MASTER SOURCE MAPPER: Royal Links raw source -> one built-in approved design renderer; no per-hole image generation')
+print('V1.15.6 MASTER SOURCE MAPPER: every registered course raw source -> one built-in approved design renderer; no per-hole image generation')

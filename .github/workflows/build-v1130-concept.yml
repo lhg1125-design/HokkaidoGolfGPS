@@ -68,7 +68,10 @@ jobs:
         run: python3 .github/scripts/generate-furano-king123-v1152.py
 
       - name: Apply reviewed H1-H3 strict clip and clean header
-        run: python3 .github/scripts/postprocess-furano-king123-v1153.py
+        run: |
+          python3 .github/scripts/postprocess-furano-king123-v1153.py
+          mkdir -p app/src/main/assets
+          mv app/src/main/res/drawable-nodpi/furano_king123_v1153.lock app/src/main/assets/furano_king123_v1153.lock
 
       - name: Stylize 135 yardages
         run: python3 .github/scripts/stylize-yardage-v1130.py
@@ -122,9 +125,9 @@ jobs:
           grep -q 'V1.15.2 · FURANO KING123 GOLDEN' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'drawFuranoKing123V1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'furanoInitialV1152' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          test -s app/src/main/res/drawable-nodpi/furano_king123_v1153.lock
-          grep -q 'H2=exact 408_2.webp' app/src/main/res/drawable-nodpi/furano_king123_v1153.lock
-          grep -q 'H3=exact 408_3.webp' app/src/main/res/drawable-nodpi/furano_king123_v1153.lock
+          test -s app/src/main/assets/furano_king123_v1153.lock
+          grep -q 'H2=exact 408_2.webp' app/src/main/assets/furano_king123_v1153.lock
+          grep -q 'H3=exact 408_3.webp' app/src/main/assets/furano_king123_v1153.lock
           test -s app/src/main/res/drawable-nodpi/furano_king_h1_base_v1152.webp
           test -s app/src/main/res/drawable-nodpi/furano_king_h2_base_v1152.webp
           test -s app/src/main/res/drawable-nodpi/furano_king_h3_base_v1152.webp

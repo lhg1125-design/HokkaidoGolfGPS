@@ -19,14 +19,14 @@ near=s[s.find(anchor):s.find(anchor)+500]
 if 'goldenMetricV1162(c,ds.front' not in near:
     s=s.replace(anchor,anchor+metric,1)
 
-# Restore the approved narrow/tall course viewport LAST, after the static loader
-# patch. Restrict replacement to drawGoldenMasterV1162 so no unrelated RectF is touched.
+# Restore only the slot constructor coordinates. Do NOT consume a same-line
+# `,dst=new RectF()` declaration after the first closing parenthesis.
 start=s.find('        private void drawGoldenMasterV1162(Canvas c)')
 if start<0: raise SystemExit('PASS restore: golden draw method missing')
 end=s.find('        private boolean masterSourceMappedV1161()',start)
 if end<0: end=len(s)
 chunk=s[start:end]
-chunk2,n=re.subn(r'RectF slot=new RectF\([^;]+\)',
+chunk2,n=re.subn(r'RectF slot=new RectF\([^)]*\)',
                  'RectF slot=new RectF(260,365,680,1422)',chunk,count=1)
 if n!=1: raise SystemExit('PASS restore: course slot replacement failed')
 s=s[:start]+chunk2+s[end:]
@@ -34,12 +34,13 @@ s=s[:start]+chunk2+s[end:]
 # Provenance marker only; no runtime pixel effects.
 s=s.replace('        // CONCEPT REFERENCE LOCK V1.16.3','        // PASS MASTER RESTORE V1.16.6\n        // Approved Royal Links H1/H2 layout: wood metrics visible + original course slot.\n        // CONCEPT REFERENCE LOCK V1.16.3',1)
 
-# Hard assertions: this patch is authoritative and must fail before APK build if
-# either approved PASS requirement is lost.
+# Hard assertions: final slot + metrics + destination RectF must survive.
 if 'RectF slot=new RectF(260,365,680,1422)' not in s:
     raise SystemExit('PASS restore: final course slot not locked')
 if 'goldenMetricV1162(c,ds.front,166' not in s:
     raise SystemExit('PASS restore: wood metrics missing')
+if 'dst=new RectF()' not in s:
+    raise SystemExit('PASS restore: destination RectF declaration missing')
 
 p.write_text(s)
-print('V1.16.6 PASS MASTER RESTORED: wood metrics visible; original course viewport restored')
+print('V1.16.6 PASS MASTER RESTORED: wood metrics visible; original course viewport restored; dst preserved')

@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
-APK="HokkaidoGolfGPS-v1.16.2-golden-master-restore-debug.apk"
+APK="HokkaidoGolfGPS-v1.16.3-concept-reference-lock-debug.apk"
 PKG="com.hokkaidogolf.trip"
 ACTIVITY="com.hokkaidogolf.trip/.FieldGpsV09Activity"
-OUT="preview-v1162-royallinks-golden"
+OUT="preview-v1163-concept"
 mkdir -p "$OUT"; rm -f "$OUT"/*.png "$OUT"/*.log
 adb shell wm size 941x1672
 adb shell wm density 420
-# Pixel Launcher can briefly ANR after a cold GitHub-hosted emulator boot. It is
-# unrelated to the golf app, but its system dialog must never contaminate QA.
 sleep 4
 
 dismiss_launcher_anr(){
   local tries=0
   while [ "$tries" -lt 4 ]; do
     tries=$((tries+1))
-    adb shell uiautomator dump /sdcard/golden-ui.xml >/dev/null 2>&1 || true
-    if adb shell cat /sdcard/golden-ui.xml 2>/dev/null | grep -Fq "Pixel Launcher isn't responding"; then
-      echo "Dismissing emulator-only Pixel Launcher ANR (Wait)" >&2
-      # Fixed capture canvas is 941x1672; this point is the Wait row, not Close app.
+    adb shell uiautomator dump /sdcard/concept-ui.xml >/dev/null 2>&1 || true
+    if adb shell cat /sdcard/concept-ui.xml 2>/dev/null | grep -Fq "Pixel Launcher isn't responding"; then
       adb shell input tap 365 965 || true
       sleep 1.2
       continue
@@ -49,18 +45,15 @@ shot(){
   start_preview "$variant" "$hole"
   sleep 1.5
   dismiss_launcher_anr
-  # Reassert the golf activity after dismissing a launcher ANR dialog.
   start_preview "$variant" "$hole"
   sleep 1.4
   dismiss_launcher_anr
   if ! adb shell pidof "$PKG" >/dev/null 2>&1; then
-    echo "APP PROCESS EXITED variant=$variant hole=$hole" >&2
     adb logcat -d -v threadtime | grep -E -A50 -B10 "AndroidRuntime|FATAL EXCEPTION|Process: ${PKG}|Caused by:" | tail -260 >&2 || true
     return 77
   fi
-  # System dialogs are forbidden in a visual-master capture.
-  adb shell uiautomator dump /sdcard/golden-ui.xml >/dev/null 2>&1 || true
-  if adb shell cat /sdcard/golden-ui.xml 2>/dev/null | grep -Eq "isn't responding|Close app|Wait"; then
+  adb shell uiautomator dump /sdcard/concept-ui.xml >/dev/null 2>&1 || true
+  if adb shell cat /sdcard/concept-ui.xml 2>/dev/null | grep -Eq "isn't responding|Close app|Wait"; then
     echo "SYSTEM DIALOG STILL PRESENT; refusing contaminated screenshot" >&2
     return 78
   fi
@@ -68,18 +61,19 @@ shot(){
   test -s "$OUT/$file"
 }
 
-shot 0 1  "00-royallinks-queens-h1-golden.png"
-shot 1 1  "01-royallinks-kings-h1-golden.png"
-shot 0 18 "02-royallinks-queens-h18-golden.png"
+shot 0 1  "00-royallinks-queens-h1-concept.png"
+shot 1 1  "01-royallinks-kings-h1-concept.png"
+shot 0 18 "02-royallinks-queens-h18-concept.png"
+shot 1 7  "03-royallinks-kings-h7-short-par3.png"
 
 python3 - <<'PY'
 from PIL import Image
 from pathlib import Path
 import numpy as np
 
-out=Path('preview-v1162-royallinks-golden')
+out=Path('preview-v1163-concept')
 fs=sorted(out.glob('*.png'))
-assert len(fs)==3,fs
+assert len(fs)==4,fs
 ref=np.asarray(Image.open('app/src/main/res/drawable-nodpi/master_golden_chrome_v1162.webp').convert('RGB'),dtype=np.int16)
 assert ref.shape[:2]==(1672,941),ref.shape
 ims=[]
@@ -87,40 +81,59 @@ for f in fs:
     im=Image.open(f).convert('RGB'); assert im.size==(941,1672),(f,im.size); ims.append(im)
     a=np.asarray(im,dtype=np.int16)
     mask=np.zeros((1672,941),bool)
-    # User-approved fixed chrome only. Dynamic title/metrics/players/course/ruler are excluded.
-    mask[8:148,18:82]=True                 # approved back arrow + course icon
-    mask[8:148,700:928]=True               # approved weather chrome
-    mask[156:205,18:923]=True              # wood top/grain/leaves
-    mask[335:350,18:923]=True              # wood lower edge
-    mask[477:1328,18:36]=True              # score panel left edge
-    mask[477:1328,214:238]=True             # score panel right/shadow edge
-    mask[397:450,714:918]=True              # bubble top chrome
-    mask[530:575,714:918]=True              # bubble bottom/tail chrome
-    mask[1240:1408,620:925]=True            # approved beige target control
-    mask[1458:1652,18:923]=True             # approved bottom navigation
-    mask[370:1418,240:255]=True             # warm paper strip beside course
+    mask[8:148,18:82]=True
+    mask[8:148,700:928]=True
+    mask[156:205,18:923]=True
+    mask[335:350,18:923]=True
+    mask[477:1328,18:36]=True
+    mask[477:1328,214:238]=True
+    mask[397:450,714:918]=True
+    mask[530:575,714:918]=True
+    mask[1240:1408,620:925]=True
+    mask[1458:1652,18:923]=True
+    mask[370:1418,240:255]=True
     diff=np.abs(a-ref).mean(axis=2)
     mae=float(diff[mask].mean()); p95=float(np.percentile(diff[mask],95))
-    assert mae<10.0,(f,'golden chrome MAE too high',mae,p95)
-    assert p95<28.0,(f,'golden chrome p95 too high',mae,p95)
-    slot=a[365:1422,260:680]
-    nearwhite=np.all(slot>245,axis=2); white_fraction=float(nearwhite.mean())
-    assert white_fraction<0.16,(f,'white rectangular course page remains',white_fraction)
-    target=a[1275:1370,660:880].mean(axis=(0,1))
-    assert target[0]>target[1]>target[2] and target[1]>150,(f,'golden target tone missing',target.tolist())
-    nav=a[1470:1640,30:910].mean(axis=(0,1))
-    assert nav[1]>nav[0]*1.25 and nav[1]<105,(f,'golden dark nav missing',nav.tolist())
-    # Approved header must visibly contain bright arrow/weather pixels.
-    arrow=a[25:90,30:90]; weather=a[25:90,735:915]
-    assert float((arrow.mean(axis=2)>210).mean())>0.025,(f,'approved back arrow missing')
-    assert float((weather.mean(axis=2)>190).mean())>0.06,(f,'approved weather chrome missing')
-    print(f.name,'GOLDEN_MAE',round(mae,2),'P95',round(p95,2),'WHITE_PAGE',round(white_fraction,4))
+    assert mae<10.0,(f,'concept chrome MAE too high',mae,p95)
+    assert p95<28.0,(f,'concept chrome p95 too high',mae,p95)
 
-a0=np.asarray(ims[0],dtype=np.int16)[365:1422,260:680]
-a1=np.asarray(ims[1],dtype=np.int16)[365:1422,260:680]
+    slot=a[355:1435,250:690]
+    nearwhite=np.all(slot>245,axis=2); white_fraction=float(nearwhite.mean())
+    assert white_fraction<0.12,(f,'white rectangular course page remains',white_fraction)
+
+    # Uploaded concept is dark/rich, not the previous pale/washed reproduction.
+    wood=a[180:300,330:600].mean(axis=(0,1))
+    assert 45<wood[0]<120 and 25<wood[1]<85 and wood[2]<60,(f,'walnut board too pale',wood.tolist())
+    panel=a[650:700,35:200].mean(axis=(0,1))
+    assert panel[1]<90 and panel[1]>panel[0]*1.35 and panel[2]<45,(f,'score panel not deep green',panel.tolist())
+    target=a[1275:1370,660:880].mean(axis=(0,1))
+    assert target[0]>target[1]>target[2] and target[1]<190 and target[2]<145,(f,'target not amber-gold',target.tolist())
+    nav=a[1470:1640,30:910].mean(axis=(0,1))
+    assert nav[1]>nav[0]*1.25 and nav[1]<105,(f,'dark green nav missing',nav.tolist())
+
+    # Course display must be lush enough to visually match the H2/H3 design reference.
+    rr,gg,bb=slot[:,:,0],slot[:,:,1],slot[:,:,2]
+    green=(gg>rr*1.10)&(gg>bb*1.28)&(gg>55)
+    green_fraction=float(green.mean())
+    assert green_fraction>0.13,(f,'course still too washed / insufficient green density',green_fraction)
+    if green.any():
+        gm=slot[green].mean(axis=0)
+        assert gm[0]<145 and gm[1]<190 and gm[2]<110,(f,'course green palette still washed',gm.tolist())
+    print(f.name,'MAE',round(mae,2),'WHITE',round(white_fraction,4),'GREEN',round(green_fraction,4),'WOOD',wood.astype(int).tolist())
+
+# Different official maps must remain genuinely different.
+a0=np.asarray(ims[0],dtype=np.int16)[355:1435,250:690]
+a1=np.asarray(ims[1],dtype=np.int16)[355:1435,250:690]
 course_diff=float(np.abs(a0-a1).mean())
 assert course_diff>6.0,('Queens/Kings course mapping did not change',course_diff)
-print('V1.16.2 USER GOLDEN MASTER VISUAL QA PASS','course_diff',round(course_diff,2))
+
+# Kings H7 official WHITE length is 145m: no blue 200m pill may be drawn.
+short=np.asarray(ims[3],dtype=np.uint8)
+roi=short[560:1180,620:790]
+r,g,b=roi[:,:,0],roi[:,:,1],roi[:,:,2]
+blue=((b>150)&(b>g*1.25)&(b>r*1.6))
+assert float(blue.mean())<0.012,('short-hole invalid 200m marker still visible',float(blue.mean()))
+print('V1.16.3 UPLOADED CONCEPT VISUAL QA PASS','course_diff',round(course_diff,2))
 PY
 
 adb shell wm size reset || true

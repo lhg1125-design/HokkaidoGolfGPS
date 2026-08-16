@@ -101,7 +101,6 @@ for f in fs:
     nearwhite=np.all(slot>245,axis=2); white_fraction=float(nearwhite.mean())
     assert white_fraction<0.12,(f,'white rectangular course page remains',white_fraction)
 
-    # Uploaded concept is dark/rich, not the previous pale/washed reproduction.
     wood=a[180:300,330:600].mean(axis=(0,1))
     assert 45<wood[0]<120 and 25<wood[1]<85 and wood[2]<60,(f,'walnut board too pale',wood.tolist())
     panel=a[650:700,35:200].mean(axis=(0,1))
@@ -111,7 +110,6 @@ for f in fs:
     nav=a[1470:1640,30:910].mean(axis=(0,1))
     assert nav[1]>nav[0]*1.25 and nav[1]<105,(f,'dark green nav missing',nav.tolist())
 
-    # Course display must be lush enough to visually match the H2/H3 design reference.
     rr,gg,bb=slot[:,:,0],slot[:,:,1],slot[:,:,2]
     green=(gg>rr*1.10)&(gg>bb*1.28)&(gg>55)
     green_fraction=float(green.mean())
@@ -121,18 +119,18 @@ for f in fs:
         assert gm[0]<145 and gm[1]<190 and gm[2]<110,(f,'course green palette still washed',gm.tolist())
     print(f.name,'MAE',round(mae,2),'WHITE',round(white_fraction,4),'GREEN',round(green_fraction,4),'WOOD',wood.astype(int).tolist())
 
-# Different official maps must remain genuinely different.
 a0=np.asarray(ims[0],dtype=np.int16)[355:1435,250:690]
 a1=np.asarray(ims[1],dtype=np.int16)[355:1435,250:690]
 course_diff=float(np.abs(a0-a1).mean())
 assert course_diff>6.0,('Queens/Kings course mapping did not change',course_diff)
 
-# Kings H7 official WHITE length is 145m: no blue 200m pill may be drawn.
+# Kings H7 is a short PAR3. Inspect only the ruler/pill zone to avoid treating
+# official blue water on the left edge of the course as a blue 200m badge.
 short=np.asarray(ims[3],dtype=np.uint8)
-roi=short[560:1180,620:790]
+roi=short[560:1180,640:790]
 r,g,b=roi[:,:,0],roi[:,:,1],roi[:,:,2]
 blue=((b>150)&(b>g*1.25)&(b>r*1.6))
-assert float(blue.mean())<0.012,('short-hole invalid 200m marker still visible',float(blue.mean()))
+assert float(blue.mean())<0.004,('short-hole invalid 200m marker still visible',float(blue.mean()))
 print('V1.16.3 UPLOADED CONCEPT VISUAL QA PASS','course_diff',round(course_diff,2))
 PY
 

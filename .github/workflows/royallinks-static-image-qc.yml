@@ -1,0 +1,142 @@
+name: Royal Links Static Image QA
+
+on:
+  push:
+    branches: [ royallinks-static-image-qc ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  queens18-qc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install render tools
+        run: python3 -m pip install --disable-pip-version-check pillow requests numpy
+
+      - name: Restore shared support assets and fonts
+        run: |
+          mkdir -p app/src/main/res/drawable-nodpi app/src/main/assets/fonts
+          cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o /tmp/Jua-Regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o /tmp/MPLUSRounded1c-ExtraBold.ttf
+          cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
+          cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
+
+      - name: Generate approved master chrome
+        run: |
+          python3 .github/scripts/generate-v1162-golden-chrome.py
+          python3 .github/scripts/retune-v1163-concept-chrome.py
+
+      - name: Fetch Royal Links official 36-hole raw sources
+        run: |
+          set -euo pipefail
+          RES=app/src/main/res/drawable-nodpi
+          mkdir -p "$RES"
+          UA='Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/143 Safari/537.36'
+          BASE='https://www.royallinks.co.kr'
+          curl --http1.1 -fsSL --retry 8 --retry-all-errors --retry-delay 1 -A "$UA" -c /tmp/royal.cookies "$BASE/course/course01.asp" -o /tmp/royal-course.html
+          for n in $(seq 1 18); do
+            h=$(printf '%02d' "$n")
+            qref=$(printf '%s/course/course%02d.asp' "$BASE" "$n")
+            kref=$(printf '%s/course/course%02d.asp' "$BASE" "$((n+18))")
+            curl --http1.1 -fsSL --retry 10 --retry-all-errors --retry-delay 1 -A "$UA" -b /tmp/royal.cookies -e "$qref" "$BASE/images/course/a/${h}.jpg" -o "$RES/yardage_royallinks_queens${h}.jpg"
+            curl --http1.1 -fsSL --retry 10 --retry-all-errors --retry-delay 1 -A "$UA" -b /tmp/royal.cookies -e "$kref" "$BASE/images/course/b/${h}.jpg" -o "$RES/yardage_royallinks_kings${h}.jpg"
+          done
+          sha256sum "$RES"/yardage_royallinks_*.jpg > /tmp/royal-source.sha256
+
+      - name: Prepare approved static course art outside APK runtime
+        run: python3 .github/scripts/prepare-royallinks-static-v1165.py
+
+      - name: Render shared support UI assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/generate-v12-ui.py');s=p.read_text();lines=[]
+          for line in s.splitlines():
+              parts=line.split(';');parts=[seg.replace(',font(', ',font=font(') if 'd.text(' in seg else seg for seg in parts];lines.append(';'.join(parts))
+          s='\n'.join(lines)+'\n'
+          s=s.replace('라운드 시작  →','라운드 시작  >').replace('COURSES OFFLINE ✓','COURSES OFFLINE').replace('GPS READY ✓','GPS READY')
+          s=s.replace('24~26 AUG · HOKKAIDO TRIP','24~26 AUG - HOKKAIDO TRIP').replace('GPS × 코스맵 × 스코어 관리','GPS + 코스맵 + 스코어 관리').replace('4명 함께 · 자동 합계','4명 함께 / 자동 합계')
+          p.write_text(s)
+          PY
+          python3 .github/scripts/generate-v12-ui.py
+
+      - name: Apply functional core and static-image renderer
+        run: |
+          set -e
+          for p in patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix; do
+            python3 ".github/scripts/${p}.py"
+          done
+          python3 .github/scripts/patch-v1160-master-renderer.py
+          python3 .github/scripts/patch-v1161-raw-map.py
+          python3 .github/scripts/patch-v1162-golden-master.py
+          python3 .github/scripts/patch-v1163-concept-lock.py
+          python3 .github/scripts/patch-v1165-static-course-assets.py
+
+      - name: Verify raw bytes unchanged and runtime mutation removed
+        run: |
+          set -euxo pipefail
+          JAVA=app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          sha256sum -c /tmp/royal-source.sha256
+          test "$(find app/src/main/res/drawable-nodpi -name 'approved_yardage_royallinks_*.webp' | wc -l)" -eq 36
+          grep -Fq 'STATIC COURSE ASSET V1.16.5' "$JAVA"
+          grep -Fq 'Runtime does decode -> contain-fit -> draw only. No pixel mutation.' "$JAVA"
+          ! grep -Fq 'goldenNeutralV1162' "$JAVA"
+          ! grep -Fq 'masterRawCropV1161' "$JAVA"
+
+      - name: Set staging version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/build.gradle.kts');s=p.read_text()
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 69',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.16.5-static-course-qc"',s,1)
+          p.write_text(s)
+          PY
+
+      - name: Build staging APK for emulator only
+        run: |
+          gradle --no-daemon --stacktrace :app:assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.16.5-static-course-qc-debug.apk
+
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm || true
+
+      - name: Capture Queens H1-H18
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: bash .github/scripts/capture-preview-v1165-queens18-static.sh
+
+      - name: Upload Queens 18 screenshot QA only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoyalLinks-Queens-18-static-image-QA
+          path: preview-v1165-queens18/*.png
+          if-no-files-found: error
+          retention-days: 14

@@ -79,7 +79,7 @@ jobs:
           PY
           python3 .github/scripts/generate-v12-ui.py
 
-      - name: Apply functional core and static-image renderer
+      - name: Apply functional core and approved static renderer
         run: |
           set -e
           for p in patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix; do
@@ -89,13 +89,17 @@ jobs:
           python3 .github/scripts/patch-v1161-raw-map.py
           python3 .github/scripts/patch-v1162-golden-master.py
           python3 .github/scripts/patch-v1163-concept-lock.py
+          python3 .github/scripts/patch-v1166-pass-master-restore.py
           python3 .github/scripts/patch-v1165-static-course-assets.py
 
-      - name: Verify static-only course renderer
+      - name: Verify PASS layout and static-only renderer
         run: |
           set -euxo pipefail
           JAVA=app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           test "$(find app/src/main/res/drawable-nodpi -name 'approved_yardage_royallinks_*.webp' | wc -l)" -eq 36
+          grep -Fq 'PASS MASTER RESTORE V1.16.6' "$JAVA"
+          grep -Fq 'goldenMetricV1162(c,ds.front,166' "$JAVA"
+          grep -Fq 'RectF slot=new RectF(260,365,680,1422)' "$JAVA"
           grep -Fq 'STATIC COURSE ASSET V1.16.5' "$JAVA"
           grep -Fq 'Runtime does decode -> contain-fit -> draw only. No pixel mutation.' "$JAVA"
           ! grep -Fq 'goldenNeutralV1162' "$JAVA"
@@ -107,21 +111,21 @@ jobs:
           from pathlib import Path
           import re
           p=Path('app/build.gradle.kts');s=p.read_text()
-          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 70',s,1)
-          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.16.6-royallinks-static-final"',s,1)
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 71',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.16.7-royallinks-pass-static"',s,1)
           p.write_text(s)
           PY
 
       - name: Build debug APK
         run: |
           gradle --no-daemon --stacktrace :app:assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.16.6-RoyalLinks-Static-Final-BASE.apk
-          unzip -l HokkaidoGolfGPS-v1.16.6-RoyalLinks-Static-Final-BASE.apk | grep approved_yardage_royallinks_ | wc -l
+          cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-v1.16.7-RoyalLinks-PASS-Static-BASE.apk
+          test "$(unzip -l HokkaidoGolfGPS-v1.16.7-RoyalLinks-PASS-Static-BASE.apk | grep -c approved_yardage_royallinks_)" -eq 36
 
       - name: Upload base APK
         uses: actions/upload-artifact@v4
         with:
-          name: RoyalLinks-Final-BaseAPK
-          path: HokkaidoGolfGPS-v1.16.6-RoyalLinks-Static-Final-BASE.apk
+          name: RoyalLinks-PASS-Final-BaseAPK
+          path: HokkaidoGolfGPS-v1.16.7-RoyalLinks-PASS-Static-BASE.apk
           if-no-files-found: error
           retention-days: 14

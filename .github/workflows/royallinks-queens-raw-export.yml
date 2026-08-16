@@ -1,4 +1,4 @@
-name: Royal Links Queens Raw Export
+name: Royal Links Kings Raw Export
 on:
   push:
     branches: [royallinks-static-image-qc]
@@ -10,24 +10,25 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch official Queens H1-H18
+      - name: Fetch official Kings H1-H18
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p raw-queens
+          mkdir -p raw-kings
           UA='Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/143 Safari/537.36'
           BASE='https://www.royallinks.co.kr'
-          curl --http1.1 -fsSL --retry 8 --retry-all-errors --retry-delay 1 -A "$UA" -c /tmp/royal.cookies "$BASE/course/course01.asp" -o /tmp/royal-course.html
+          curl --http1.1 -fsSL --retry 8 --retry-all-errors --retry-delay 1 -A "$UA" -c /tmp/royal.cookies "$BASE/course/course19.asp" -o /tmp/royal-course.html
           for n in $(seq 1 18); do
             h=$(printf '%02d' "$n")
-            ref=$(printf '%s/course/course%02d.asp' "$BASE" "$n")
-            curl --http1.1 -fsSL --retry 10 --retry-all-errors --retry-delay 1 -A "$UA" -b /tmp/royal.cookies -e "$ref" "$BASE/images/course/a/${h}.jpg" -o "raw-queens/queens${h}.jpg"
+            page=$((18+n))
+            ref=$(printf '%s/course/course%02d.asp' "$BASE" "$page")
+            curl --http1.1 -fsSL --retry 10 --retry-all-errors --retry-delay 1 -A "$UA" -b /tmp/royal.cookies -e "$ref" "$BASE/images/course/b/${h}.jpg" -o "raw-kings/kings${h}.jpg"
           done
-          file raw-queens/*.jpg
-          sha256sum raw-queens/*.jpg > raw-queens/SHA256SUMS.txt
+          file raw-kings/*.jpg
+          sha256sum raw-kings/*.jpg > raw-kings/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: RoyalLinks-Queens-H01-H18-OFFICIAL-RAW
-          path: raw-queens/
+          name: RoyalLinks-Kings-H01-H18-OFFICIAL-RAW
+          path: raw-kings/
           if-no-files-found: error
           retention-days: 14

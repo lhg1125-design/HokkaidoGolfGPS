@@ -9,22 +9,27 @@ adb shell wm size 941x1672
 adb shell wm density 420
 sleep 4
 
-dismiss_launcher_anr(){
+clean_system_dialogs(){
   local tries=0
-  while [ "$tries" -lt 4 ]; do
+  while [ "$tries" -lt 8 ]; do
     tries=$((tries+1))
     adb shell uiautomator dump /sdcard/concept-ui.xml >/dev/null 2>&1 || true
-    if adb shell cat /sdcard/concept-ui.xml 2>/dev/null | grep -Fq "Pixel Launcher isn't responding"; then
+    if adb shell cat /sdcard/concept-ui.xml 2>/dev/null | grep -Eq "Pixel Launcher isn't responding|isn't responding|Close app|Wait"; then
+      # Prefer Wait so the emulator recovers cleanly, then stop the launcher process.
       adb shell input tap 365 965 || true
+      adb shell am force-stop com.google.android.apps.nexuslauncher || true
       sleep 1.2
       continue
     fi
     return 0
   done
-  return 0
+  return 1
 }
 
-dismiss_launcher_anr
+# The launcher is irrelevant to direct activity capture. Stopping it prevents a
+# late ANR dialog from racing with screencap on GitHub-hosted cold boots.
+adb shell am force-stop com.google.android.apps.nexuslauncher || true
+clean_system_dialogs || true
 adb install -r "$APK"
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION || true
 adb shell pm grant "$PKG" android.permission.ACCESS_COARSE_LOCATION || true
@@ -38,27 +43,67 @@ start_preview(){
   adb shell am start -W -n "$ACTIVITY" --ez preview true --ei previewCourse 4 --ei previewVariant "$variant" --ei previewHole "$hole" --ei previewScreen 1 >/dev/null
 }
 
+image_is_clean(){
+  local file="$1"
+  python3 - "$file" <<'PY'
+from PIL import Image
+import numpy as np, sys
+f=sys.argv[1]
+a=np.asarray(Image.open(f).convert('RGB'))
+assert a.shape[:2]==(1672,941),a.shape
+# Android ANR/permission dialogs create a huge bright neutral card across the
+# middle of the image. The approved Storybook UI never contains such a block.
+roi=a[600:1100,60:880]
+neutral=(roi.min(axis=2)>225)&((roi.max(axis=2)-roi.min(axis=2))<25)
+fraction=float(neutral.mean())
+if fraction>=0.30:
+    print('CONTAMINATED_SCREENSHOT neutral_modal_fraction',fraction,file,file=sys.stderr)
+    raise SystemExit(2)
+print('CLEAN_SCREENSHOT neutral_modal_fraction',round(fraction,4),file)
+PY
+}
+
 shot(){
   local variant="$1" hole="$2" file="$3"
-  dismiss_launcher_anr
-  adb shell am force-stop "$PKG" || true
-  start_preview "$variant" "$hole"
-  sleep 1.5
-  dismiss_launcher_anr
-  start_preview "$variant" "$hole"
-  sleep 1.4
-  dismiss_launcher_anr
-  if ! adb shell pidof "$PKG" >/dev/null 2>&1; then
-    adb logcat -d -v threadtime | grep -E -A50 -B10 "AndroidRuntime|FATAL EXCEPTION|Process: ${PKG}|Caused by:" | tail -260 >&2 || true
-    return 77
-  fi
-  adb shell uiautomator dump /sdcard/concept-ui.xml >/dev/null 2>&1 || true
-  if adb shell cat /sdcard/concept-ui.xml 2>/dev/null | grep -Eq "isn't responding|Close app|Wait"; then
-    echo "SYSTEM DIALOG STILL PRESENT; refusing contaminated screenshot" >&2
-    return 78
-  fi
-  adb exec-out screencap -p > "$OUT/$file"
-  test -s "$OUT/$file"
+  local attempt=0
+  while [ "$attempt" -lt 5 ]; do
+    attempt=$((attempt+1))
+    rm -f "$OUT/$file"
+    clean_system_dialogs || true
+    adb shell am force-stop com.google.android.apps.nexuslauncher || true
+    adb shell am force-stop "$PKG" || true
+    start_preview "$variant" "$hole"
+    sleep 1.5
+    clean_system_dialogs || true
+    start_preview "$variant" "$hole"
+    sleep 1.4
+    clean_system_dialogs || true
+    if ! adb shell pidof "$PKG" >/dev/null 2>&1; then
+      adb logcat -d -v threadtime | grep -E -A50 -B10 "AndroidRuntime|FATAL EXCEPTION|Process: ${PKG}|Caused by:" | tail -260 >&2 || true
+      continue
+    fi
+    adb exec-out screencap -p > "$OUT/$file"
+    test -s "$OUT/$file" || continue
+    # Check both AFTER screencap: this closes the race where an ANR can appear
+    # between the previous UI dump and the actual screenshot.
+    adb shell uiautomator dump /sdcard/concept-ui-after.xml >/dev/null 2>&1 || true
+    if adb shell cat /sdcard/concept-ui-after.xml 2>/dev/null | grep -Eq "isn't responding|Close app|Wait"; then
+      echo "REJECT screenshot attempt=$attempt file=$file: system dialog appeared during capture" >&2
+      rm -f "$OUT/$file"
+      clean_system_dialogs || true
+      continue
+    fi
+    if ! image_is_clean "$OUT/$file"; then
+      echo "REJECT screenshot attempt=$attempt file=$file: pixel-level modal detector" >&2
+      rm -f "$OUT/$file"
+      clean_system_dialogs || true
+      continue
+    fi
+    echo "ACCEPT screenshot attempt=$attempt file=$file"
+    return 0
+  done
+  echo "FAILED to obtain uncontaminated screenshot: $file" >&2
+  return 79
 }
 
 shot 0 1  "00-royallinks-queens-h1-concept.png"
@@ -124,8 +169,6 @@ a1=np.asarray(ims[1],dtype=np.int16)[355:1435,250:690]
 course_diff=float(np.abs(a0-a1).mean())
 assert course_diff>6.0,('Queens/Kings course mapping did not change',course_diff)
 
-# Kings H7 is a short PAR3. Inspect only the ruler/pill zone to avoid treating
-# official blue water on the left edge of the course as a blue 200m badge.
 short=np.asarray(ims[3],dtype=np.uint8)
 roi=short[560:1180,640:790]
 r,g,b=roi[:,:,0],roi[:,:,1],roi[:,:,2]

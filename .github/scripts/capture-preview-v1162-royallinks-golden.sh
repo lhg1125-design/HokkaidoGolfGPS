@@ -15,7 +15,6 @@ clean_system_dialogs(){
     tries=$((tries+1))
     adb shell uiautomator dump /sdcard/concept-ui.xml >/dev/null 2>&1 || true
     if adb shell cat /sdcard/concept-ui.xml 2>/dev/null | grep -Eq "Pixel Launcher isn't responding|isn't responding|Close app|Wait"; then
-      # Prefer Wait so the emulator recovers cleanly, then stop the launcher process.
       adb shell input tap 365 965 || true
       adb shell am force-stop com.google.android.apps.nexuslauncher || true
       sleep 1.2
@@ -26,8 +25,6 @@ clean_system_dialogs(){
   return 1
 }
 
-# The launcher is irrelevant to direct activity capture. Stopping it prevents a
-# late ANR dialog from racing with screencap on GitHub-hosted cold boots.
 adb shell am force-stop com.google.android.apps.nexuslauncher || true
 clean_system_dialogs || true
 adb install -r "$APK"
@@ -51,15 +48,13 @@ import numpy as np, sys
 f=sys.argv[1]
 a=np.asarray(Image.open(f).convert('RGB'))
 assert a.shape[:2]==(1672,941),a.shape
-# Android ANR/permission dialogs create a huge bright neutral card across the
-# middle of the image. The approved Storybook UI never contains such a block.
 roi=a[600:1100,60:880]
 neutral=(roi.min(axis=2)>225)&((roi.max(axis=2)-roi.min(axis=2))<25)
 fraction=float(neutral.mean())
 if fraction>=0.30:
-    print('CONTAMINATED_SCREENSHOT neutral_modal_fraction',fraction,file,file=sys.stderr)
+    print('CONTAMINATED_SCREENSHOT neutral_modal_fraction',fraction,f,file=sys.stderr)
     raise SystemExit(2)
-print('CLEAN_SCREENSHOT neutral_modal_fraction',round(fraction,4),file)
+print('CLEAN_SCREENSHOT neutral_modal_fraction',round(fraction,4),f)
 PY
 }
 
@@ -84,8 +79,6 @@ shot(){
     fi
     adb exec-out screencap -p > "$OUT/$file"
     test -s "$OUT/$file" || continue
-    # Check both AFTER screencap: this closes the race where an ANR can appear
-    # between the previous UI dump and the actual screenshot.
     adb shell uiautomator dump /sdcard/concept-ui-after.xml >/dev/null 2>&1 || true
     if adb shell cat /sdcard/concept-ui-after.xml 2>/dev/null | grep -Eq "isn't responding|Close app|Wait"; then
       echo "REJECT screenshot attempt=$attempt file=$file: system dialog appeared during capture" >&2

@@ -89,8 +89,8 @@ jobs:
           python3 .github/scripts/patch-v1161-raw-map.py
           python3 .github/scripts/patch-v1162-golden-master.py
           python3 .github/scripts/patch-v1163-concept-lock.py
-          python3 .github/scripts/patch-v1166-pass-master-restore.py
           python3 .github/scripts/patch-v1165-static-course-assets.py
+          python3 .github/scripts/patch-v1166-pass-master-restore.py
 
       - name: Verify PASS layout and static-only renderer
         run: |

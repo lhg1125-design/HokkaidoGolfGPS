@@ -35,7 +35,8 @@ m=(Y>=156)&(Y<350)&(r>62)&(r>g*1.10)&(g>b*1.10)&~((g>r*1.15)&(g>b*1.35))
 a[m,0]*=.64; a[m,1]*=.56; a[m,2]*=.52
 # Bright synthetic grain was the main reason the board still looked unlike the
 # reference. Subdue only the tan grain lines; leave white labels and green leaves.
-r,g,b=a[:,:,0],a[:,:,1],a[:,:,2]\mgrain=(Y>=156)&(Y<350)&(r>108)&(g>62)&(b>32)&~((r>205)&(g>195)&(b>180))&~((g>r*1.10)&(g>b*1.20))
+r,g,b=a[:,:,0],a[:,:,1],a[:,:,2]
+grain=(Y>=156)&(Y<350)&(r>108)&(g>62)&(b>32)&~((r>205)&(g>195)&(b>180))&~((g>r*1.10)&(g>b*1.20))
 a[grain,0]*=.68; a[grain,1]*=.60; a[grain,2]*=.54
 
 # Deep green score panel. Player chips and white text are excluded by color.

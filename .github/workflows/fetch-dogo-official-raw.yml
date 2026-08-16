@@ -1,0 +1,57 @@
+name: Fetch Dogo CC Official Raw
+
+on:
+  push:
+    branches: [dogo-final-prep]
+    paths:
+      - '.github/workflows/fetch-dogo-official-raw.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-dogo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch official Dogo CC hole maps
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dogo_raw
+          UA='Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/143 Safari/537.36'
+          for n in $(seq 1 18); do
+            h=$(printf '%02d' "$n")
+            page="https://www.dogocc.co.kr/html/mobile/c${h}.html"
+            img="https://www.dogocc.co.kr/Content/mobile/img/course/c${h}.jpg"
+            echo "FETCH $h $img"
+            curl --http1.1 -fL --retry 8 --retry-all-errors --retry-delay 1 \
+              -A "$UA" -e "$page" "$img" -o "dogo_raw/c${h}.jpg"
+            test $(stat -c%s "dogo_raw/c${h}.jpg") -gt 5000
+          done
+
+      - name: Validate and manifest
+        shell: bash
+        run: |
+          python3 -m pip install --disable-pip-version-check pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json
+          rows=[]
+          for p in sorted(Path('dogo_raw').glob('c*.jpg')):
+              b=p.read_bytes()
+              im=Image.open(p); im.verify()
+              rows.append({'file':p.name,'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()})
+          assert len(rows)==18, len(rows)
+          Path('dogo_raw/MANIFEST.json').write_text(json.dumps(rows,indent=2),encoding='utf-8')
+          print(json.dumps(rows,indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DogoCC-H01-H18-OFFICIAL-RAW
+          path: dogo_raw/
+          retention-days: 30

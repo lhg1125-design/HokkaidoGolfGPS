@@ -60,6 +60,10 @@ if '        private android.graphics.Rect masterSourceRectV1161(Bitmap im)' in s
             return new android.graphics.Rect(0,0,im.getWidth(),im.getHeight());
         }''')
 
+# Remove obsolete crop cache state left by V1.16.1. No runtime crop state remains.
+s=s.replace('        private android.graphics.Rect masterRawCropV1161;\n','')
+s=s.replace('masterRawKeyV1161=key;masterRawBitmapV1161=null;masterRawCropV1161=null;','masterRawKeyV1161=key;masterRawBitmapV1161=null;')
+
 # Restore the approved master top wood metrics if an earlier patch suppressed them.
 needle='int center=ds.center>=0?ds.center:totalM;'
 metrics='goldenMetricV1162(c,ds.front,166,Color.rgb(30,145,255));goldenMetricV1162(c,center,470,Color.WHITE);goldenMetricV1162(c,ds.back,775,Color.rgb(255,80,72));'

@@ -53,18 +53,16 @@ s=replace_method(s,'        private android.graphics.Bitmap goldenCourseV1162()'
             return masterGoldenCourseV1162;
         }''')
 
-# Disable legacy source scanning as well: it now returns the full static bitmap rect.
 if '        private android.graphics.Rect masterSourceRectV1161(Bitmap im)' in s:
     s=replace_method(s,'        private android.graphics.Rect masterSourceRectV1161(Bitmap im)',r'''        private android.graphics.Rect masterSourceRectV1161(Bitmap im){
             if(im==null)return null;
             return new android.graphics.Rect(0,0,im.getWidth(),im.getHeight());
         }''')
 
-# Remove obsolete crop cache state left by V1.16.1. No runtime crop state remains.
 s=s.replace('        private android.graphics.Rect masterRawCropV1161;\n','')
 s=s.replace('masterRawKeyV1161=key;masterRawBitmapV1161=null;masterRawCropV1161=null;','masterRawKeyV1161=key;masterRawBitmapV1161=null;')
 
-# Restore the approved master top wood metrics if an earlier patch suppressed them.
+# Restore the approved H1 wood metric board.
 needle='int center=ds.center>=0?ds.center:totalM;'
 metrics='goldenMetricV1162(c,ds.front,166,Color.rgb(30,145,255));goldenMetricV1162(c,center,470,Color.WHITE);goldenMetricV1162(c,ds.back,775,Color.rgb(255,80,72));'
 pos=s.find(needle)
@@ -73,7 +71,7 @@ segment=s[pos:pos+500]
 if 'goldenMetricV1162(c,ds.front' not in segment:
     s=s[:pos+len(needle)]+metrics+s[pos+len(needle):]
 
-# Approved master layout: full tee-to-green image must fit above bottom nav.
+# Approved full tee-to-green layout above navigation.
 for old in ['RectF slot=new RectF(220,205,735,1435)','RectF slot=new RectF(250,355,690,1435)','RectF slot=new RectF(260,365,680,1422)','RectF slot=new RectF(238,350,704,1442)']:
     if old in s:
         s=s.replace(old,'RectF slot=new RectF(240,350,700,1428)',1)
@@ -81,10 +79,14 @@ for old in ['RectF slot=new RectF(220,205,735,1435)','RectF slot=new RectF(250,3
 else:
     raise SystemExit('course slot anchor missing')
 
-# Mark provenance and make the runtime contract explicit.
+# H1 PASS uses a clean bold sans hierarchy, not the earlier playful Jua look.
+s=s.replace('p.setTypeface(conceptTypefaceV1130(s,true));','p.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));')
+# QA preview starts at tee: remaining distance equals verified official total.
+s=s.replace('int remain=masterRemainV1160(totalM);','int remain=previewMode?totalM:masterRemainV1160(totalM);',1)
+
 mark='        // GOLDEN MASTER V1.16.2'
 if mark in s:
     s=s.replace(mark,'        // STATIC COURSE ASSET V1.16.5\n        // Runtime contract: decode + contain-fit + draw only; no course-pixel mutation.\n'+mark,1)
 
 p.write_text(s)
-print('V1.16.5 STATIC COURSE ASSET: runtime image mutation removed; approved static resources only')
+print('V1.16.5 STATIC COURSE ASSET: H1 fine sans + static course + tee preview total')

@@ -48,6 +48,19 @@ jobs:
           print('DOGO DATA HARD PASS: 18H / PAR72 / 6222m / asset 1:1')
           PY
 
+      - name: Isolate known pre-existing FieldGpsActivity RectF typo
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
+          s=p.read_text()
+          bad='new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p)'
+          good='new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r)'
+          assert bad in s, 'baseline typo signature changed'
+          p.write_text(s.replace(bad,good,1))
+          print('baseline compile typo isolated; repository source left unchanged')
+          PY
+
       - name: Compile current branch without legacy patch chain
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 

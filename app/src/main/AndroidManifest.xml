@@ -15,6 +15,11 @@
             android:authorities="${applicationId}.roundlog"
             android:exported="false"
             android:grantUriPermissions="true" />
+        <activity
+            android:name=".DogoHardPassActivity"
+            android:label="도고CC 18H HARD PASS"
+            android:screenOrientation="portrait"
+            android:exported="true" />
         <activity android:name=".FieldGpsV09Activity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

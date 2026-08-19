@@ -3,6 +3,8 @@ name: Dogo Step1 Hard Pass
 on:
   push:
     branches: [ dogo-step1-hardpass ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:

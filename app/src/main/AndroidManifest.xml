@@ -8,7 +8,7 @@
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher_golf"
         android:roundIcon="@drawable/ic_launcher_golf"
-        android:label="北海道ゴルフ GPS캐디"
+        android:label="北海道ゴルフ GPSキャディ"
         android:theme="@style/AppTheme">
         <provider
             android:name=".RoundLogProvider"

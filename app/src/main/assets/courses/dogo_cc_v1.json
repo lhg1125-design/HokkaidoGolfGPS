@@ -1,0 +1,50 @@
+{
+  "courseId": "dogo_cc",
+  "courseNameKo": "도고CC",
+  "courseNameEn": "Dogo Country Club",
+  "source": {
+    "type": "official_scorecard",
+    "url": "https://www.dogocc.co.kr/Course/ScoreCard",
+    "verifiedOn": "2026-08-19"
+  },
+  "layout": {
+    "holes": 18,
+    "par": 72,
+    "outRegularM": 3139,
+    "inRegularM": 3083,
+    "totalRegularM": 6222
+  },
+  "distancePolicy": {
+    "beforeFieldCalibration": {
+      "center": "official_regular_tee_m",
+      "front": null,
+      "back": null
+    },
+    "afterFieldCalibration": {
+      "center": "live_gps_to_green_center",
+      "front": "live_gps_to_green_front_if_calibrated",
+      "back": "live_gps_to_green_back_if_calibrated"
+    },
+    "forbidSyntheticFrontBack": true
+  },
+  "holes": [
+    {"hole":1,"course":"OUT","par":4,"hdcp":7,"regularM":378,"mapAsset":"dogo-h01-MASTER-LOCK-CLEAN.png"},
+    {"hole":2,"course":"OUT","par":4,"hdcp":13,"regularM":357,"mapAsset":"dogo-h02-MASTER-LOCK-CLEAN.png"},
+    {"hole":3,"course":"OUT","par":5,"hdcp":3,"regularM":519,"mapAsset":"dogo-h03-MASTER-LOCK-CLEAN.png"},
+    {"hole":4,"course":"OUT","par":3,"hdcp":9,"regularM":163,"mapAsset":"dogo-h04-MASTER-LOCK-CLEAN.png"},
+    {"hole":5,"course":"OUT","par":4,"hdcp":1,"regularM":400,"mapAsset":"dogo-h05-MASTER-LOCK-CLEAN.png"},
+    {"hole":6,"course":"OUT","par":5,"hdcp":5,"regularM":497,"mapAsset":"dogo-h06-MASTER-LOCK-CLEAN.png"},
+    {"hole":7,"course":"OUT","par":4,"hdcp":11,"regularM":349,"mapAsset":"dogo-h07-MASTER-LOCK-CLEAN.png"},
+    {"hole":8,"course":"OUT","par":3,"hdcp":17,"regularM":146,"mapAsset":"dogo-h08-MASTER-LOCK-CLEAN.png"},
+    {"hole":9,"course":"OUT","par":4,"hdcp":15,"regularM":330,"mapAsset":"dogo-h09-MASTER-LOCK-CLEAN.png"},
+    {"hole":10,"course":"IN","par":4,"hdcp":14,"regularM":374,"mapAsset":"dogo-h10-MASTER-LOCK-CLEAN.png"},
+    {"hole":11,"course":"IN","par":3,"hdcp":18,"regularM":148,"mapAsset":"dogo-h11-MASTER-LOCK-CLEAN.png"},
+    {"hole":12,"course":"IN","par":4,"hdcp":16,"regularM":312,"mapAsset":"dogo-h12-MASTER-LOCK-CLEAN.png"},
+    {"hole":13,"course":"IN","par":5,"hdcp":2,"regularM":538,"mapAsset":"dogo-h13-MASTER-LOCK-CLEAN.png"},
+    {"hole":14,"course":"IN","par":4,"hdcp":6,"regularM":388,"mapAsset":"dogo-h14-MASTER-LOCK-CLEAN.png"},
+    {"hole":15,"course":"IN","par":4,"hdcp":4,"regularM":323,"mapAsset":"dogo-h15-MASTER-LOCK-CLEAN.png"},
+    {"hole":16,"course":"IN","par":3,"hdcp":12,"regularM":168,"mapAsset":"dogo-h16-MASTER-LOCK-CLEAN.png"},
+    {"hole":17,"course":"IN","par":4,"hdcp":8,"regularM":378,"mapAsset":"dogo-h17-MASTER-LOCK-CLEAN.png"},
+    {"hole":18,"course":"IN","par":5,"hdcp":10,"regularM":454,"mapAsset":"dogo-h18-MASTER-LOCK-CLEAN.png"}
+  ]
+}

@@ -8,13 +8,18 @@
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher_golf"
         android:roundIcon="@drawable/ic_launcher_golf"
-        android:label="北海道ゴルフ GPSキャディ"
+        android:label="北海道ゴルフ GPS캐디"
         android:theme="@style/AppTheme">
         <provider
             android:name=".RoundLogProvider"
             android:authorities="${applicationId}.roundlog"
             android:exported="false"
             android:grantUriPermissions="true" />
+        <activity
+            android:name=".DogoHardPassActivity"
+            android:label="도고CC 18H HARD PASS"
+            android:screenOrientation="portrait"
+            android:exported="true" />
         <activity android:name=".FieldGpsV09Activity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

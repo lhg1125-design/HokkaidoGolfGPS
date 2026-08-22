@@ -1,0 +1,10 @@
+{
+  "id": "sahoro",
+  "nameKo": "사호로 컨트리클럽",
+  "nameJp": "サホロカントリークラブ",
+  "country": "Japan",
+  "holes": 18,
+  "latitude": 43.1551590,
+  "longitude": 142.8070984,
+  "variants": ["OUT / IN"]
+}

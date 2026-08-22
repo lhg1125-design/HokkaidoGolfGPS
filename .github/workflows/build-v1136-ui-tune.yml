@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   ui-tune-build:
@@ -132,9 +132,35 @@ jobs:
           unzip -l "$APK" | grep -q 'ic_hokkaido_golf_gps_v1136'
           cp "$APK" HokkaidoGolfGPS-v1.13.6-ui-tune-debug.apk
 
-      - name: Upload UI tune APK
+      - name: Upload UI tune APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: HokkaidoGolfGPS-v1.13.6-ui-tune-debug-apk
           path: HokkaidoGolfGPS-v1.13.6-ui-tune-debug.apk
           retention-days: 14
+
+      - name: Publish UI tune prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=v1.13.6-ui-tune
+          APK=HokkaidoGolfGPS-v1.13.6-ui-tune-debug.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --title "V1.13.6 UI Tune" --notes "Interim V1.13.6 field UI tune. Score input logic remains unchanged. Includes updated launcher icon." --prerelease
+          fi
+
+      - name: Publish build status
+        if: always()
+        run: |
+          mkdir -p dist
+          printf 'status=%s\nsource_sha=%s\n' '${{ job.status }}' "$GITHUB_SHA" > dist/v1136-ui-tune-build-status.txt
+          if [ -s HokkaidoGolfGPS-v1.13.6-ui-tune-debug.apk ]; then
+            printf 'apk=HokkaidoGolfGPS-v1.13.6-ui-tune-debug.apk\n' >> dist/v1136-ui-tune-build-status.txt
+          fi
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add dist/v1136-ui-tune-build-status.txt
+          git commit -m 'ci: record V1.13.6 UI tune build status' || true
+          git push || true

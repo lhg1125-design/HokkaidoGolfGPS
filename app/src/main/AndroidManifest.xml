@@ -22,6 +22,11 @@
         </activity>
 
         <activity
+            android:name=".CourseSelectActivity"
+            android:screenOrientation="landscape"
+            android:exported="true" />
+
+        <activity
             android:name=".FieldGpsV09Activity"
             android:screenOrientation="portrait"
             android:exported="true" />

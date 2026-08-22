@@ -3,30 +3,14 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
-
-    <application
-        android:allowBackup="true"
-        android:icon="@drawable/ic_launcher_golf"
-        android:roundIcon="@drawable/ic_launcher_golf"
-        android:label="北海道ゴルフ GPSキャディ"
-        android:theme="@style/AppTheme">
-        <provider
-            android:name=".RoundLogProvider"
-            android:authorities="${applicationId}.roundlog"
-            android:exported="false"
-            android:grantUriPermissions="true" />
-        <activity android:name=".FieldGpsV09Activity" android:screenOrientation="portrait" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+    <application android:allowBackup="true" android:icon="@drawable/ic_launcher_golf" android:roundIcon="@drawable/ic_launcher_golf" android:label="北海道ゴルフ GPSキャディ" android:theme="@style/AppTheme">
+        <provider android:name=".RoundLogProvider" android:authorities="${applicationId}.roundlog" android:exported="false" android:grantUriPermissions="true" />
+        <activity android:name=".V117HomeActivity" android:screenOrientation="portrait" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity>
-        <activity android:name=".BetaSimActivity" android:label="北海道 BETA SIM" android:screenOrientation="portrait" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".FieldGpsV09Activity" android:screenOrientation="portrait" android:exported="true" />
+        <activity android:name=".OfflineMapActivity" android:screenOrientation="portrait" android:exported="true" />
+        <activity android:name=".BetaSimActivity" android:label="北海道 BETA SIM" android:screenOrientation="portrait" android:exported="true" />
         <activity android:name=".FieldPreflightActivity" android:label="FIELD PREFLIGHT" android:screenOrientation="portrait" android:exported="true" />
         <activity android:name=".FieldGpsV08Activity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".FieldGpsActivity" android:screenOrientation="portrait" android:exported="false" />

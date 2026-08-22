@@ -1,4 +1,4 @@
-name: Build V1.18 Runtime GPS Clean APK
+name: Build V1.18.1 Runtime Course Loader APK
 
 on:
   workflow_dispatch:
@@ -28,25 +28,30 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Verify course loader structure
+        run: |
+          test -f app/src/main/assets/courses/course_index.json
+          echo 'Course loader index PASS'
+
       - name: Build Runtime APK
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Verify APK contamination
+      - name: Verify APK
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           if unzip -l "$APK" | grep -Ei 'royallinks|concept|golden|preview'; then
-            echo 'Runtime contamination detected'
+            echo 'Legacy concept contamination detected'
             exit 1
           fi
-          echo 'Runtime APK clean PASS'
+          echo 'V1.18.1 Runtime PASS'
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.18-runtime-clean-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.18.1-runtime-course-loader-debug.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-V1.18-runtime-clean-debug
-          path: HokkaidoGolfGPS-V1.18-runtime-clean-debug.apk
+          name: HokkaidoGolfGPS-V1.18.1-runtime-course-loader-debug
+          path: HokkaidoGolfGPS-V1.18.1-runtime-course-loader-debug.apk
           retention-days: 14

@@ -1,0 +1,10 @@
+{
+  "id": "furano",
+  "nameKo": "후라노 골프코스",
+  "nameJp": "富良野ゴルフコース",
+  "country": "Japan",
+  "holes": 18,
+  "latitude": 43.3351203,
+  "longitude": 142.4817967,
+  "variants": ["PALMER", "KING"]
+}

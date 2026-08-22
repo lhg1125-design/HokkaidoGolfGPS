@@ -1,19 +1,17 @@
-name: Build V1.13.6 Round Log
+name: Build V1.13.6 UI Tune
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  concept-build:
+  ui-tune-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 35
     steps:
-      - name: Checkout
+      - name: Checkout selected branch
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -28,27 +26,25 @@ jobs:
           gradle-version: '8.9'
 
       - name: Install render tools
-        run: python3 -m pip install --disable-pip-version-check pillow selenium requests numpy
+        run: python3 -m pip install --disable-pip-version-check pillow requests numpy
 
       - name: Restore approved concept artwork
         run: |
           mkdir -p app/src/main/res/drawable-nodpi
           cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
           cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
-          file app/src/main/res/drawable-nodpi/concept_hero_exact.webp
-          file app/src/main/res/drawable-nodpi/concept_course_exact.webp
+          test -s app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          test -s app/src/main/res/drawable-nodpi/concept_course_exact.webp
 
-      - name: Bundle concept fonts
+      - name: Bundle rounded fonts
         run: |
           curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o /tmp/Jua-Regular.ttf
           curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o /tmp/MPLUSRounded1c-ExtraBold.ttf
           mkdir -p app/src/main/assets/fonts
           cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
           cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
-          test -s app/src/main/assets/fonts/Jua-Regular.ttf
-          test -s app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Fetch Japan and Royal Links full-hole imagery
+      - name: Fetch full-hole imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
 
       - name: Preserve Sahoro as JPG
@@ -63,25 +59,13 @@ jobs:
               dst=src.with_suffix('.jpg')
               with Image.open(src) as im: im.convert('RGB').save(dst,'JPEG',quality=96,subsampling=0,optimize=True)
               src.unlink()
-          print('Sahoro JPG',len(list(root.glob('yardage_sahoro_*.jpg'))))
           PY
 
-      - name: Fetch Naepo 9-hole real yardage imagery
+      - name: Fetch Naepo real yardage imagery
         run: python3 .github/scripts/fetch-naepo-real-yardage-v1132.py
 
-      - name: Convert 135 yardages to concept-art style
+      - name: Convert yardages to concept style
         run: python3 .github/scripts/stylize-yardage-v1130.py
-
-      - name: Upload V1.13.6 yardage proofs
-        uses: actions/upload-artifact@v4
-        with:
-          name: V1.13.6-real-yardage-style-proof
-          path: |
-            .github/tmp/v1130/yardage-concept-samples.jpg
-            .github/tmp/v1130/manifest.txt
-            .github/tmp/v1132-naepo/naepo-real-9hole-proof.jpg
-          if-no-files-found: error
-          retention-days: 14
 
       - name: Render concept UI assets
         run: |
@@ -98,7 +82,7 @@ jobs:
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
 
-      - name: Apply app patch chain through V1.13.6 ROUND LOG
+      - name: Apply V1.13.6 UI tune patch chain
         run: |
           set -e
           for p in \
@@ -107,71 +91,44 @@ jobs:
             patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 \
             patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 \
             patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 \
-            patch-v1134 patch-v1135 patch-v1136
+            patch-v1134 patch-v1135 patch-v1136 patch-v1136-ui-tune
           do
             python3 ".github/scripts/${p}.py"
           done
 
-      - name: Set V1.13.6 package version
+      - name: Set UI tune version
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           p=Path('app/build.gradle.kts'); s=p.read_text()
-          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 54',s,1)
-          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.6-round-log"',s,1)
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 55',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.6-ui-tune"',s,1)
           p.write_text(s)
           PY
 
-      - name: Build debug APK
+      - name: Build APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Gate V1.13.6 field APK
+      - name: Verify and package APK
         run: |
+          set -e
           APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
           unzip -l "$APK" | grep 'yardage_' > /tmp/yardage-apk.txt
           test "$(grep -c 'yardage_' /tmp/yardage-apk.txt)" -eq 135
           test "$(grep -c 'yardage_sahoro_' /tmp/yardage-apk.txt)" -eq 18
           test "$(grep -c 'yardage_naepo_' /tmp/yardage-apk.txt)" -eq 9
-          unzip -l "$APK" | grep -q 'assets/fonts/Jua-Regular.ttf'
-          unzip -l "$APK" | grep -q 'assets/fonts/MPLUSRounded1c-ExtraBold.ttf'
-          grep -q 'V1.13.6 · ROUND LOG' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'GEO_SCOPE_V1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'liveGeoChipV1135' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.13.6_UI_TUNE_R1' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'recordRoundLogV1136' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'ROUND LOG 공유' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'HokkaidoGolfGPS.RoundLog.v1' app/src/main/java/com/hokkaidogolf/trip/RoundLogV1134.java
-          grep -q 'RoundLogProvider' app/src/main/AndroidManifest.xml
-          cp "$APK" HokkaidoGolfGPS-v1.13.6-round-log-debug.apk
+          grep -q 'ic_hokkaido_golf_gps_v1136' app/src/main/AndroidManifest.xml
+          test -s app/src/main/res/drawable-nodpi/ic_hokkaido_golf_gps_v1136.webp
+          unzip -l "$APK" | grep -q 'ic_hokkaido_golf_gps_v1136'
+          cp "$APK" HokkaidoGolfGPS-v1.13.6-ui-tune-debug.apk
 
-      - name: Upload V1.13.6 APK
+      - name: Upload UI tune APK
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.13.6-round-log-debug-apk
-          path: HokkaidoGolfGPS-v1.13.6-round-log-debug.apk
-          retention-days: 14
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Capture V1.13.6 ROUND LOG Android previews
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: false
-          script: bash .github/scripts/capture-preview-v1136-round-log.sh
-
-      - name: Upload V1.13.6 ROUND LOG previews
-        uses: actions/upload-artifact@v4
-        with:
-          name: HokkaidoGolfGPS-v1.13.6-round-log-preview-screenshots
-          path: preview-v1136-round-log/*.png
-          if-no-files-found: error
+          name: HokkaidoGolfGPS-v1.13.6-ui-tune-debug-apk
+          path: HokkaidoGolfGPS-v1.13.6-ui-tune-debug.apk
           retention-days: 14

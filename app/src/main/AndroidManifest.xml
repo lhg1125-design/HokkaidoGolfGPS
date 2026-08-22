@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -14,27 +13,25 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="landscape">
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".CourseSelectActivity"
-            android:screenOrientation="landscape"
-            android:exported="true" />
+        <activity android:name=".V117HomeActivity" android:screenOrientation="portrait" android:exported="false" />
+        <activity android:name=".CourseSelectActivity" android:screenOrientation="portrait" android:exported="true" />
+        <activity android:name=".PlayerSetupActivity" android:screenOrientation="portrait" android:exported="true" />
+        <activity android:name=".ModeSelectActivity" android:screenOrientation="portrait" android:exported="true" />
+        <activity android:name=".RoomActivity" android:screenOrientation="portrait" android:exported="true" />
+        <activity android:name=".RoundReadyActivity" android:screenOrientation="portrait" android:exported="true" />
+        <activity android:name=".OfflineMapActivity" android:screenOrientation="portrait" android:exported="true" />
 
         <activity
             android:name=".FieldGpsV09Activity"
             android:screenOrientation="portrait"
             android:exported="true" />
 
-        <activity android:name=".RoundReadyActivity" android:exported="true" />
-        <activity android:name=".ModeSelectActivity" android:exported="true" />
-        <activity android:name=".PlayerSetupActivity" android:exported="true" />
-
     </application>
-
 </manifest>

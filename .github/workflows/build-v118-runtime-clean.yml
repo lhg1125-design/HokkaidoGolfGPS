@@ -1,4 +1,4 @@
-name: Build V1.18.3 Interim Flow APK
+name: Build V1.18.4 Interim Hokkaido Flow APK
 
 on:
   workflow_dispatch:
@@ -28,16 +28,27 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Verify V1.18.3 flow structure
+      - name: Verify V1.18.4 Hokkaido flow structure
         run: |
           set -euo pipefail
-          test -f app/src/main/assets/courses/course_index.json
+          INDEX=app/src/main/assets/courses/course_index.json
+          test -f "$INDEX"
+          test -f app/src/main/assets/courses/kamishihoro/course.json
+          test -f app/src/main/assets/courses/furano/course.json
+          test -f app/src/main/assets/courses/sahoro/course.json
+          grep -Fq '"id": "kamishihoro"' "$INDEX"
+          grep -Fq '"id": "furano"' "$INDEX"
+          grep -Fq '"id": "sahoro"' "$INDEX"
+          if grep -Fqi 'demo_001' "$INDEX"; then
+            echo 'Demo course still present'
+            exit 1
+          fi
           test -f app/src/main/java/com/hokkaidogolf/trip/CourseRepository.java
           test -f app/src/main/java/com/hokkaidogolf/trip/CourseSelectActivity.java
           test -f app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -Fq '.CourseSelectActivity' app/src/main/AndroidManifest.xml
           grep -Fq '.FieldGpsV09Activity' app/src/main/AndroidManifest.xml
-          echo 'V1.18.3 flow structure PASS'
+          echo 'V1.18.4 Hokkaido flow structure PASS'
 
       - name: Build Interim APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
@@ -48,21 +59,24 @@ jobs:
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           unzip -l "$APK" | grep -F 'assets/courses/course_index.json'
-          if unzip -l "$APK" | grep -Ei 'yardage_royallinks_|concept_hero|master_golden|preview-v1163'; then
-            echo 'Legacy concept contamination detected'
+          unzip -l "$APK" | grep -F 'assets/courses/kamishihoro/course.json'
+          unzip -l "$APK" | grep -F 'assets/courses/furano/course.json'
+          unzip -l "$APK" | grep -F 'assets/courses/sahoro/course.json'
+          if unzip -l "$APK" | grep -Ei 'yardage_royallinks_|concept_hero|master_golden|preview-v1163|demo_course'; then
+            echo 'Legacy/demo contamination detected'
             exit 1
           fi
           BYTES=$(stat -c%s "$APK")
           echo "Interim APK size: ${BYTES} bytes"
           test "$BYTES" -gt 50000
-          echo 'V1.18.3 INTERIM APK PASS'
+          echo 'V1.18.4 INTERIM APK PASS'
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.18.3-INTERIM-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.18.4-INTERIM-HOKKAIDO-debug.apk
 
       - name: Upload Interim APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-V1.18.3-INTERIM-debug-apk
-          path: HokkaidoGolfGPS-V1.18.3-INTERIM-debug.apk
+          name: HokkaidoGolfGPS-V1.18.4-INTERIM-HOKKAIDO-debug-apk
+          path: HokkaidoGolfGPS-V1.18.4-INTERIM-HOKKAIDO-debug.apk
           retention-days: 14

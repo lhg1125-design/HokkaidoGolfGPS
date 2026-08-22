@@ -1,0 +1,10 @@
+{
+  "id": "kamishihoro",
+  "nameKo": "가미시호로 골프장",
+  "nameJp": "上士幌ゴルフ場",
+  "country": "Japan",
+  "holes": 18,
+  "latitude": 43.2570513,
+  "longitude": 143.2283621,
+  "variants": ["CHAMPIONS", "MASTERS"]
+}

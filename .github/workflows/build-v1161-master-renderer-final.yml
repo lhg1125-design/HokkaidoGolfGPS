@@ -1,8 +1,6 @@
 name: Build V1.16.3 Uploaded Concept Reference Lock
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:

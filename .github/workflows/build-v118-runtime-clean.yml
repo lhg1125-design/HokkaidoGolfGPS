@@ -1,4 +1,4 @@
-name: Build V1.18.5 Hokkaido Full Asset APK
+name: Build V1.18.5B Hokkaido Full Asset APK
 
 on:
   workflow_dispatch:
@@ -76,29 +76,33 @@ jobs:
           set -euo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
-          unzip -l "$APK" | grep -F 'assets/courses/course_index.json'
-          K=$(unzip -l "$APK" | grep -c 'res/drawable-nodpi/yardage_kamishihoro_' || true)
-          F=$(unzip -l "$APK" | grep -c 'res/drawable-nodpi/yardage_furano_' || true)
-          S=$(unzip -l "$APK" | grep -c 'res/drawable-nodpi/yardage_sahoro_' || true)
-          echo "APK yardage entries: Kamishihoro=$K Furano=$F Sahoro=$S"
+          unzip -Z1 "$APK" > /tmp/apk-files.txt
+          grep -F 'assets/courses/course_index.json' /tmp/apk-files.txt
+          echo '--- packaged yardage sample ---'
+          grep -E 'yardage_(kamishihoro|furano|sahoro)_' /tmp/apk-files.txt | head -20 || true
+          K=$(grep -Ec '(^|/)yardage_kamishihoro_.*\.jpg$' /tmp/apk-files.txt || true)
+          F=$(grep -Ec '(^|/)yardage_furano_.*\.jpg$' /tmp/apk-files.txt || true)
+          S=$(grep -Ec '(^|/)yardage_sahoro_.*\.png$' /tmp/apk-files.txt || true)
+          echo "APK yardage entries: Kamishihoro=$K Furano=$F Sahoro=$S Total=$((K+F+S))"
           test "$K" -eq 36
           test "$F" -eq 36
           test "$S" -eq 18
-          if unzip -l "$APK" | grep -Ei 'yardage_royallinks_|concept_hero|master_golden|preview-v1163|demo_course'; then
+          test $((K+F+S)) -eq 90
+          if grep -Ei 'yardage_royallinks_|concept_hero|master_golden|preview-v1163|demo_course' /tmp/apk-files.txt; then
             echo 'Legacy/demo contamination detected'
             exit 1
           fi
           stat -c 'APK bytes=%s' "$APK"
-          echo 'V1.18.5 HOKKAIDO FULL ASSET APK PASS'
+          echo 'V1.18.5B HOKKAIDO FULL ASSET APK PASS'
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.18.5-HOKKAIDO-FULL-ASSET-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.18.5B-HOKKAIDO-FULL-ASSET-debug.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-V1.18.5-HOKKAIDO-FULL-ASSET-debug-apk
-          path: HokkaidoGolfGPS-V1.18.5-HOKKAIDO-FULL-ASSET-debug.apk
+          name: HokkaidoGolfGPS-V1.18.5B-HOKKAIDO-FULL-ASSET-debug-apk
+          path: HokkaidoGolfGPS-V1.18.5B-HOKKAIDO-FULL-ASSET-debug.apk
           retention-days: 14
 
       - name: Publish direct APK download in Releases
@@ -106,8 +110,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v1.18.5-interim'
+          TAG='v1.18.5b-interim'
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" HokkaidoGolfGPS-V1.18.5-HOKKAIDO-FULL-ASSET-debug.apk \
-            --title 'HokkaidoGolfGPS V1.18.5 Interim' \
+          gh release create "$TAG" HokkaidoGolfGPS-V1.18.5B-HOKKAIDO-FULL-ASSET-debug.apk \
+            --title 'HokkaidoGolfGPS V1.18.5B Interim' \
             --notes 'Interim Android APK with 90 Hokkaido yardage source images: Kamishihoro 36, Furano 36, Sahoro 18. RoyalLinks/demo assets excluded.'

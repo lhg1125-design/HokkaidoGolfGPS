@@ -8,39 +8,27 @@
     <application
         android:theme="@style/AppTheme"
         android:label="北海道ゴルフ GPSキャディ"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@android:drawable/ic_menu_compass"
         android:allowBackup="true">
 
-        <!-- Launcher Entry -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
-
 
         <activity
             android:name=".FieldGpsV09Activity"
             android:screenOrientation="portrait"
             android:exported="true" />
 
-        <activity
-            android:name=".RoundReadyActivity"
-            android:exported="true" />
-
-        <activity
-            android:name=".ModeSelectActivity"
-            android:exported="true" />
-
-        <activity
-            android:name=".PlayerSetupActivity"
-            android:exported="true" />
+        <activity android:name=".RoundReadyActivity" android:exported="true" />
+        <activity android:name=".ModeSelectActivity" android:exported="true" />
+        <activity android:name=".PlayerSetupActivity" android:exported="true" />
 
     </application>
 

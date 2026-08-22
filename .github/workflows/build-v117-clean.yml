@@ -2,8 +2,6 @@ name: V1.17 Clean APK Build
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   build-apk-clean:

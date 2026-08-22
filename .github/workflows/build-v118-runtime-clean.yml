@@ -1,4 +1,4 @@
-name: Build V1.17.2 Fixed Home + Hokkaido Assets APK
+name: Build V1.17.3 Fixed Home + Premium Hokkaido Yardage APK
 
 on:
   workflow_dispatch:
@@ -74,6 +74,17 @@ jobs:
       - name: Fetch 90 Hokkaido yardage images
         run: bash .github/scripts/fetch-v1185-hokkaido-runtime-assets.sh
 
+      - name: Apply premium yardage renderer
+        run: python3 .github/scripts/patch-v1173-premium-yardage.py
+
+      - name: Gate premium yardage renderer
+        run: |
+          set -euo pipefail
+          grep -Fq 'V1.17.3 PREMIUM YARDAGE' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'yardageAssetName()' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -Fq 'BitmapFactory.decodeResource' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          echo 'PREMIUM YARDAGE RENDERER PASS'
+
       - name: Gate source yardage package
         run: |
           set -euo pipefail
@@ -111,16 +122,16 @@ jobs:
             exit 1
           fi
           stat -c 'APK bytes=%s' "$APK"
-          echo 'V1.17.2 FIXED HOME APK PASS'
+          echo 'V1.17.3 FIXED HOME + PREMIUM YARDAGE APK PASS'
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.17.2-FIXED-HOME-HOKKAIDO-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.17.3-PREMIUM-YARDAGE-debug.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-V1.17.2-FIXED-HOME-HOKKAIDO-debug-apk
-          path: HokkaidoGolfGPS-V1.17.2-FIXED-HOME-HOKKAIDO-debug.apk
+          name: HokkaidoGolfGPS-V1.17.3-PREMIUM-YARDAGE-debug-apk
+          path: HokkaidoGolfGPS-V1.17.3-PREMIUM-YARDAGE-debug.apk
           retention-days: 14
 
       - name: Publish direct APK download in Releases
@@ -128,8 +139,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v1.17.2-fixed-home'
+          TAG='v1.17.3-premium-yardage'
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" HokkaidoGolfGPS-V1.17.2-FIXED-HOME-HOKKAIDO-debug.apk \
-            --title 'HokkaidoGolfGPS V1.17.2 Fixed Home' \
-            --notes 'Portrait V1.17 fixed Home visual lock, course selection returns Home, Hokkaido-only 90 yardage source assets, RoyalLinks/demo excluded.'
+          gh release create "$TAG" HokkaidoGolfGPS-V1.17.3-PREMIUM-YARDAGE-debug.apk \
+            --title 'HokkaidoGolfGPS V1.17.3 Premium Yardage' \
+            --notes 'Portrait locked Home, return-to-home setup flow, Hokkaido-only 90 yardage assets, premium image renderer, RoyalLinks/demo excluded.'

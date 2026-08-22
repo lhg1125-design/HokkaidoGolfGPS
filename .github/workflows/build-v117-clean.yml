@@ -1,0 +1,41 @@
+name: V1.17 Clean APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-apk-clean:
+    name: Clean Gradle APK Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Verify project
+        run: |
+          ls -la
+          find . -maxdepth 2 -name "build.gradle*" -o -name "settings.gradle*"
+
+      - name: Build Debug APK with stacktrace
+        run: |
+          gradle clean assembleDebug --stacktrace --info
+
+      - name: Upload APK Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HokkaidoGolfGPS-V1.17-clean-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn

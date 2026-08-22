@@ -1,5 +1,13 @@
 {
   "version": "1.0",
   "mode": "offline",
-  "courses": []
+  "courses": [
+    {
+      "id": "demo_001",
+      "name": "Demo Course",
+      "country": "Japan",
+      "holes": 18,
+      "pack": "demo_course"
+    }
+  ]
 }

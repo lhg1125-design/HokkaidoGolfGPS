@@ -20,6 +20,14 @@ Purpose: interim UI/design-only publication based on the proven V1.13.6 field AP
 - Any modification to `beta-ver2` or other V2 development branches.
 - Merge/rebase from `main` or `beta-ver2` into this branch during the interim UI tune.
 
+## Yardage visual QA lock
+- ZERO visible garbage/artifacts on every hole before publication.
+- Reject thin horizontal/vertical bars, orphan borders, frame fragments, duplicate title/stage edges, crop remnants, or decorative lines that read as accidental UI residue.
+- Apply cleanup as a common renderer/layout rule wherever possible; do not patch only the currently visible hole.
+- Verify all Hokkaido interim courses and every included hole/variant at the yardage-card top, bottom, left, and right edges.
+- The approved hole artwork itself must remain fully visible from tee to green; artifact cleanup must not crop or distort the yardage image.
+- Any single visible artifact in the full-hole sweep is a QA FAIL and blocks the interim APK publication.
+
 ## Release rule
 - All UI tune commits stay on `release/v1.13.6-ui-tune`.
 - Build/test from this branch only.

@@ -1,13 +1,27 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "mode": "offline",
   "courses": [
     {
-      "id": "demo_001",
-      "name": "Demo Course",
+      "id": "kamishihoro",
+      "name": "가미시호로 골프장",
       "country": "Japan",
       "holes": 18,
-      "pack": "demo_course"
+      "pack": "kamishihoro"
+    },
+    {
+      "id": "furano",
+      "name": "후라노 골프코스",
+      "country": "Japan",
+      "holes": 18,
+      "pack": "furano"
+    },
+    {
+      "id": "sahoro",
+      "name": "사호로 컨트리클럽",
+      "country": "Japan",
+      "holes": 18,
+      "pack": "sahoro"
     }
   ]
 }

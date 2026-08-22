@@ -8,7 +8,7 @@
     <application
         android:theme="@style/AppTheme"
         android:label="北海道ゴルフ GPSキャディ"
-        android:icon="@android:drawable/ic_menu_compass"
+        android:icon="@drawable/ic_launcher"
         android:allowBackup="true">
 
         <activity

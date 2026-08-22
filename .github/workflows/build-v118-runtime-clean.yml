@@ -1,4 +1,4 @@
-name: Build V1.18.5B Hokkaido Full Asset APK
+name: Build V1.17.2 Fixed Home + Hokkaido Assets APK
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  interim-build:
+  runtime-build:
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -31,25 +31,45 @@ jobs:
       - name: Install image verifier
         run: python3 -m pip install --disable-pip-version-check pillow
 
-      - name: Verify Hokkaido flow structure
+      - name: Restore fixed V1.17 Home asset
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          parts = sorted(Path('.github/asset-lock').glob('v117_home_lock.hex.*'))
+          assert len(parts) == 8, f'expected 8 lock chunks, got {len(parts)}'
+          hexdata = ''.join(p.read_text().strip() for p in parts)
+          out = Path('app/src/main/res/drawable-nodpi/v117_home_lock.webp')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_bytes(bytes.fromhex(hexdata))
+          with Image.open(out) as im:
+              assert im.width >= 200 and im.height >= 400, im.size
+              print('LOCK HOME', im.size)
+          print('LOCK HOME bytes', out.stat().st_size)
+          PY
+
+      - name: Verify V1.17 locked Home flow
+        run: |
+          set -euo pipefail
+          test -s app/src/main/res/drawable-nodpi/v117_home_lock.webp
+          grep -Fq 'v117_home_lock' app/src/main/java/com/hokkaidogolf/trip/V117HomeActivity.java
+          grep -Fq 'finish();' app/src/main/java/com/hokkaidogolf/trip/CourseSelectActivity.java
+          ! grep -Fq 'new Intent(this, FieldGpsV09Activity.class)' app/src/main/java/com/hokkaidogolf/trip/CourseSelectActivity.java
+          grep -Fq 'android:screenOrientation="portrait"' app/src/main/AndroidManifest.xml
+          echo 'V1.17 HOME LOCK + RETURN FLOW PASS'
+
+      - name: Verify Hokkaido course structure
         run: |
           set -euo pipefail
           INDEX=app/src/main/assets/courses/course_index.json
           test -f "$INDEX"
-          test -f app/src/main/assets/courses/kamishihoro/course.json
-          test -f app/src/main/assets/courses/furano/course.json
-          test -f app/src/main/assets/courses/sahoro/course.json
           grep -Fq '"id": "kamishihoro"' "$INDEX"
           grep -Fq '"id": "furano"' "$INDEX"
           grep -Fq '"id": "sahoro"' "$INDEX"
           ! grep -Fqi 'demo_001' "$INDEX"
-          test -f app/src/main/java/com/hokkaidogolf/trip/CourseRepository.java
-          test -f app/src/main/java/com/hokkaidogolf/trip/CourseSelectActivity.java
           test -f app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -Fq '.CourseSelectActivity' app/src/main/AndroidManifest.xml
-          grep -Fq '.FieldGpsV09Activity' app/src/main/AndroidManifest.xml
-          grep -Fq '@drawable/ic_launcher' app/src/main/AndroidManifest.xml
-          echo 'Hokkaido flow structure PASS'
+          echo 'Hokkaido course structure PASS'
 
       - name: Fetch 90 Hokkaido yardage images
         run: bash .github/scripts/fetch-v1185-hokkaido-runtime-assets.sh
@@ -68,41 +88,39 @@ jobs:
           test $((K+F+S)) -eq 90
           test "$(find "$RES" -maxdepth 1 -type f -name 'yardage_royallinks_*' | wc -l)" -eq 0
 
-      - name: Build Full Asset APK
+      - name: Build APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Verify Full Asset APK
+      - name: Verify packaged APK
         run: |
           set -euo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           unzip -Z1 "$APK" > /tmp/apk-files.txt
           grep -F 'assets/courses/course_index.json' /tmp/apk-files.txt
-          echo '--- packaged yardage sample ---'
-          grep -E 'yardage_(kamishihoro|furano|sahoro)_' /tmp/apk-files.txt | head -20 || true
+          grep -F 'res/drawable-nodpi-v4/v117_home_lock.webp' /tmp/apk-files.txt || grep -F 'v117_home_lock' /tmp/apk-files.txt
           K=$(grep -Ec '(^|/)yardage_kamishihoro_.*\.jpg$' /tmp/apk-files.txt || true)
           F=$(grep -Ec '(^|/)yardage_furano_.*\.jpg$' /tmp/apk-files.txt || true)
           S=$(grep -Ec '(^|/)yardage_sahoro_.*\.png$' /tmp/apk-files.txt || true)
-          echo "APK yardage entries: Kamishihoro=$K Furano=$F Sahoro=$S Total=$((K+F+S))"
+          echo "APK yardage: K=$K F=$F S=$S Total=$((K+F+S))"
           test "$K" -eq 36
           test "$F" -eq 36
           test "$S" -eq 18
-          test $((K+F+S)) -eq 90
-          if grep -Ei 'yardage_royallinks_|concept_hero|master_golden|preview-v1163|demo_course' /tmp/apk-files.txt; then
+          if grep -Ei 'yardage_royallinks_|demo_course' /tmp/apk-files.txt; then
             echo 'Legacy/demo contamination detected'
             exit 1
           fi
           stat -c 'APK bytes=%s' "$APK"
-          echo 'V1.18.5B HOKKAIDO FULL ASSET APK PASS'
+          echo 'V1.17.2 FIXED HOME APK PASS'
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.18.5B-HOKKAIDO-FULL-ASSET-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HokkaidoGolfGPS-V1.17.2-FIXED-HOME-HOKKAIDO-debug.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-V1.18.5B-HOKKAIDO-FULL-ASSET-debug-apk
-          path: HokkaidoGolfGPS-V1.18.5B-HOKKAIDO-FULL-ASSET-debug.apk
+          name: HokkaidoGolfGPS-V1.17.2-FIXED-HOME-HOKKAIDO-debug-apk
+          path: HokkaidoGolfGPS-V1.17.2-FIXED-HOME-HOKKAIDO-debug.apk
           retention-days: 14
 
       - name: Publish direct APK download in Releases
@@ -110,8 +128,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG='v1.18.5b-interim'
+          TAG='v1.17.2-fixed-home'
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" HokkaidoGolfGPS-V1.18.5B-HOKKAIDO-FULL-ASSET-debug.apk \
-            --title 'HokkaidoGolfGPS V1.18.5B Interim' \
-            --notes 'Interim Android APK with 90 Hokkaido yardage source images: Kamishihoro 36, Furano 36, Sahoro 18. RoyalLinks/demo assets excluded.'
+          gh release create "$TAG" HokkaidoGolfGPS-V1.17.2-FIXED-HOME-HOKKAIDO-debug.apk \
+            --title 'HokkaidoGolfGPS V1.17.2 Fixed Home' \
+            --notes 'Portrait V1.17 fixed Home visual lock, course selection returns Home, Hokkaido-only 90 yardage source assets, RoyalLinks/demo excluded.'

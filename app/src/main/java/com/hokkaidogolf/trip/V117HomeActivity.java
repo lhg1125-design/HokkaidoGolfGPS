@@ -3,6 +3,7 @@ package com.hokkaidogolf.trip;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -19,12 +20,15 @@ import android.view.View;
 import android.widget.Toast;
 
 public class V117HomeActivity extends Activity {
+    private HomeView homeView;
     @Override protected void onCreate(Bundle b){
         super.onCreate(b);
         getWindow().setStatusBarColor(Color.rgb(44,171,226));
         getWindow().setNavigationBarColor(Color.rgb(51,76,31));
-        setContentView(new HomeView());
+        homeView=new HomeView();
+        setContentView(homeView);
     }
+    @Override protected void onResume(){ super.onResume(); if(homeView!=null) homeView.invalidate(); }
 
     private final class HomeView extends View {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -32,19 +36,25 @@ public class V117HomeActivity extends Activity {
         private final RectF[] nav={new RectF(),new RectF(),new RectF()};
         private final int NAVY=Color.rgb(16,46,72), GREEN=Color.rgb(0,151,75), CREAM=Color.rgb(255,251,230);
         private final String[] titles={"골프장 선택","플레이어 정보","참여 방식 선택","코드 입력 / 방 생성","라운드 시작"};
-        private final String[] subs={"플레이할 골프장을 선택하세요","플레이어 정보를 입력하세요","MASTER / FOLLOWER / GALLERY","방 코드 입력 또는 새 방을 생성하세요","모든 준비가 완료되면 시작합니다"};
         private final int[] colors={Color.rgb(0,161,73),Color.rgb(255,112,8),Color.rgb(45,119,238),Color.rgb(139,66,226),Color.rgb(0,157,80)};
         private final String[] marks={"●","●","●","◆","▶"};
+        private final SharedPreferences flow=getSharedPreferences("v117_flow",MODE_PRIVATE);
 
         HomeView(){ super(V117HomeActivity.this); setLayerType(View.LAYER_TYPE_SOFTWARE,null); }
+
+        private String subFor(int i){
+            if(i==0){ String s=flow.getString("course_name",""); return s.isEmpty()?"플레이할 골프장을 선택하세요":"선택됨 · "+s; }
+            if(i==1){ int n=flow.getInt("player_count",0); return n>0?"플레이어 "+n+"명 저장됨":"플레이어 정보를 입력하세요"; }
+            if(i==2){ String m=flow.getString("mode",""); return m.isEmpty()?"MASTER / FOLLOWER / GALLERY":"선택됨 · "+m; }
+            if(i==3){ String c=flow.getString("room_code",""); return c.isEmpty()?"방 코드 입력 또는 새 방을 생성하세요":"ROOM CODE · "+c; }
+            return "모든 준비가 완료되면 시작합니다";
+        }
 
         @Override protected void onDraw(Canvas c){
             float w=getWidth(),h=getHeight();
             p.setShader(new LinearGradient(0,0,0,h,Color.rgb(47,184,239),Color.rgb(117,181,48),Shader.TileMode.CLAMP));
             c.drawRect(0,0,w,h,p); p.setShader(null);
-
-            drawScenery(c,w,h);
-            drawTitle(c,w,h);
+            drawScenery(c,w,h); drawTitle(c,w,h);
 
             float left=w*.055f,right=w*.945f,top=h*.355f,cardH=h*.083f,gap=h*.010f;
             for(int i=0;i<5;i++){
@@ -55,17 +65,15 @@ public class V117HomeActivity extends Activity {
                 p.setColor(colors[i]); c.drawCircle(cx,cy,r,p);
                 text(c,marks[i],cx,cy+w*.016f,w*.050f,Color.WHITE,true,Paint.Align.CENTER);
                 text(c,titles[i],left+w*.18f,y+cardH*.43f,w*.049f,NAVY,true,Paint.Align.LEFT);
-                text(c,subs[i],left+w*.18f,y+cardH*.72f,w*.027f,Color.rgb(76,79,63),false,Paint.Align.LEFT);
+                text(c,subFor(i),left+w*.18f,y+cardH*.72f,w*.027f,Color.rgb(76,79,63),false,Paint.Align.LEFT);
                 if(i>0) text(c,"›",right-w*.045f,cy+w*.018f,w*.070f,Color.rgb(125,119,92),false,Paint.Align.CENTER);
                 if(i==0) drawTinyFlag(c,right-w*.12f,cy,w*.075f);
                 if(i==1) mascot(c,right-w*.12f,cy,w*.047f);
                 if(i==2){ mascot(c,right-w*.17f,cy,w*.039f); mascot(c,right-w*.10f,cy,w*.039f); }
             }
 
-            float navTop=h*.845f;
-            p.setColor(Color.rgb(104,74,37)); c.drawRect(0,navTop,w,h,p);
-            String[] nt={"오프라인 지도","GPS READY","스코어 관리"};
-            String[] ni={"▦","◎","▤"};
+            float navTop=h*.845f; p.setColor(Color.rgb(104,74,37)); c.drawRect(0,navTop,w,h,p);
+            String[] nt={"오프라인 지도","GPS READY","스코어 관리"}; String[] ni={"▦","◎","▤"};
             for(int i=0;i<3;i++){
                 float l=w*i/3f,r=w*(i+1)/3f; nav[i].set(l,navTop,r,h);
                 text(c,ni[i],(l+r)/2,navTop+h*.052f,w*.058f,CREAM,true,Paint.Align.CENTER);
@@ -94,26 +102,22 @@ public class V117HomeActivity extends Activity {
 
         private void drawTinyFlag(Canvas c,float x,float y,float s){
             p.setStrokeWidth(Math.max(3,s*.06f)); p.setColor(Color.rgb(80,47,25)); c.drawLine(x,y-s*.36f,x,y+s*.33f,p);
-            Path f=new Path(); f.moveTo(x,y-s*.34f); f.lineTo(x+s*.48f,y-s*.23f); f.lineTo(x,y-s*.11f); f.close();
-            p.setColor(Color.rgb(11,139,64)); c.drawPath(f,p);
+            Path f=new Path(); f.moveTo(x,y-s*.34f); f.lineTo(x+s*.48f,y-s*.23f); f.lineTo(x,y-s*.11f); f.close(); p.setColor(Color.rgb(11,139,64)); c.drawPath(f,p);
             p.setColor(Color.rgb(235,244,215)); c.drawOval(new RectF(x-s*.45f,y+s*.28f,x+s*.45f,y+s*.48f),p);
         }
 
         private void mascot(Canvas c,float x,float y,float r){
-            p.setColor(Color.WHITE); c.drawCircle(x,y,r,p);
-            p.setColor(Color.rgb(18,146,71)); c.drawArc(new RectF(x-r,y-r*.95f,x+r,y+r*.25f),180,180,true,p);
+            p.setColor(Color.WHITE); c.drawCircle(x,y,r,p); p.setColor(Color.rgb(18,146,71)); c.drawArc(new RectF(x-r,y-r*.95f,x+r,y+r*.25f),180,180,true,p);
             p.setColor(Color.rgb(30,30,30)); c.drawCircle(x-r*.32f,y-r*.05f,r*.08f,p); c.drawCircle(x+r*.32f,y-r*.05f,r*.08f,p);
             p.setColor(Color.rgb(255,166,162)); c.drawCircle(x-r*.53f,y+r*.20f,r*.12f,p); c.drawCircle(x+r*.53f,y+r*.20f,r*.12f,p);
         }
 
         private void text(Canvas c,String s,float x,float y,float size,int color,boolean bold,Paint.Align align){
-            p.setShader(null); p.setColor(color); p.setTextSize(size); p.setTextAlign(align);
-            p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL)); c.drawText(s,x,y,p);
+            p.setShader(null); p.setColor(color); p.setTextSize(size); p.setTextAlign(align); p.setTypeface(Typeface.create("sans-serif",bold?Typeface.BOLD:Typeface.NORMAL)); c.drawText(s,x,y,p);
         }
 
         @Override public boolean onTouchEvent(MotionEvent e){
-            if(e.getAction()!=MotionEvent.ACTION_UP) return true;
-            float x=e.getX(),y=e.getY();
+            if(e.getAction()!=MotionEvent.ACTION_UP) return true; float x=e.getX(),y=e.getY();
             for(int i=0;i<cards.length;i++) if(cards[i].contains(x,y)){ openCard(i); return true; }
             if(nav[0].contains(x,y)){ startActivity(new Intent(V117HomeActivity.this,OfflineMapActivity.class)); return true; }
             if(nav[1].contains(x,y)){ showGps(); return true; }
@@ -131,10 +135,9 @@ public class V117HomeActivity extends Activity {
 
         private void showGps(){
             boolean perm=checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED;
-            LocationManager lm=(LocationManager)getSystemService(LOCATION_SERVICE);
-            boolean enabled=false; try{ enabled=lm!=null && lm.isProviderEnabled(LocationManager.GPS_PROVIDER); }catch(Exception ignored){}
-            String s=perm&&enabled?"GPS READY":"GPS 권한/위치 서비스를 확인하세요";
-            Toast.makeText(V117HomeActivity.this,s,Toast.LENGTH_SHORT).show();
+            LocationManager lm=(LocationManager)getSystemService(LOCATION_SERVICE); boolean enabled=false;
+            try{ enabled=lm!=null && lm.isProviderEnabled(LocationManager.GPS_PROVIDER); }catch(Exception ignored){}
+            Toast.makeText(V117HomeActivity.this,perm&&enabled?"GPS READY":"GPS 권한/위치 서비스를 확인하세요",Toast.LENGTH_SHORT).show();
         }
     }
 }

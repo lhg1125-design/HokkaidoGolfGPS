@@ -4,22 +4,22 @@
   "courses": [
     {
       "id": "kamishihoro",
-      "name": "가미시호로 골프장",
-      "country": "Japan",
+      "name": "上士幌ゴルフ場 / 가미시호로 골프장",
+      "country": "Hokkaido, Japan",
       "holes": 18,
       "pack": "kamishihoro"
     },
     {
       "id": "furano",
-      "name": "후라노 골프코스",
-      "country": "Japan",
+      "name": "富良野ゴルフコース / 후라노 골프코스",
+      "country": "Hokkaido, Japan",
       "holes": 18,
       "pack": "furano"
     },
     {
       "id": "sahoro",
-      "name": "사호로 컨트리클럽",
-      "country": "Japan",
+      "name": "サホロカントリークラブ / 사호로 컨트리클럽",
+      "country": "Hokkaido, Japan",
       "holes": 18,
       "pack": "sahoro"
     }

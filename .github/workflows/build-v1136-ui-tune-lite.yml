@@ -36,12 +36,12 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
           s = p.read_text()
-          bad = 'new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p)'
-          good = 'new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r)'
+          bad = 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p));'
+          good = 'c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r),p);'
           if bad not in s:
-              raise SystemExit('expected mascot RectF typo not found')
+              raise SystemExit('expected mascot drawOval typo not found')
           p.write_text(s.replace(bad, good, 1))
-          print('fixed mascot RectF 5-arg typo')
+          print('fixed mascot drawOval RectF/paint call')
           PY
 
       - name: Build UI tune lite APK

@@ -112,3 +112,11 @@ one_shot=Path('.github/scripts/patch-v1136-one-shot-field.py')
 if not one_shot.exists():
     raise SystemExit('missing one-shot field patch')
 exec(compile(one_shot.read_text(),str(one_shot),'exec'))
+
+# Auto detection must never switch holes silently. Overlay the storybook
+# confirmation flow after one-shot detection so the user can inspect the actual
+# candidate mini yardage, adjust with arrows, then explicitly commit the hole.
+hole_popup=Path('.github/scripts/patch-v1136-hole-confirm-popup.py')
+if not hole_popup.exists():
+    raise SystemExit('missing hole-confirm popup patch')
+exec(compile(hole_popup.read_text(),str(hole_popup),'exec'))

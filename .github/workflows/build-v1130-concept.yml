@@ -96,7 +96,7 @@ jobs:
             patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 \
             patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 \
             patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 \
-            patch-v1134 patch-v1135 patch-v1136 patch-v1136-approved-ui-hotfix patch-v1136-realtime-weather
+            patch-v1134 patch-v1135 patch-v1136 patch-v1136fix patch-v1136-approved-ui-hotfix patch-v1136-realtime-weather patch-v1136-approved-compat
           do
             python3 ".github/scripts/${p}.py"
           done
@@ -130,6 +130,8 @@ jobs:
           grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml
           grep -q 'api.open-meteo.com' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'recordRoundLogV1136' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'private void drawHoleStepButtonsV1124' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'distances3(getRef("gf",hole),green,getRef("gb",hole))' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           cp "$APK" HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
 
       - name: Publish hotfix result
@@ -148,6 +150,7 @@ jobs:
             echo "weather=LIVE_OPEN_METEO_GPS_COORD"
             echo "wind=LIVE_10M_DIRECTION_SPEED_MS"
             echo "gps=LIVE_ANDROID_LOCATION_ACCURACY"
+            echo "compat=V1136_HELPERS_AND_3PT_DIST"
             echo "result=SUCCESS"
             echo "apk=dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk"
           } > build-status/v1136-approved-ui-hotfix.txt

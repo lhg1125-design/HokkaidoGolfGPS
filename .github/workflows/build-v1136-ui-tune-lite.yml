@@ -30,8 +30,34 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Install yardage asset validation tools
+      - name: Install image validation tools
         run: python3 -m pip install --disable-pip-version-check --quiet pillow
+
+      - name: Restore approved Hokkaido launcher icon
+        id: icon
+        shell: bash
+        run: |
+          rm -f app/src/main/res/drawable/ic_hokkaido_launcher.xml
+          python3 .github/scripts/generate-launcher-icon-v1135b.py
+          icon=app/src/main/res/drawable-nodpi/ic_hokkaido_launcher.jpg
+          test -s "$icon"
+          python3 - "$icon" <<'PY'
+          from PIL import Image, ImageStat
+          import sys
+          p=sys.argv[1]
+          with Image.open(p) as im:
+              im.verify()
+          with Image.open(p) as im:
+              assert im.size == (256,256), im.size
+              stat=ImageStat.Stat(im.convert('RGB').resize((32,32)))
+              assert sum(stat.stddev) > 20, stat.stddev
+              print('approved launcher icon verified', im.size)
+          PY
+          sha=$(sha256sum "$icon" | awk '{print $1}')
+          bytes=$(stat -c%s "$icon")
+          echo "source_sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "source_bytes=$bytes" >> "$GITHUB_OUTPUT"
+          echo "launcher source sha256=$sha bytes=$bytes"
 
       - name: Fetch 90 Hokkaido yardage assets
         run: bash .github/scripts/fetch-v1185-hokkaido-runtime-assets.sh
@@ -74,26 +100,33 @@ jobs:
           echo "Gradle exit code: $rc"
           exit 0
 
-      - name: Inspect packaged yardage resources
+      - name: Inspect packaged resources
         id: inspect
         if: steps.build.outputs.rc == '0'
         shell: bash
         run: |
           apk=app/build/outputs/apk/debug/app-debug.apk
           unzip -l "$apk" | grep -i 'yardage_' | tee v1136-ui-tune-lite-yardage-apk.txt || true
-          count=$(grep -c -i 'yardage_' v1136-ui-tune-lite-yardage-apk.txt || true)
+          yardage_count=$(grep -c -i 'yardage_' v1136-ui-tune-lite-yardage-apk.txt || true)
+          unzip -l "$apk" | grep -i 'ic_hokkaido_launcher' | tee v1136-ui-tune-lite-icon-apk.txt || true
+          icon_count=$(grep -c -i 'ic_hokkaido_launcher' v1136-ui-tune-lite-icon-apk.txt || true)
           bytes=$(stat -c%s "$apk")
-          echo "yardage_count=$count" >> "$GITHUB_OUTPUT"
+          echo "yardage_count=$yardage_count" >> "$GITHUB_OUTPUT"
+          echo "icon_count=$icon_count" >> "$GITHUB_OUTPUT"
           echo "apk_bytes=$bytes" >> "$GITHUB_OUTPUT"
-          echo "APK yardage entries=$count APK bytes=$bytes"
-          test "$count" -eq 90
+          echo "APK yardage entries=$yardage_count launcher entries=$icon_count APK bytes=$bytes"
+          test "$yardage_count" -eq 90
+          test "$icon_count" -ge 1
 
       - name: Publish build result to branch
         shell: bash
         env:
           BUILD_RC: ${{ steps.build.outputs.rc }}
           YARDAGE_COUNT: ${{ steps.inspect.outputs.yardage_count }}
+          ICON_COUNT: ${{ steps.inspect.outputs.icon_count }}
           APK_BYTES: ${{ steps.inspect.outputs.apk_bytes }}
+          ICON_SHA256: ${{ steps.icon.outputs.source_sha256 }}
+          ICON_BYTES: ${{ steps.icon.outputs.source_bytes }}
         run: |
           mkdir -p build-status dist
           {
@@ -103,8 +136,11 @@ jobs:
             echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "gradle_exit_code=${BUILD_RC}"
             echo "yardage_apk_entries=${YARDAGE_COUNT:-0}"
+            echo "launcher_apk_entries=${ICON_COUNT:-0}"
+            echo "launcher_source_sha256=${ICON_SHA256:-none}"
+            echo "launcher_source_bytes=${ICON_BYTES:-0}"
             echo "apk_bytes=${APK_BYTES:-0}"
-            if [ "${BUILD_RC}" = "0" ] && [ -f app/build/outputs/apk/debug/app-debug.apk ] && [ "${YARDAGE_COUNT:-0}" = "90" ]; then
+            if [ "${BUILD_RC}" = "0" ] && [ -f app/build/outputs/apk/debug/app-debug.apk ] && [ "${YARDAGE_COUNT:-0}" = "90" ] && [ "${ICON_COUNT:-0}" -ge 1 ]; then
               echo "result=SUCCESS"
               echo "apk=dist/HokkaidoGolfGPS-v1.13.6-ui-tune-lite-debug.apk"
             else
@@ -116,7 +152,10 @@ jobs:
           if [ -f v1136-ui-tune-lite-yardage-apk.txt ]; then
             cp v1136-ui-tune-lite-yardage-apk.txt build-status/v1136-ui-tune-lite-yardage-apk.txt
           fi
-          if [ "${BUILD_RC}" = "0" ] && [ -f app/build/outputs/apk/debug/app-debug.apk ] && [ "${YARDAGE_COUNT:-0}" = "90" ]; then
+          if [ -f v1136-ui-tune-lite-icon-apk.txt ]; then
+            cp v1136-ui-tune-lite-icon-apk.txt build-status/v1136-ui-tune-lite-icon-apk.txt
+          fi
+          if [ "${BUILD_RC}" = "0" ] && [ -f app/build/outputs/apk/debug/app-debug.apk ] && [ "${YARDAGE_COUNT:-0}" = "90" ] && [ "${ICON_COUNT:-0}" -ge 1 ]; then
             cp app/build/outputs/apk/debug/app-debug.apk dist/HokkaidoGolfGPS-v1.13.6-ui-tune-lite-debug.apk
           else
             rm -f dist/HokkaidoGolfGPS-v1.13.6-ui-tune-lite-debug.apk
@@ -128,6 +167,9 @@ jobs:
           if [ -f build-status/v1136-ui-tune-lite-yardage-apk.txt ]; then
             git add -f build-status/v1136-ui-tune-lite-yardage-apk.txt
           fi
+          if [ -f build-status/v1136-ui-tune-lite-icon-apk.txt ]; then
+            git add -f build-status/v1136-ui-tune-lite-icon-apk.txt
+          fi
           if [ -f dist/HokkaidoGolfGPS-v1.13.6-ui-tune-lite-debug.apk ]; then
             git add -f dist/HokkaidoGolfGPS-v1.13.6-ui-tune-lite-debug.apk
           else
@@ -136,17 +178,17 @@ jobs:
           if git diff --cached --quiet; then
             echo "No build result changes to publish"
           else
-            git commit -m "ci: publish V1.13.6 UI Tune Lite yardage build result [skip ci]"
+            git commit -m "ci: publish V1.13.6 UI Tune Lite audited build result [skip ci]"
             git push origin HEAD:release/v1.13.6-ui-tune-lite
           fi
 
       - name: Upload APK artifact
-        if: steps.build.outputs.rc == '0' && steps.inspect.outputs.yardage_count == '90'
+        if: steps.build.outputs.rc == '0' && steps.inspect.outputs.yardage_count == '90' && steps.inspect.outputs.icon_count != '0'
         uses: actions/upload-artifact@v4
         with:
           name: HokkaidoGolfGPS-v1.13.6-ui-tune-lite-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Fail workflow when build or yardage packaging failed
-        if: steps.build.outputs.rc != '0' || steps.inspect.outputs.yardage_count != '90'
+      - name: Fail workflow when build or packaging audit failed
+        if: steps.build.outputs.rc != '0' || steps.inspect.outputs.yardage_count != '90' || steps.inspect.outputs.icon_count == '0'
         run: exit 1

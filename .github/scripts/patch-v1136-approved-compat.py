@@ -60,15 +60,24 @@ s=s.replace('if(greenSave.contains(x,y)){saveGreenPoint();return true;}',
 s=s.replace('Distances ds=distances(green);',
             'Distances ds=distances3(getRef("gf",hole),green,getRef("gb",hole));')
 
-# PASS UI must preserve the proven live 2D field marker. The approved round()
-# redraw originally omitted this call even though the calibration engine stayed alive.
-# Re-link the old live-field renderer directly over the fit-center yardage image.
-if 'drawFieldNavV1110(c,imgInner,totalM);' not in s:
-    marker='''            courseRect.set(imgInner);\n            drawApprovedRulerV1136(c,w,h,imgFrame,totalM);'''
-    repl='''            courseRect.set(imgInner);\n            drawFieldNavV1110(c,imgInner,totalM);\n            drawApprovedRulerV1136(c,w,h,imgFrame,totalM);'''
-    if marker not in s:
-        raise SystemExit('approved live-marker anchor missing')
+# TOTAL is the official full-hole distance. DIST must never duplicate TOTAL.
+# DIST is strictly the live player -> calibrated GREEN CENTER remaining distance.
+s=s.replace('int distM=ds.center>=0?ds.center:totalM;',
+            'String distText=(green!=null && gpsUsable() && ds.center>=0)?(ds.center+"m"):"--";')
+s=s.replace('drawApprovedMetricV1136(c,"DIST",distM+"m",w*.515f,h*.072f,h*.091f);',
+            'drawApprovedMetricV1136(c,"DIST",distText,w*.515f,h*.072f,h*.091f);')
+
+# PASS UI must preserve the proven live 2D field marker. Only show the circular
+# player marker when both TEE + GREEN CENTER calibration exist and GPS is valid.
+marker='''            courseRect.set(imgInner);\n            drawApprovedRulerV1136(c,w,h,imgFrame,totalM);'''
+repl='''            courseRect.set(imgInner);\n            if(getRef("t",hole)!=null && green!=null && gpsUsable()) drawFieldNavV1110(c,imgInner,totalM);\n            drawApprovedRulerV1136(c,w,h,imgFrame,totalM);'''
+if marker in s:
     s=s.replace(marker,repl,1)
+elif 'drawFieldNavV1110(c,imgInner,totalM);' in s:
+    s=s.replace('drawFieldNavV1110(c,imgInner,totalM);',
+                'if(getRef("t",hole)!=null && green!=null && gpsUsable()) drawFieldNavV1110(c,imgInner,totalM);',1)
+else:
+    raise SystemExit('approved live-marker anchor missing')
 
 p.write_text(s)
-print('restored V1.13.6 hole controls, GREEN CENTER capture, 3-point DIST, and circular live GPS marker on PASS UI')
+print('locked PASS UI: TOTAL=official full distance, DIST=live remaining to calibrated green center, circular marker requires TEE+GREEN+GPS')

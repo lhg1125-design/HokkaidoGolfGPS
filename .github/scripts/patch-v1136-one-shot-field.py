@@ -69,11 +69,10 @@ else:
     p.write_text(s)
     print('applied V1.13.6 ONE-SHOT FIELD MODE: per-hole TEE-first use, optional GREEN, sequential auto-hole assist')
 
-# Always finalize with the confirmation popup and its field-readability/TTS polish.
-# These scripts are idempotent and read the freshly generated Java source.
+# Finalize only the confirmation flow here. The single final visual/TTS layer is
+# applied by patch-v1136-hole-popup-cute-tts.py from approved-compat. Do not apply
+# the older polish/TTS patch here as that would duplicate speaker/TTS fields.
 popup=Path('.github/scripts/patch-v1136-hole-confirm-popup.py')
-polish=Path('.github/scripts/patch-v1136-hole-confirm-polish.py')
-if not popup.exists() or not polish.exists():
-    raise SystemExit('missing hole popup finalization scripts')
+if not popup.exists():
+    raise SystemExit('missing hole popup finalization script')
 exec(compile(popup.read_text(),str(popup),'exec'))
-exec(compile(polish.read_text(),str(polish),'exec'))

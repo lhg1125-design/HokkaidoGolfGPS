@@ -33,13 +33,11 @@ jobs:
       - name: Install image validation tools
         run: python3 -m pip install --disable-pip-version-check --quiet pillow
 
-      - name: Restore approved Hokkaido launcher icon
+      - name: Verify approved Hokkaido launcher WebP
         id: icon
         shell: bash
         run: |
-          rm -f app/src/main/res/drawable/ic_hokkaido_launcher.xml
-          python3 .github/scripts/generate-launcher-icon-v1135b.py
-          icon=app/src/main/res/drawable-nodpi/ic_hokkaido_launcher.jpg
+          icon=app/src/main/res/drawable-nodpi/ic_hokkaido_launcher.webp
           test -s "$icon"
           python3 - "$icon" <<'PY'
           from PIL import Image, ImageStat
@@ -48,10 +46,11 @@ jobs:
           with Image.open(p) as im:
               im.verify()
           with Image.open(p) as im:
-              assert im.size == (256,256), im.size
+              w,h=im.size
+              assert w == h and w >= 256, im.size
               stat=ImageStat.Stat(im.convert('RGB').resize((32,32)))
               assert sum(stat.stddev) > 20, stat.stddev
-              print('approved launcher icon verified', im.size)
+              print('approved launcher WebP verified', im.size)
           PY
           sha=$(sha256sum "$icon" | awk '{print $1}')
           bytes=$(stat -c%s "$icon")

@@ -1,6 +1,6 @@
 # V1.13.6 FIELD GPS BEHAVIOR LOCK
 
-Status: **ONE-SHOT FIELD BEHAVIOR LOCKED**  
+Status: **ONE-SHOT FIELD BEHAVIOR LOCKED / PREBUILD REVIEWED**  
 Target: `release/v1.13.6-approved-ui-hotfix`  
 Companion to: `V1_13_6_APPROVED_UI_LOCK.md`
 
@@ -12,141 +12,232 @@ Therefore the app must be useful during that single round and must not depend on
 
 Primary field action per hole:
 
-`TEE 저장 -> circular live marker -> live DIST -> play hole -> auto-detect candidate -> user confirm -> next-hole yardage`
+`GPS GOOD -> TEE 저장 -> stable CAL -> circular live marker -> live DIST -> play hole -> auto-detect candidate -> user confirm -> next-hole yardage -> next TEE CAL`
 
 `GREEN CENTER` is optional. It is not a mandatory learning step.
 
-## 2. TOTAL vs DIST
+---
+
+## 2. CAL method — actual implementation
+
+TEE and optional GREEN CENTER use the V1.13.5/V1.13.6 stable multi-fix capture path.
+
+For the Japan courses:
+
+- Android native `GPS_PROVIDER` is used.
+- Recent GPS fixes are collected continuously, up to the existing short rolling buffer.
+- A capture uses recent fixes rather than trusting one weak point blindly.
+- Normal Japan capture tolerance uses the production multi-fix rule (18 m capture window).
+- If the current accuracy is worse than approximately 12 m, at least three recent agreeing fixes are required.
+- If recent fixes spread by more than approximately 12 m, capture is rejected and the user retries after GPS settles.
+- The save action uses a confirmation window: first tap asks for one more tap at the same physical point; the second tap completes the save.
+
+### TEE CAL
+
+At the physical teeing area:
+
+1. Wait for usable GPS / GOOD condition.
+2. Tap `TEE 저장`.
+3. When the confirmation message appears, tap `TEE 저장` once more while remaining at the same tee position.
+4. The stable weighted GPS reference is persisted for the current hole.
+5. The circular player marker and DIST become active immediately.
+
+TEE CAL is the only required per-hole calibration action.
+
+### GREEN CENTER CAL — optional
+
+At/near green center, if convenient:
+
+1. Tap `GREEN CENTER`.
+2. Confirm with the second tap using the same stable GPS capture path.
+3. The current hole immediately upgrades from TEE-only estimation to true GPS-to-GREEN CENTER distance / full TEE-to-GREEN projection.
+
+Do **not** interrupt play just to perform GREEN CAL. It is optional.
+
+---
+
+## 3. TOTAL vs DIST
 
 - `TOTAL` = official full-hole distance for the selected course / variant / hole.
-- `DIST` = live estimated remaining distance for the player.
+- `DIST` = live remaining distance for the player.
 
 ### Normal one-shot mode — TEE only
 
 Immediately after `TEE 저장` and while GPS is usable:
 
-`DIST = TOTAL - distance(saved TEE, current GPS)`
+`DIST = TOTAL - straight-line displacement(saved TEE, current GPS)`
 
 Clamp to `0 ... TOTAL`.
+
+This is an **estimated remaining distance** before GREEN CENTER exists. On a strong dogleg it is not the same as measured path length along the fairway.
 
 If there is no usable GPS or no TEE anchor, show `--`. Never duplicate TOTAL into DIST as a placeholder.
 
 ### Optional GREEN CENTER mode
 
-If the player voluntarily saves GREEN CENTER:
+If GREEN CENTER has been saved:
 
-`DIST = distance(current GPS, saved GREEN CENTER)`
+`DIST = straight-line distance(current GPS, saved GREEN CENTER)`
 
-This overrides the TEE-only estimate, but GREEN CENTER is not required for normal use.
+This becomes the preferred approach distance and overrides the TEE-only estimate.
 
-## 3. Circular live player marker
+---
 
-The PASS UI must show the proven V1.13.5/V1.13.6 circular live marker immediately after TEE calibration.
+## 4. Circular live player marker — actual display rule
 
-- TEE-only operation is sufficient.
-- Keep center dot, white ring and GPS-accuracy halo.
-- Before GREEN CENTER exists, marker progress is based on TEE + official hole length.
-- If GREEN CENTER exists, the same marker upgrades to the full geographic TEE -> GREEN projection.
-- Never remove this marker when applying visual UI patches.
+The PASS UI must show the proven V1.13.5/V1.13.6 circular live marker immediately after TEE calibration when GPS is usable.
 
-## 4. Calibration policy
+Marker visual:
 
-### Required
+- orange center dot,
+- white circular ring,
+- larger GPS-accuracy halo,
+- halo quality color derived from the current Android Location accuracy,
+- smoothed movement to reduce visual jitter.
 
-`TEE 저장` once at the start of each hole.
+Mapping behavior:
 
-Reason:
+- **TEE only:** progress uses TEE + official hole length and follows the extracted visual hole centerline.
+- **TEE + GREEN CENTER:** progress upgrades to geographic TEE->GREEN projection; lateral/cross-track information may also be used where the live geo engine supports it.
+- A GREEN reference is not required for the marker to start.
+- A TEE reference **is** required for the current hole marker.
 
-- establishes the current physical tee anchor,
-- starts the circular marker,
-- starts DIST,
-- gives the one-shot hole-transition logic its current-hole reference.
+After confirming a move to the next hole, the next-hole player marker starts after that hole's TEE CAL. The previous hole's GREEN must never be falsely projected onto the new hole yardage.
 
-### Optional
+---
 
-`GREEN CENTER`.
+## 5. GPS status display
 
-It may be used for verification or improved final approach distance, but the golfer must not be required to walk to the green and calibrate it for a future round.
+The top-right GPS UI is tied to live Android Location data.
 
-There is no second-round learning requirement in this project.
+- `GPS GOOD / WAIT` is based on the existing usable/stale-fix safety policy.
+- Signal bars are derived from `Location.getAccuracy()`:
+  - approximately <=5 m: 4 bars
+  - <=8 m: 3 bars
+  - <=12 m: 2 bars
+  - worse: 1 bar
+- Navigation and marker drawing also pass through the existing `navGpsUsableV1133()` quality/stale-fix gate.
+- A stale or unusable fix must not be presented as a trustworthy live player position.
 
-## 5. Japan automatic hole detection — confirm before switching
+The GPS card is therefore a **quality/status display**, not a fabricated signal indicator.
+
+---
+
+## 6. Weather / wind display
+
+Weather is not hardcoded.
+
+- The latest actual device GPS latitude/longitude triggers the weather query.
+- Provider: Open-Meteo current weather endpoint.
+- Displayed runtime values:
+  - temperature,
+  - weather condition,
+  - 10 m wind speed in m/s,
+  - 10 m wind direction.
+- Refresh: approximately every 10 minutes or after about 1 km movement.
+- Network/API failure: retain the last valid value or show `--`; never substitute demonstration weather.
+
+Weather network status and GPS positioning are independent: GPS can remain live even when weather data cannot refresh.
+
+---
+
+## 7. GREEN CENTER role — optional transition reference, not GPS sensor correction
+
+GREEN CENTER has two useful same-round effects when the player chooses to save it:
+
+1. **Approach accuracy:** DIST becomes actual current-GPS -> saved GREEN CENTER distance.
+2. **Next-hole transition confidence:** the auto-hole detector calls the same remaining-distance engine. Therefore, when GREEN CENTER exists, the final 25-45 m finish-zone is referenced to the real saved green position instead of only the TEE/TOTAL estimate. This makes the timing of the next-hole candidate popup more trustworthy.
+
+Important technical distinction:
+
+- GREEN CENTER does **not** improve the raw Android GPS accuracy number itself.
+- GREEN CENTER does **not** replace the next hole's TEE CAL.
+- GREEN CENTER does **not** get drawn as a false reference point on the next-hole mini-map.
+- It is an optional geometric/transition reference for the current-hole finish and next-hole detection sequence.
+
+So the field rule is:
+
+`TEE CAL = required`  
+`GREEN CENTER CAL = optional accuracy/transition upgrade`
+
+---
+
+## 8. Automatic hole detection — detect, ask, then switch
 
 Automatic detection must **never silently change the active hole**.
 
-For the Japan trip, the detector works as a conservative same-round sequential candidate detector:
+For the one-time Japan round:
 
 1. Current hole must have a TEE calibration.
-2. App watches the current hole's live DIST.
-3. When estimated DIST enters the final approximately 25-45 m zone, the hole-exit detector is armed.
-4. The app does not propose a new hole while the player is still around the green.
-5. After at least about 12 seconds and approximately 40 m of movement away from the armed end-zone point, the app proposes the next sequential hole as the candidate.
-6. A storybook confirmation popup appears. The current hole is still unchanged at this point.
-7. Popup shows the candidate's **actual packaged yardage mini-map**, large overlaid hole number, PAR / TOTAL and a one-line strategy note.
-8. If the candidate is wrong, the user changes the candidate with left/right arrows inside the popup.
-9. Only when the user taps `이 홀로 이동` is the active `hole` state saved and the full PASS yardage screen changed to that hole.
-10. `현재 홀 유지` or the close button dismisses the popup and keeps the current hole.
+2. App watches live `DIST`.
+3. With no GREEN CAL, DIST uses the TEE/TOTAL estimate.
+4. With GREEN CAL, DIST and finish-zone detection use true GPS -> GREEN CENTER range.
+5. When remaining distance enters approximately the final 25-45 m zone, the exit detector is armed.
+6. The player must remain in the sequence for at least about 12 seconds and then move approximately 40 m away from the armed finish point.
+7. The app **proposes** the next sequential hole; it does not commit it.
+8. A storybook confirmation popup appears.
+9. The popup shows the candidate's exact packaged yardage mini-map, overlaid hole number, large PAR / TOTAL, bold strategy and speaker/TTS control.
+10. If wrong, the user changes the candidate with popup left/right arrows.
+11. Only `이 홀로 이동` saves the candidate as active `hole` and opens that full yardage.
+12. `현재 홀 유지` / close leaves the current hole unchanged.
+13. Permanent main-screen previous/next arrows remain as manual fallback.
 
-This behavior applies to all supported Japan courses. GREEN CENTER is not required for detection or switching.
+This flow applies to all supported Japan courses.
 
-The permanent previous/next hole arrows on the PASS course screen remain available as a manual fallback.
+---
 
-## 6. Hole-detect popup visual lock
+## 9. Hole-detect popup visual lock
 
-Popup visual language follows the approved Golf-Anime / storybook direction.
+- Overlay on top of the existing PASS course screen.
+- Actual packaged candidate yardage only; never screenshot crop.
+- Fit-center / no crop / no stretch.
+- Numeric hole number is a separate overlay.
+- PAR and official distance are large bold outdoor-readable values.
+- Strategy heading/body are bold.
+- Speaker icon reads hole number + PAR + distance + strategy through Android TTS when available.
+- Cute storybook/initial-screen mascot family may decorate the background, but readable panes stay opaque and the mini-yardage remains clean.
+- Bottom button labels are enlarged bold.
 
-- Dim the existing PASS UI with a translucent overlay; never replace the underlying screen.
-- Large cream rounded card with soft green outline.
-- Pale sky header, small mascot and short phrase: `다음 홀을 찾았어요!`.
-- Left pane: actual candidate yardage mini-map, fit-center/no crop.
-- Overlay **only the numeric hole number** on the mini-map; do not bake the number into the source image.
-- Left/right circular arrows change only the candidate preview, not the live active hole.
-- Right pane: `PAR`, official metres, `공략 한 줄`, and a short confirmation tip.
-- Primary button: green `이 홀로 이동`.
-- Secondary button: neutral `현재 홀 유지`.
-- On primary confirmation, save the candidate as active hole and immediately display that full-hole yardage.
+---
 
-The popup must use the exact same packaged yardage resource as the destination course screen so the golfer can visually compare the mini-map with the real hole before committing.
+## 10. Per-hole field workflow
 
-## 7. Per-hole field workflow
+1. Confirm displayed hole / yardage.
+2. Wait for usable GPS.
+3. At tee, complete the two-tap stable `TEE 저장` CAL.
+4. Confirm circular marker appears.
+5. Confirm `DIST` starts and updates as GPS position changes.
+6. Play normally.
+7. GREEN CENTER may be saved if convenient; it is not required.
+8. Near hole completion, wait for the automatic candidate popup.
+9. Compare the actual mini yardage with the physical next hole.
+10. Correct candidate with popup arrows if necessary.
+11. Tap `이 홀로 이동`.
+12. At the next tee, perform that hole's TEE CAL and continue.
 
-For every hole:
+---
 
-1. Confirm the displayed hole.
-2. At the teeing area tap `TEE 저장` and complete the existing stable-GPS capture.
-3. Circular player marker appears immediately.
-4. `DIST` begins from TOTAL and decreases with GPS movement.
-5. Play the hole normally.
-6. Do not stop play just to calibrate GREEN CENTER.
-7. Near completion, the app detects a likely transition and shows the candidate confirmation popup.
-8. Compare the actual mini yardage with the real course. If wrong, change candidate with popup arrows.
-9. Tap `이 홀로 이동`; only then the app saves the new hole and opens that full yardage screen.
-10. At the next tee, perform `TEE 저장` and continue.
+## 11. Prebuild QA gate
 
-## 8. GPS quality
+The build must stop before Gradle compilation unless all of these are present in the generated final source:
 
-Keep the existing V1.13.5/V1.13.6 multi-fix capture rules.
+- native GPS provider path,
+- stable multi-fix CAL capture and spread checks,
+- TEE-first DIST path,
+- GREEN true-range upgrade path,
+- TEE-first circular player marker,
+- GPS accuracy halo,
+- live GPS quality bars,
+- realtime weather/wind from GPS coordinates,
+- one-shot auto-hole detector,
+- no silent hole change,
+- confirmation popup,
+- exact packaged mini-yardage,
+- optional GREEN transition reference,
+- single final cute/TTS popup implementation with no duplicate TTS field declarations.
 
-- Do not accept a weak single point blindly.
-- Preserve recent-fix and spread checks.
-- Preserve stale-fix safety logic.
-- Preserve `TEE_SAVE` and optional `GREEN_CENTER_SAVE` Round Log events.
+Automated checker:
 
-## 9. QA gate
-
-A field APK is not PASS unless all of these are true:
-
-- TEE calibration alone starts the circular live marker.
-- TEE calibration alone starts DIST.
-- DIST decreases from TOTAL as the player moves away from the TEE.
-- Missing TEE/GPS shows `--`, not a copied TOTAL value.
-- GREEN CENTER is optional, not required by the normal hole flow.
-- Auto detection opens a confirmation popup and does not silently change holes.
-- Candidate mini-map uses the actual packaged yardage for that candidate hole.
-- Popup arrows change only the candidate preview.
-- `이 홀로 이동` commits the candidate and immediately opens that hole's yardage.
-- `현재 홀 유지` leaves the active hole unchanged.
-- Manual previous/next hole arrows remain functional.
-- PASS UI geometry remains unchanged behind the overlay.
+`.github/scripts/check-v1136-field-prebuild.py`
 
 **This document is the source of truth for the one-time Japan field operation. No second-round learning workflow is required.**

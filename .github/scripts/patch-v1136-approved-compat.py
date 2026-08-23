@@ -120,3 +120,11 @@ hole_popup=Path('.github/scripts/patch-v1136-hole-confirm-popup.py')
 if not hole_popup.exists():
     raise SystemExit('missing hole-confirm popup patch')
 exec(compile(hole_popup.read_text(),str(hole_popup),'exec'))
+
+# Final field-visible polish: densely decorate the confirmation card with the
+# same mascot family as the initial screen, enlarge critical text/buttons and
+# add Android TTS strategy readout. Readable panes remain opaque over artwork.
+cute_popup=Path('.github/scripts/patch-v1136-hole-popup-cute-tts.py')
+if not cute_popup.exists():
+    raise SystemExit('missing cute/TTS popup patch')
+exec(compile(cute_popup.read_text(),str(cute_popup),'exec'))

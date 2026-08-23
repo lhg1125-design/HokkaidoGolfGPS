@@ -1,4 +1,12 @@
 workflow=Build V1.13.6 Approved UI Hotfix
-source_sha=12203981b9a0ebccabbf6ee462e646b74b48723d
-run_id=32615048072
-result=FAILED
+source_sha=9edd4bdd21bdc98b177485b0ea97b07a9ad95571
+run_id=32615402762
+apk_bytes=59581219
+yardage_entries=135
+home=ORIGINAL_V1.13.6_STACK
+course_ui=APPROVED_V14_HOTFIX
+weather=LIVE_OPEN_METEO_GPS_COORD
+wind=LIVE_10M_DIRECTION_SPEED_MS
+gps=LIVE_ANDROID_LOCATION_ACCURACY
+result=SUCCESS
+apk=dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk

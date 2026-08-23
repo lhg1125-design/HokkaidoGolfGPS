@@ -42,6 +42,12 @@ jobs:
           echo "yardage source assets=$count"
           test "$count" -eq 90
 
+      - name: Apply premium yardage renderer to V09 launcher
+        run: |
+          python3 .github/scripts/patch-v1136-lite-premium-yardage.py
+          grep -q 'V1.13.6 LITE PREMIUM YARDAGE' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'yardageAssetName' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+
       - name: Fix legacy mascot RectF compile typo
         run: |
           python3 - <<'PY'

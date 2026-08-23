@@ -11,15 +11,14 @@ if 'private int approvedRemainingV1136(' not in s:
 MARK='V1.13.6 ONE-SHOT FIELD MODE'
 if MARK in s:
     print('one-shot field mode already applied')
-    raise SystemExit(0)
-
-# State for conservative same-round sequential hole advance. This deliberately
-# does not depend on future-hole learned TEE coordinates because each course is
-# played only once on this trip.
-anchor='        private long lastRoundLogElapsedV1136=0L;'
-if anchor not in s:
-    raise SystemExit('round-log field anchor missing')
-s=s.replace(anchor,anchor+r'''
+else:
+    # State for conservative same-round sequential hole advance. This deliberately
+    # does not depend on future-hole learned TEE coordinates because each course is
+    # played only once on this trip.
+    anchor='        private long lastRoundLogElapsedV1136=0L;'
+    if anchor not in s:
+        raise SystemExit('round-log field anchor missing')
+    s=s.replace(anchor,anchor+r'''
         // V1.13.6 ONE-SHOT FIELD MODE
         private boolean oneShotExitArmedV1136=false;
         private int oneShotExitHoleV1136=-1;
@@ -27,26 +26,23 @@ s=s.replace(anchor,anchor+r'''
         private long oneShotExitAtV1136=0L;
 ''',1)
 
-def replace_method(src, signature, body):
-    start=src.find(signature)
-    if start<0: raise SystemExit('missing method '+signature)
-    brace=src.find('{',start); depth=0; end=None
-    for i in range(brace,len(src)):
-        if src[i]=='{': depth+=1
-        elif src[i]=='}':
-            depth-=1
-            if depth==0:
-                end=i+1; break
-    if end is None: raise SystemExit('unbalanced method '+signature)
-    return src[:start]+body+src[end:]
+    def replace_method(src, signature, body):
+        start=src.find(signature)
+        if start<0: raise SystemExit('missing method '+signature)
+        brace=src.find('{',start); depth=0; end=None
+        for i in range(brace,len(src)):
+            if src[i]=='{': depth+=1
+            elif src[i]=='}':
+                depth-=1
+                if depth==0:
+                    end=i+1; break
+        if end is None: raise SystemExit('unbalanced method '+signature)
+        return src[:start]+body+src[end:]
 
-# First-visit / one-round auto-hole assist:
-# 1) TEE CAL is the only required reference.
-# 2) When estimated remaining distance enters the finish band, arm an exit point.
-# 3) After the golfer actually leaves that end zone, advance sequentially H -> H+1.
-# This avoids the old savedCount("t")>=3 / nearest learned future-TEE dependency,
-# which is not useful when a course is played only once.
-body=r'''        private void maybeAutoHole(){
+    # First-visit / one-round auto-hole assist. This base implementation is then
+    # upgraded by patch-v1136-hole-confirm-popup.py so detection proposes H+1 but
+    # never changes the active hole until the golfer confirms it.
+    body=r'''        private void maybeAutoHole(){
             if(!autoHole || selected<0 || hole>=18 || location==null || !navGpsUsableV1133())return;
             GeoRef tee=getRef("t",hole);if(tee==null){oneShotExitArmedV1136=false;oneShotExitHoleV1136=-1;return;}
             int total=verifiedMetersV190();if(total<=0)total=(int)Math.round(currentYards()*.9144);if(total<=0)return;
@@ -69,11 +65,15 @@ body=r'''        private void maybeAutoHole(){
             oneShotExitArmedV1136=false;oneShotExitHoleV1136=hole;saveState();
             showToast("H"+old+" 종료 감지 · H"+hole+" 준비 · TEE 저장");
         }'''
-s=replace_method(s,'        private void maybeAutoHole(){',body)
+    s=replace_method(s,'        private void maybeAutoHole(){',body)
+    p.write_text(s)
+    print('applied V1.13.6 ONE-SHOT FIELD MODE: per-hole TEE-first use, optional GREEN, sequential auto-hole assist')
 
-# GREEN CENTER remains available as an optional verification reference, but the
-# approved primary flow must never require it before DIST/marker/next-hole use.
-s=s.replace('print_marker_that_does_not_exist','print_marker_that_does_not_exist')
-
-p.write_text(s)
-print('applied V1.13.6 ONE-SHOT FIELD MODE: per-hole TEE-first use, optional GREEN, sequential auto-hole assist')
+# Always finalize with the confirmation popup and its field-readability/TTS polish.
+# These scripts are idempotent and read the freshly generated Java source.
+popup=Path('.github/scripts/patch-v1136-hole-confirm-popup.py')
+polish=Path('.github/scripts/patch-v1136-hole-confirm-polish.py')
+if not popup.exists() or not polish.exists():
+    raise SystemExit('missing hole popup finalization scripts')
+exec(compile(popup.read_text(),str(popup),'exec'))
+exec(compile(polish.read_text(),str(polish),'exec'))

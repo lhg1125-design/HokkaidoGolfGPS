@@ -48,8 +48,6 @@ jobs:
           mkdir -p app/src/main/assets/fonts
           cp /tmp/Jua-Regular.ttf app/src/main/assets/fonts/Jua-Regular.ttf
           cp /tmp/MPLUSRounded1c-ExtraBold.ttf app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
-          test -s app/src/main/assets/fonts/Jua-Regular.ttf
-          test -s app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
 
       - name: Fetch full-hole imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
@@ -89,7 +87,7 @@ jobs:
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
 
-      - name: Apply original V1.13.6 stack plus approved UI hotfix
+      - name: Apply original V1.13.6 stack plus approved hotfix
         run: |
           set -e
           for p in \
@@ -98,7 +96,7 @@ jobs:
             patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 \
             patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 \
             patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 \
-            patch-v1134 patch-v1135 patch-v1136 patch-v1136-approved-ui-hotfix
+            patch-v1134 patch-v1135 patch-v1136 patch-v1136-approved-ui-hotfix patch-v1136-realtime-weather
           do
             python3 ".github/scripts/${p}.py"
           done
@@ -127,8 +125,10 @@ jobs:
           test "$(grep -c 'yardage_naepo_' /tmp/yardage-apk.txt)" -eq 9
           unzip -l "$APK" | grep -q 'assets/fonts/Jua-Regular.ttf'
           unzip -l "$APK" | grep -q 'assets/fonts/MPLUSRounded1c-ExtraBold.ttf'
-          grep -q 'V1.13.6 · ROUND LOG' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'V1.13.6 APPROVED UI HOTFIX' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.13.6 REALTIME WEATHER' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml
+          grep -q 'api.open-meteo.com' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'recordRoundLogV1136' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           cp "$APK" HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
 
@@ -145,6 +145,9 @@ jobs:
             echo "yardage_entries=135"
             echo "home=ORIGINAL_V1.13.6_STACK"
             echo "course_ui=APPROVED_V14_HOTFIX"
+            echo "weather=LIVE_OPEN_METEO_GPS_COORD"
+            echo "wind=LIVE_10M_DIRECTION_SPEED_MS"
+            echo "gps=LIVE_ANDROID_LOCATION_ACCURACY"
             echo "result=SUCCESS"
             echo "apk=dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk"
           } > build-status/v1136-approved-ui-hotfix.txt

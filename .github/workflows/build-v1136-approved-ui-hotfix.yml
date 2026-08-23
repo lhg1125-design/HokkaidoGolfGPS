@@ -101,6 +101,9 @@ jobs:
             python3 ".github/scripts/${p}.py"
           done
 
+      - name: Prebuild field behavior checklist
+        run: python3 .github/scripts/check-v1136-field-prebuild.py
+
       - name: Set package version
         run: |
           python3 - <<'PY'
@@ -127,6 +130,11 @@ jobs:
           unzip -l "$APK" | grep -q 'assets/fonts/MPLUSRounded1c-ExtraBold.ttf'
           grep -q 'V1.13.6 APPROVED UI HOTFIX' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'V1.13.6 REALTIME WEATHER' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.13.6 ONE-SHOT FIELD MODE' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.13.6 HOLE DETECT CONFIRM POPUP' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.13.6 HOLE POPUP CUTE CHARACTER WALLPAPER + TTS' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'approvedRemainingV1136' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'drawFieldNavV1110' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml
           grep -q 'api.open-meteo.com' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'recordRoundLogV1136' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
@@ -147,9 +155,15 @@ jobs:
             echo "yardage_entries=135"
             echo "home=ORIGINAL_V1.13.6_STACK"
             echo "course_ui=APPROVED_V14_HOTFIX"
+            echo "field_cal=STABLE_MULTI_FIX_TEE_REQUIRED_GREEN_OPTIONAL"
+            echo "player_marker=TEE_FIRST_CIRCULAR_LIVE_ACCURACY_HALO"
+            echo "dist=TEE_FIRST_TOTAL_MINUS_TRAVEL_UPGRADE_TO_GREEN_TRUE_RANGE"
             echo "weather=LIVE_OPEN_METEO_GPS_COORD"
             echo "wind=LIVE_10M_DIRECTION_SPEED_MS"
             echo "gps=LIVE_ANDROID_LOCATION_ACCURACY"
+            echo "auto_hole=DETECT_POPUP_USER_CONFIRM_NO_SILENT_SWITCH"
+            echo "green_policy=OPTIONAL_TRUE_RANGE_AND_TRANSITION_REFERENCE"
+            echo "popup=REAL_YARDAGE_CUTE_TTS"
             echo "compat=V1136_HELPERS_AND_3PT_DIST"
             echo "result=SUCCESS"
             echo "apk=dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk"

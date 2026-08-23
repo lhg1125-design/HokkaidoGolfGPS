@@ -105,3 +105,10 @@ elif 'drawFieldNavV1110(c,imgInner,totalM);' not in s:
 
 p.write_text(s)
 print('locked PASS UI: TEE-first circular marker + estimated live DIST, upgraded to true GREEN CENTER remaining distance')
+
+# Apply the trip-specific one-shot field behavior after all approved UI/GPS
+# compatibility work. This removes any dependency on a future second round.
+one_shot=Path('.github/scripts/patch-v1136-one-shot-field.py')
+if not one_shot.exists():
+    raise SystemExit('missing one-shot field patch')
+exec(compile(one_shot.read_text(),str(one_shot),'exec'))

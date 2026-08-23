@@ -69,10 +69,8 @@ else:
     p.write_text(s)
     print('applied V1.13.6 ONE-SHOT FIELD MODE: per-hole TEE-first use, optional GREEN, sequential auto-hole assist')
 
-# Finalize only the confirmation flow here. The single final visual/TTS layer is
-# applied by patch-v1136-hole-popup-cute-tts.py from approved-compat. Do not apply
-# the older polish/TTS patch here as that would duplicate speaker/TTS fields.
-popup=Path('.github/scripts/patch-v1136-hole-confirm-popup.py')
-if not popup.exists():
-    raise SystemExit('missing hole popup finalization script')
-exec(compile(popup.read_text(),str(popup),'exec'))
+# Popup confirmation and the single final Cute/TTS layer are intentionally owned
+# by patch-v1136-approved-compat.py. Do not execute either here; otherwise an
+# idempotent SystemExit from the popup patch can terminate the parent compat
+# script before the final visual/TTS layer is applied.
+print('one-shot field mode complete; popup finalization deferred to approved compat')

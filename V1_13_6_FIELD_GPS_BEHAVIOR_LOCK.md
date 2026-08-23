@@ -1,129 +1,126 @@
 # V1.13.6 FIELD GPS BEHAVIOR LOCK
 
-Status: **FIELD BEHAVIOR LOCKED**  
+Status: **ONE-SHOT FIELD BEHAVIOR LOCKED**  
 Target: `release/v1.13.6-approved-ui-hotfix`  
 Companion to: `V1_13_6_APPROVED_UI_LOCK.md`
 
-## 1. TOTAL vs DIST
+## 1. Operating assumption
 
-`TOTAL` and `DIST` must never mean the same thing.
+Each golf course is played **once** on this trip.
 
-- `TOTAL` = official full-hole length for the selected course / variant / hole.
-- `DIST` = live remaining distance for the player.
+Therefore the app must be useful during that single round and must not depend on building calibration data for a later second round.
 
-DIST operates in two stages:
+Primary field action per hole:
 
-### Stage A — TEE calibrated, GREEN CENTER not yet calibrated
+`TEE 저장 -> circular live marker -> live DIST -> play hole -> automatic/sequential H+1 assist`
 
-As soon as TEE calibration is stored and GPS is usable:
+`GREEN CENTER` is optional. It is not a mandatory learning step.
 
-`DIST = TOTAL - distance(saved TEE anchor, current GPS)`
+## 2. TOTAL vs DIST
 
-Rules:
+- `TOTAL` = official full-hole distance for the selected course / variant / hole.
+- `DIST` = live estimated remaining distance for the player.
 
-- Clamp the result to `0 ... TOTAL`.
-- If there is no usable GPS or no TEE anchor, display `--`.
-- Do not copy TOTAL into DIST as a placeholder.
-- This mode is intended to be useful immediately after tee-off, before reaching the green.
+### Normal one-shot mode — TEE only
 
-### Stage B — GREEN CENTER calibrated
+Immediately after `TEE 저장` and while GPS is usable:
 
-When a saved GREEN CENTER exists:
+`DIST = TOTAL - distance(saved TEE, current GPS)`
+
+Clamp to `0 ... TOTAL`.
+
+If there is no usable GPS or no TEE anchor, show `--`. Never duplicate TOTAL into DIST as a placeholder.
+
+### Optional GREEN CENTER mode
+
+If the player voluntarily saves GREEN CENTER:
 
 `DIST = distance(current GPS, saved GREEN CENTER)`
 
-This is the preferred accurate remaining-distance mode and overrides the Stage-A estimate.
+This overrides the TEE-only estimate, but GREEN CENTER is not required for normal use.
 
-## 2. Circular live player marker
+## 3. Circular live player marker
 
-The approved PASS UI must preserve the proven V1.13.5/V1.13.6 live field marker.
+The PASS UI must show the proven V1.13.5/V1.13.6 circular live marker immediately after TEE calibration.
 
-- TEE calibration alone is enough to start the circular player marker when official hole length is known.
-- The marker uses current GPS and the TEE-based progress estimate before GREEN CENTER is known.
-- When GREEN CENTER is available, the same marker automatically upgrades to the full TEE -> GREEN geographic projection / dogleg-aware 2D mode.
-- Keep the white ring, center marker and GPS-accuracy halo behavior.
-- Do not remove the marker when applying visual UI patches.
+- TEE-only operation is sufficient.
+- Keep center dot, white ring and GPS-accuracy halo.
+- Before GREEN CENTER exists, marker progress is based on TEE + official hole length.
+- If GREEN CENTER exists, the same marker upgrades to the full geographic TEE -> GREEN projection.
+- Never remove this marker when applying visual UI patches.
 
-## 3. Calibration reuse — do not force calibration every round
+## 4. Calibration policy
 
-Calibration references are stored per course / variant / hole in persistent app preferences.
+### Required
 
-### GREEN CENTER
+`TEE 저장` once at the start of each hole.
 
-- GREEN CENTER is a stable course reference.
-- Normally calibrate it once per hole.
-- Reuse it on later rounds.
-- Recalibrate only if the original capture was poor or the reference needs correction.
+Reason:
 
-### TEE
+- establishes the current physical tee anchor,
+- starts the circular marker,
+- starts DIST,
+- gives the one-shot hole-transition logic its current-hole reference.
 
-- Saved TEE references are reused for automatic hole recognition and field navigation.
-- They do not have to be captured on every app launch or every round.
-- However, the physical teeing area can move from day to day, so a fresh TEE calibration at the start of a hole is recommended when the tee position has materially shifted or maximum Stage-A DIST accuracy is desired.
-- A fresh TEE calibration replaces/updates that hole's current stored TEE anchor.
+### Optional
 
-Calibration data survives normal app restarts. Clearing app data or uninstalling the app removes local calibration data unless a separate backup/restore mechanism is used.
+`GREEN CENTER`.
 
-## 4. Automatic hole recognition
+It may be used for verification or improved final approach distance, but the golfer must not be required to walk to the green and calibrate it for a future round.
 
-Automatic hole recognition applies to Japan courses as well as the other supported courses.
+There is no second-round learning requirement in this project.
 
-Current behavior:
+## 5. Japan automatic hole movement — one-shot sequential assist
 
-- Uses saved TEE references for the selected course / variant.
-- Requires multiple learned TEE references before automatic switching is considered reliable.
-- Selects the nearest saved TEE to the current GPS position.
-- Switches when the player is within the field threshold of that saved TEE.
-- Includes a cooldown to prevent rapid hole bouncing.
+The old learned-TEE recognizer depended on already-saved TEE references from other holes and is not appropriate for a first-and-only visit.
 
-The V1.13.x implementation currently uses at least 3 saved TEE references, an approximately 80 m nearest-TEE threshold and an approximately 45 s switching cooldown.
+For the Japan trip, hole movement is therefore changed to a conservative **same-round sequential auto-advance assist**:
 
-Do not make automatic hole switching dependent on GREEN CENTER calibration.
+1. Current hole must have a TEE calibration.
+2. App watches the current hole's live DIST.
+3. When estimated DIST enters the final approximately 25-45 m zone, the hole-exit detector is armed.
+4. The app does not switch immediately while the player is still around the green.
+5. After at least about 12 seconds and approximately 40 m of movement away from the armed end-zone point, the app advances `Hn -> Hn+1`.
+6. The next hole then waits for that hole's `TEE 저장` before starting its marker/DIST.
 
-## 5. Recommended field workflow
+This behavior applies to the supported Japan courses as well.
 
-### First learning round
+The previous/next hole arrow buttons remain available at all times as the reliable manual fallback. GREEN CENTER is not required for hole switching.
 
-For each hole:
+## 6. Per-hole field workflow
 
-1. Enter/confirm the current hole.
-2. At the teeing area, perform `TEE 저장`.
-3. Circular player marker starts immediately.
-4. `DIST` starts as `TOTAL - travelled-from-TEE`.
+For every hole:
+
+1. Confirm the displayed hole.
+2. At the teeing area tap `TEE 저장` and complete the existing confirmation/stable-GPS capture.
+3. Circular player marker appears immediately.
+4. `DIST` begins from TOTAL and decreases with GPS movement.
 5. Play the hole normally.
-6. At GREEN CENTER, perform `GREEN CENTER` calibration once when practical.
-7. From that point, `DIST` switches to actual current-GPS -> GREEN CENTER distance.
+6. Do not stop play just to calibrate GREEN CENTER.
+7. Near completion, one-shot sequential auto-advance is armed and changes to the next hole after leaving the end zone.
+8. If auto-advance is not appropriate for the hole geometry, use the existing next-hole arrow.
 
-GREEN CENTER calibration is not required before the player can use DIST on the hole.
+## 7. GPS quality
 
-### Later rounds
+Keep the existing V1.13.5/V1.13.6 multi-fix capture rules.
 
-- Reuse saved GREEN CENTER data automatically.
-- Reuse saved TEE data for auto-hole recognition.
-- If today's tee position is close to the stored tee, no mandatory recalibration is required.
-- If today's tee box moved noticeably, tap `TEE 저장` once to refresh the anchor.
-- With saved GREEN CENTER, DIST can immediately use true remaining distance as soon as the correct hole is active and GPS is usable.
+- Do not accept a weak single point blindly.
+- Preserve recent-fix and spread checks.
+- Preserve stale-fix safety logic.
+- Preserve `TEE_SAVE` and optional `GREEN_CENTER_SAVE` Round Log events.
 
-## 6. GPS quality rules
+## 8. QA gate
 
-Use the existing V1.13.5/V1.13.6 multi-fix capture engine.
+A field APK is not PASS unless all of these are true:
 
-- Do not save a weak single GPS point blindly.
-- Use recent stable fixes and spread checks before accepting TEE/GREEN calibration.
-- Preserve current accuracy / stale-fix safety logic.
-- Preserve Round Log events for `TEE_SAVE` and `GREEN_CENTER_SAVE`.
+- TEE calibration alone starts the circular live marker.
+- TEE calibration alone starts DIST.
+- DIST decreases from TOTAL as the player moves away from the TEE.
+- Missing TEE/GPS shows `--`, not a copied TOTAL value.
+- GREEN CENTER is optional, not required by the normal hole flow.
+- If GREEN CENTER is saved, DIST changes to actual current-GPS -> GREEN CENTER distance.
+- Japan courses use the one-shot sequential H+1 assist without requiring future-round learned TEE data.
+- Manual previous/next hole arrows remain functional.
+- PASS UI geometry remains unchanged.
 
-## 7. QA gate
-
-A field APK is not PASS unless:
-
-- TEE-only calibration starts the circular live marker.
-- TEE-only mode produces decreasing DIST as the player advances from the tee.
-- DIST never defaults to TOTAL when calibration/GPS is unavailable.
-- Saving GREEN CENTER switches DIST to true current-to-green-center distance.
-- Saved GREEN CENTER is reusable on a later round without mandatory recalibration.
-- Saved TEE anchors participate in automatic hole recognition on Japan courses.
-- Hole switching does not require GREEN CENTER references.
-- PASS UI layout remains unchanged.
-
-**This document locks the operational GPS behavior; the visual geometry remains controlled by `V1_13_6_APPROVED_UI_LOCK.md`.**
+**This document is the source of truth for the one-time Japan field operation. No second-round learning workflow is required.**

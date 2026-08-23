@@ -163,3 +163,19 @@ jobs:
           name: HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug-apk
           path: HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
           retention-days: 14
+
+      - name: Publish failed run id
+        if: failure()
+        run: |
+          mkdir -p build-status
+          {
+            echo "workflow=Build V1.13.6 Approved UI Hotfix"
+            echo "source_sha=${GITHUB_SHA}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "result=FAILED"
+          } > build-status/v1136-approved-ui-hotfix.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f build-status/v1136-approved-ui-hotfix.txt
+          git commit -m "ci: publish failed approved UI hotfix run [skip ci]" || true
+          git push origin HEAD:release/v1.13.6-approved-ui-hotfix || true

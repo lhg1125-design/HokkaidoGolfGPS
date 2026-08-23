@@ -60,5 +60,15 @@ s=s.replace('if(greenSave.contains(x,y)){saveGreenPoint();return true;}',
 s=s.replace('Distances ds=distances(green);',
             'Distances ds=distances3(getRef("gf",hole),green,getRef("gb",hole));')
 
+# PASS UI must preserve the proven live 2D field marker. The approved round()
+# redraw originally omitted this call even though the calibration engine stayed alive.
+# Re-link the old live-field renderer directly over the fit-center yardage image.
+if 'drawFieldNavV1110(c,imgInner,totalM);' not in s:
+    marker='''            courseRect.set(imgInner);\n            drawApprovedRulerV1136(c,w,h,imgFrame,totalM);'''
+    repl='''            courseRect.set(imgInner);\n            drawFieldNavV1110(c,imgInner,totalM);\n            drawApprovedRulerV1136(c,w,h,imgFrame,totalM);'''
+    if marker not in s:
+        raise SystemExit('approved live-marker anchor missing')
+    s=s.replace(marker,repl,1)
+
 p.write_text(s)
-print('restored V1.13.6 hole controls, GREEN CENTER capture, and 3-point live DIST for approved UI')
+print('restored V1.13.6 hole controls, GREEN CENTER capture, 3-point DIST, and circular live GPS marker on PASS UI')

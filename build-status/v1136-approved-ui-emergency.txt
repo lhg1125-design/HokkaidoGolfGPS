@@ -1,0 +1,12 @@
+workflow=Build V1.13.6 Approved UI Emergency
+source_sha=280f5ebd717c018a662388ce68fa06144abab9d5
+run_id=32614280048
+prep=success
+assets=failure
+render=skipped
+patch=skipped
+build=skipped
+gate=skipped
+apk_bytes=0
+result=FAILED
+apk=dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk

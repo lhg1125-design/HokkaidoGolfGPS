@@ -1,0 +1,188 @@
+name: Build V1.13.6 Approved UI Emergency
+
+on:
+  push:
+    branches: [ release/v1.13.6-approved-ui-hotfix ]
+    paths:
+      - '.github/workflows/build-v1136-approved-emergency.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  emergency-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Prepare tools and approved base assets
+        id: prep
+        continue-on-error: true
+        run: |
+          set -e
+          python3 -m pip install --disable-pip-version-check --quiet pillow selenium requests numpy
+          mkdir -p app/src/main/res/drawable-nodpi app/src/main/assets/fonts
+          cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/jua/Jua-Regular.ttf -o app/src/main/assets/fonts/Jua-Regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/google/fonts/main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf -o app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
+          test -s app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          test -s app/src/main/res/drawable-nodpi/concept_course_exact.webp
+
+      - name: Fetch and prepare 135 yardage assets
+        id: assets
+        if: steps.prep.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -e
+          bash .github/scripts/fetch-v18-premium-course-art.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          root=Path('app/src/main/res/drawable-nodpi')
+          srcs=sorted(root.glob('yardage_sahoro_*.png'))
+          if len(srcs)!=18: raise SystemExit(f'expected 18 Sahoro PNGs, got {len(srcs)}')
+          for src in srcs:
+              dst=src.with_suffix('.jpg')
+              with Image.open(src) as im: im.convert('RGB').save(dst,'JPEG',quality=96,subsampling=0,optimize=True)
+              src.unlink()
+          PY
+          python3 .github/scripts/fetch-naepo-real-yardage-v1132.py
+          python3 .github/scripts/stylize-yardage-v1130.py
+
+      - name: Render original V1.13.6 UI assets
+        id: render
+        if: steps.assets.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -e
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/generate-v12-ui.py'); s=p.read_text(); lines=[]
+          for line in s.splitlines():
+              parts=line.split(';'); parts=[seg.replace(',font(', ',font=font(') if 'd.text(' in seg else seg for seg in parts]; lines.append(';'.join(parts))
+          s='\n'.join(lines)+'\n'
+          s=s.replace('라운드 시작  →','라운드 시작  >').replace('COURSES OFFLINE ✓','COURSES OFFLINE').replace('GPS READY ✓','GPS READY')
+          s=s.replace('24~26 AUG · HOKKAIDO TRIP','24~26 AUG - HOKKAIDO TRIP').replace('GPS × 코스맵 × 스코어 관리','GPS + 코스맵 + 스코어 관리').replace('4명 함께 · 자동 합계','4명 함께 / 자동 합계')
+          p.write_text(s)
+          PY
+          python3 .github/scripts/generate-v12-ui.py
+          python3 .github/scripts/generate-v18-premium-art.py
+
+      - name: Apply V1.13.6 stack + PASS UI + realtime weather
+        id: patch
+        if: steps.render.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -e
+          for p in \
+            patch-v10 patch-v11 patch-v12 patch-v121 patch-v122 patch-v13 patch-v14 patch-v141 patch-v142 patch-v143 patch-v149 \
+            patch-v15 patch-v151 patch-v16 patch-v161 patch-v162 patch-v163 patch-v163fix patch-v163restore \
+            patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 \
+            patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 \
+            patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 \
+            patch-v1134 patch-v1135 patch-v1136 patch-v1136-approved-ui-hotfix patch-v1136-realtime-weather
+          do
+            echo "APPLY $p"
+            python3 ".github/scripts/${p}.py"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/build.gradle.kts'); s=p.read_text()
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 55',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.6-approved-ui-hotfix"',s,1)
+          p.write_text(s)
+          PY
+
+      - name: Assemble APK
+        id: build
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee emergency-build.log
+
+      - name: Gate PASS APK
+        id: gate
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -e
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -l "$APK" | grep 'yardage_' > /tmp/yardage-apk.txt
+          test "$(grep -c 'yardage_' /tmp/yardage-apk.txt)" -eq 135
+          test "$(grep -c 'yardage_sahoro_' /tmp/yardage-apk.txt)" -eq 18
+          test "$(grep -c 'yardage_naepo_' /tmp/yardage-apk.txt)" -eq 9
+          unzip -l "$APK" | grep -q 'assets/fonts/Jua-Regular.ttf'
+          unzip -l "$APK" | grep -q 'assets/fonts/MPLUSRounded1c-ExtraBold.ttf'
+          grep -q 'V1.13.6 APPROVED UI HOTFIX' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.13.6 REALTIME WEATHER' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'android.permission.INTERNET' app/src/main/AndroidManifest.xml
+          grep -q 'api.open-meteo.com' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'recordRoundLogV1136' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          cp "$APK" HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
+
+      - name: Publish emergency status and APK
+        if: always()
+        env:
+          PREP: ${{ steps.prep.outcome }}
+          ASSETS: ${{ steps.assets.outcome }}
+          RENDER: ${{ steps.render.outcome }}
+          PATCH: ${{ steps.patch.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          GATE: ${{ steps.gate.outcome }}
+        run: |
+          mkdir -p build-status dist
+          result=FAILED
+          if [ "$GATE" = "success" ] && [ -f HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk ]; then
+            cp HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
+            result=SUCCESS
+          fi
+          bytes=0
+          [ -f dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk ] && bytes=$(stat -c%s dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk)
+          {
+            echo "workflow=Build V1.13.6 Approved UI Emergency"
+            echo "source_sha=${GITHUB_SHA}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "prep=${PREP}"
+            echo "assets=${ASSETS}"
+            echo "render=${RENDER}"
+            echo "patch=${PATCH}"
+            echo "build=${BUILD}"
+            echo "gate=${GATE}"
+            echo "apk_bytes=${bytes}"
+            echo "result=${result}"
+            echo "apk=dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk"
+          } > build-status/v1136-approved-ui-emergency.txt
+          [ -f emergency-build.log ] && cp emergency-build.log build-status/v1136-approved-ui-emergency-build.log || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f build-status/v1136-approved-ui-emergency.txt
+          [ -f build-status/v1136-approved-ui-emergency-build.log ] && git add -f build-status/v1136-approved-ui-emergency-build.log || true
+          [ -f dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk ] && git add -f dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk || true
+          git commit -m "ci: publish V1.13.6 emergency build result [skip ci]" || true
+          git push origin HEAD:release/v1.13.6-approved-ui-hotfix || true
+
+      - name: Upload APK artifact
+        if: steps.gate.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug-apk
+          path: HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
+          retention-days: 14

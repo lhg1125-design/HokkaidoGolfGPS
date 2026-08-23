@@ -1,0 +1,9 @@
+Build trigger for V1.13.6 approved UI hotfix
+Includes:
+- original V1.13.6 round-log stack
+- approved PASS course UI
+- runtime hole/course/PAR/TOTAL/DIST/yardage binding
+- realtime Android GPS quality
+- realtime Open-Meteo weather/wind from GPS coordinates
+- V1_13_6_APPROVED_UI_LOCK.md
+Triggered: 2026-08-23 11:46 KST

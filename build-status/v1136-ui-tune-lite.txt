@@ -1,6 +1,7 @@
 workflow=Build V1.13.6 UI Tune Lite
-source_sha=38107b07aff2eb7988b1b7259d0897311988298d
-run_id=32609197119
+source_sha=b2f4eaaa872623359be3b7cfb52b850065c10167
+run_id=32609238770
 run_attempt=1
-gradle_exit_code=1
-result=FAILED
+gradle_exit_code=0
+result=SUCCESS
+apk=dist/HokkaidoGolfGPS-v1.13.6-ui-tune-lite-debug.apk

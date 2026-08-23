@@ -3,9 +3,9 @@ Daemon will be stopped at the end of the build
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generateDebugResValues
 > Task :app:javaPreCompileDebug
 > Task :app:checkDebugAarMetadata
-> Task :app:generateDebugResValues
 > Task :app:mapDebugSourceSetPaths
 > Task :app:generateDebugResources
 > Task :app:packageDebugResources
@@ -19,44 +19,33 @@ Daemon will be stopped at the end of the build
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
+> Task :app:processDebugManifestForPackage
 > Task :app:desugarDebugFileDependencies
 > Task :app:compressDebugAssets
 > Task :app:processDebugJavaRes NO-SOURCE
 > Task :app:checkDebugDuplicateClasses
 > Task :app:mergeDebugJniLibFolders
-> Task :app:processDebugManifestForPackage
 > Task :app:mergeExtDexDebug
-> Task :app:mergeDebugJavaResource
+> Task :app:mergeLibDexDebug
 > Task :app:mergeDebugNativeLibs NO-SOURCE
 > Task :app:stripDebugDebugSymbols NO-SOURCE
-> Task :app:mergeLibDexDebug
+> Task :app:mergeDebugJavaResource
 > Task :app:processDebugResources
 > Task :app:validateSigningDebug
 
 > Task :app:compileDebugJavaWithJavac
-/home/runner/work/HokkaidoGolfGPS/HokkaidoGolfGPS/app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java:260: error: no suitable method found for drawOval(RectF)
-        private void mascot(Canvas c,float x,float y,float r,boolean wave){float bob=(float)Math.sin(SystemClock.uptimeMillis()/300.0)*2;y+=bob;p.setColor(Color.argb(24,20,60,30));c.drawOval(new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r));p.setColor(Color.WHITE);c.drawCircle(x,y,r,p);p.setColor(INK);c.drawCircle(x-r*.25f,y-r*.05f,r*.075f,p);c.drawCircle(x+r*.25f,y-r*.05f,r*.075f,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawArc(new RectF(x-r*.3f,y-r*.02f,x+r*.3f,y+r*.45f),15,150,false,p);p.setStyle(Paint.Style.FILL);p.setColor(GREEN);c.drawRoundRect(new RectF(x-r*.65f,y-r*.82f,x+r*.58f,y-r*.48f),r*.16f,r*.16f,p);if(wave){p.setStrokeWidth(Math.max(3,r*.12f));p.setColor(INK);c.drawLine(x+r*.68f,y,x+r*1.15f,y-r*.42f+(float)Math.sin(SystemClock.uptimeMillis()/160.0)*r*.18f,p);}}
-                                                                                                                                                                                     ^
-    method Canvas.drawOval(RectF,Paint) is not applicable
-      (actual and formal argument lists differ in length)
-    method Canvas.drawOval(float,float,float,float,Paint) is not applicable
-      (actual and formal argument lists differ in length)
 Note: Some input files use or override a deprecated API.
 Note: Recompile with -Xlint:deprecation for details.
-1 error
 
-> Task :app:compileDebugJavaWithJavac FAILED
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1787446708833.json
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:mergeProjectDexDebug
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1787446773731.json
 
-FAILURE: Build failed with an exception.
-
-* What went wrong:
-Execution failed for task ':app:compileDebugJavaWithJavac'.
-> Compilation failed; see the compiler error output for details.
-
-* Try:
-> Run with --info option to get more log output.
-> Run with --scan to get full insights.
-
-BUILD FAILED in 14s
-25 actionable tasks: 25 executed
+BUILD SUCCESSFUL in 17s
+32 actionable tasks: 32 executed

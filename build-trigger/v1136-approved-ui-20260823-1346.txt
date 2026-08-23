@@ -1,0 +1,3 @@
+V1.13.6 Approved UI Hotfix build trigger
+Local request time: 2026-08-23 13:46 KST
+Required gates: PREBUILD FIELD CHECKLIST -> Gradle assembleDebug -> APK asset/function gate -> publish artifact

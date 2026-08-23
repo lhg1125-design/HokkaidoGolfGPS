@@ -1,0 +1,6 @@
+workflow=Build V1.13.6 UI Tune Lite
+source_sha=38107b07aff2eb7988b1b7259d0897311988298d
+run_id=32609197119
+run_attempt=1
+gradle_exit_code=1
+result=FAILED

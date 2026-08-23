@@ -49,6 +49,15 @@ jobs:
         continue-on-error: true
         run: |
           set -e
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/fetch-v18-premium-course-art.sh')
+          s=p.read_text()
+          s=s.replace('--retry 2','--retry 8 --retry-all-errors --retry-delay 1')
+          s=s.replace('--retry 1','--retry 8 --retry-all-errors --retry-delay 1')
+          p.write_text(s)
+          print('hardened asset curl retries')
+          PY
           bash .github/scripts/fetch-v18-premium-course-art.sh
           python3 - <<'PY'
           from pathlib import Path

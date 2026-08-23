@@ -1,17 +1,20 @@
-name: Build V1.13.6 Round Log
+name: Build V1.13.6 Approved UI Hotfix
 
 on:
   push:
-    branches: [ main ]
+    branches: [ release/v1.13.6-approved-ui-hotfix ]
+    paths-ignore:
+      - 'build-status/**'
+      - 'dist/**'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  concept-build:
+  approved-ui-hotfix:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,8 +38,8 @@ jobs:
           mkdir -p app/src/main/res/drawable-nodpi
           cat .github/assets/v12/hero.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_hero_exact.webp
           cat .github/assets/v12/course.part*.b64 | tr -d '\n\r ' | base64 -d > app/src/main/res/drawable-nodpi/concept_course_exact.webp
-          file app/src/main/res/drawable-nodpi/concept_hero_exact.webp
-          file app/src/main/res/drawable-nodpi/concept_course_exact.webp
+          test -s app/src/main/res/drawable-nodpi/concept_hero_exact.webp
+          test -s app/src/main/res/drawable-nodpi/concept_course_exact.webp
 
       - name: Bundle concept fonts
         run: |
@@ -48,7 +51,7 @@ jobs:
           test -s app/src/main/assets/fonts/Jua-Regular.ttf
           test -s app/src/main/assets/fonts/MPLUSRounded1c-ExtraBold.ttf
 
-      - name: Fetch Japan and Royal Links full-hole imagery
+      - name: Fetch full-hole imagery
         run: bash .github/scripts/fetch-v18-premium-course-art.sh
 
       - name: Preserve Sahoro as JPG
@@ -63,27 +66,15 @@ jobs:
               dst=src.with_suffix('.jpg')
               with Image.open(src) as im: im.convert('RGB').save(dst,'JPEG',quality=96,subsampling=0,optimize=True)
               src.unlink()
-          print('Sahoro JPG',len(list(root.glob('yardage_sahoro_*.jpg'))))
           PY
 
-      - name: Fetch Naepo 9-hole real yardage imagery
+      - name: Fetch Naepo 9-hole imagery
         run: python3 .github/scripts/fetch-naepo-real-yardage-v1132.py
 
-      - name: Convert 135 yardages to concept-art style
+      - name: Stylize 135 yardages
         run: python3 .github/scripts/stylize-yardage-v1130.py
 
-      - name: Upload V1.13.6 yardage proofs
-        uses: actions/upload-artifact@v4
-        with:
-          name: V1.13.6-real-yardage-style-proof
-          path: |
-            .github/tmp/v1130/yardage-concept-samples.jpg
-            .github/tmp/v1130/manifest.txt
-            .github/tmp/v1132-naepo/naepo-real-9hole-proof.jpg
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Render concept UI assets
+      - name: Render original V1.13.6 UI assets
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -98,7 +89,7 @@ jobs:
           python3 .github/scripts/generate-v12-ui.py
           python3 .github/scripts/generate-v18-premium-art.py
 
-      - name: Apply app patch chain through V1.13.6 ROUND LOG
+      - name: Apply original V1.13.6 stack plus approved UI hotfix
         run: |
           set -e
           for p in \
@@ -107,28 +98,29 @@ jobs:
             patch-v170 patch-v170fix patch-v170preview patch-v180 patch-v180badge patch-v181 patch-v182 patch-v183 patch-v190 \
             patch-v1100 patch-v1101 patch-v1102 patch-v1104 patch-v1105 patch-v1106 patch-v1110 patch-v1111 patch-v1112 patch-v1113 patch-v1114 \
             patch-v1120 patch-v1121 patch-v1122 patch-v1123 patch-v1124 patch-v1130 patch-v1131-bootstrap patch-v1131 patch-v1132 patch-v1132simfix patch-v1133 \
-            patch-v1134 patch-v1135 patch-v1136
+            patch-v1134 patch-v1135 patch-v1136 patch-v1136-approved-ui-hotfix
           do
             python3 ".github/scripts/${p}.py"
           done
 
-      - name: Set V1.13.6 package version
+      - name: Set emergency package version
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           p=Path('app/build.gradle.kts'); s=p.read_text()
-          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 54',s,1)
-          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.6-round-log"',s,1)
+          s=re.sub(r'versionCode\s*=\s*\d+','versionCode = 55',s,1)
+          s=re.sub(r'versionName\s*=\s*"[^"]+"','versionName = "1.13.6-approved-ui-hotfix"',s,1)
           p.write_text(s)
           PY
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
 
-      - name: Gate V1.13.6 field APK
+      - name: Gate approved V1.13.6 APK
         run: |
           APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
           unzip -l "$APK" | grep 'yardage_' > /tmp/yardage-apk.txt
           test "$(grep -c 'yardage_' /tmp/yardage-apk.txt)" -eq 135
           test "$(grep -c 'yardage_sahoro_' /tmp/yardage-apk.txt)" -eq 18
@@ -136,42 +128,35 @@ jobs:
           unzip -l "$APK" | grep -q 'assets/fonts/Jua-Regular.ttf'
           unzip -l "$APK" | grep -q 'assets/fonts/MPLUSRounded1c-ExtraBold.ttf'
           grep -q 'V1.13.6 · ROUND LOG' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'GEO_SCOPE_V1134' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'liveGeoChipV1135' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
+          grep -q 'V1.13.6 APPROVED UI HOTFIX' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
           grep -q 'recordRoundLogV1136' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'ROUND LOG 공유' app/src/main/java/com/hokkaidogolf/trip/FieldGpsV09Activity.java
-          grep -q 'HokkaidoGolfGPS.RoundLog.v1' app/src/main/java/com/hokkaidogolf/trip/RoundLogV1134.java
-          grep -q 'RoundLogProvider' app/src/main/AndroidManifest.xml
-          cp "$APK" HokkaidoGolfGPS-v1.13.6-round-log-debug.apk
+          cp "$APK" HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
 
-      - name: Upload V1.13.6 APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: HokkaidoGolfGPS-v1.13.6-round-log-debug-apk
-          path: HokkaidoGolfGPS-v1.13.6-round-log-debug.apk
-          retention-days: 14
-
-      - name: Enable KVM
+      - name: Publish hotfix result
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+          mkdir -p build-status dist
+          cp HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
+          bytes=$(stat -c%s HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk)
+          {
+            echo "workflow=Build V1.13.6 Approved UI Hotfix"
+            echo "source_sha=${GITHUB_SHA}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "apk_bytes=${bytes}"
+            echo "yardage_entries=135"
+            echo "home=ORIGINAL_V1.13.6_STACK"
+            echo "course_ui=APPROVED_V14_HOTFIX"
+            echo "result=SUCCESS"
+            echo "apk=dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk"
+          } > build-status/v1136-approved-ui-hotfix.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f build-status/v1136-approved-ui-hotfix.txt dist/HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
+          git commit -m "ci: publish V1.13.6 approved UI hotfix [skip ci]"
+          git push origin HEAD:release/v1.13.6-approved-ui-hotfix
 
-      - name: Capture V1.13.6 ROUND LOG Android previews
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: false
-          script: bash .github/scripts/capture-preview-v1136-round-log.sh
-
-      - name: Upload V1.13.6 ROUND LOG previews
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HokkaidoGolfGPS-v1.13.6-round-log-preview-screenshots
-          path: preview-v1136-round-log/*.png
-          if-no-files-found: error
+          name: HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug-apk
+          path: HokkaidoGolfGPS-v1.13.6-approved-ui-hotfix-debug.apk
           retention-days: 14

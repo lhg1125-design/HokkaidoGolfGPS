@@ -27,6 +27,20 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Fix legacy mascot RectF compile typo
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/hokkaidogolf/trip/FieldGpsActivity.java')
+          s = p.read_text()
+          bad = 'new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r,p)'
+          good = 'new RectF(x-r*.8f,y+r*.78f,x+r*.8f,y+r)'
+          if bad not in s:
+              raise SystemExit('expected mascot RectF typo not found')
+          p.write_text(s.replace(bad, good, 1))
+          print('fixed mascot RectF 5-arg typo')
+          PY
+
       - name: Build UI tune lite APK
         run: gradle --no-daemon :app:assembleDebug
 

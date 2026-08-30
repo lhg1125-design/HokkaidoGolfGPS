@@ -95,7 +95,10 @@ public class MainActivity extends Activity {
 
         StringBuilder x=new StringBuilder();
         x.append("\nBRIDGE: ").append(p.getString("live_status","IDLE"));
-        x.append("\nHVAC frames: ").append(p.getLong("live_hvac_count",0));\n        x.append("\nTEMP changes captured: ").append(p.getLong("temp_change_count",0));\n        x.append("\nTEMP raw L/R: 0x").append(String.format(Locale.US,"%02X",p.getInt("temp_raw_l",0))).append("/0x").append(String.format(Locale.US,"%02X",p.getInt("temp_raw_r",0)));
+        x.append("\nHVAC frames: ").append(p.getLong("live_hvac_count",0));
+        x.append("\nTEMP changes captured: ").append(p.getLong("temp_change_count",0));
+        x.append("\nTEMP raw L/R: 0x").append(String.format(Locale.US,"%02X",p.getInt("temp_raw_l",0)))
+         .append("/0x").append(String.format(Locale.US,"%02X",p.getInt("temp_raw_r",0)));
         x.append("\nLast HVAC: ").append(p.getString("live_last_hvac","-"));
         x.append("\nD1 status: 0x").append(String.format(Locale.US,"%02X",s.statusRaw));
 

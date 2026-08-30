@@ -21,6 +21,14 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
 
+        // Remove obsolete R5.8 calibration leftovers.
+        getSharedPreferences("hvac",0).edit()
+            .remove("ac_cal_valid")
+            .remove("ac_mask")
+            .remove("ac_on_status")
+            .remove("ac_off_status")
+            .apply();
+
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(24,18,24,18);
@@ -29,23 +37,19 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this);
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
-        title.setText("VWID HVAC Bridge R5.8 LIVE\nOwnice TWUtil realtime MCU");
+        title.setText("VWID HVAC Bridge R5.9 LIVE\nOwnice TWUtil realtime MCU");
         root.addView(title);
 
         TextView note=new TextView(this);
         note.setTextColor(Color.rgb(190,190,190));
         note.setTextSize(14);
-        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / DUAL / HEATED SEAT\nAIR: HOLD\nA/C: one-time calibration required\n");
+        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / A/C / DUAL / HEATED SEAT\nA/C = D1 bit 0x40\nDUAL = D1 bit 0x04\nAIR: HOLD\n");
         root.addView(note);
 
         Button start=button("START LIVE MCU");
         Button stop=button("STOP LIVE MCU");
-        Button acOff=button("1) CAPTURE CURRENT = A/C OFF");
-        Button acOn=button("2) TURN A/C ON, THEN CAPTURE");
         root.addView(start);
         root.addView(stop);
-        root.addView(acOff);
-        root.addView(acOn);
 
         ScrollView sv=new ScrollView(this);
         status=new TextView(this);
@@ -68,12 +72,10 @@ public class MainActivity extends Activity {
 
         stop.setOnClickListener(v -> {
             getSharedPreferences("hvac",0).edit()
-                .putBoolean("live_autostart",false).apply();
+                .putBoolean("live_autostart",false)
+                .apply();
             stopService(new Intent(this,TwUtilMcuService.class));
         });
-
-        acOff.setOnClickListener(v -> captureAcOff());
-        acOn.setOnClickListener(v -> captureAcOn());
 
         setContentView(root);
     }
@@ -82,56 +84,6 @@ public class MainActivity extends Activity {
         Button b=new Button(this);
         b.setText(s);
         return b;
-    }
-
-    private void captureAcOff(){
-        HvacState s=HvacState.load(this);
-        getSharedPreferences("hvac",0).edit()
-            .putInt("ac_off_status",s.statusRaw)
-            .putBoolean("ac_cal_valid",false)
-            .apply();
-
-        s.ac=false;
-        s.save(this);
-        HvacWidgetBase.updateAll(this);
-
-        Toast.makeText(this,
-            String.format(Locale.US,"A/C OFF captured: D1=%02X",s.statusRaw),
-            Toast.LENGTH_SHORT).show();
-    }
-
-    private void captureAcOn(){
-        SharedPreferences p=getSharedPreferences("hvac",0);
-        if(!p.contains("ac_off_status")){
-            Toast.makeText(this,"Capture A/C OFF first",Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        HvacState s=HvacState.load(this);
-        int off=p.getInt("ac_off_status",0)&0xff;
-        int on=s.statusRaw&0xff;
-        int mask=(off^on)&0xff;
-
-        if(mask==0){
-            Toast.makeText(this,
-                "A/C calibration failed: D1 did not change",
-                Toast.LENGTH_LONG).show();
-            p.edit().putBoolean("ac_cal_valid",false).apply();
-            return;
-        }
-
-        p.edit()
-            .putInt("ac_mask",mask)
-            .putInt("ac_on_status",on)
-            .putBoolean("ac_cal_valid",true)
-            .apply();
-
-        s.save(this);
-        HvacWidgetBase.updateAll(this);
-
-        Toast.makeText(this,
-            String.format(Locale.US,"A/C calibrated: mask=%02X",mask),
-            Toast.LENGTH_LONG).show();
     }
 
     private void renderStatus(){
@@ -152,16 +104,9 @@ public class MainActivity extends Activity {
         x.append("   Passenger: ").append(HvacState.fmtTemp(s.tempR));
         x.append("\nFAN: ").append(s.fan);
         x.append("\nAUTO: ").append(s.auto);
+        x.append("   A/C: ").append(s.ac);
         x.append("   DUAL: ").append(s.dual);
         x.append("\nHEATED SEAT L/R: ").append(s.heatL).append("/").append(s.heatR);
-
-        boolean cal=p.getBoolean("ac_cal_valid",false);
-        x.append("\nA/C: ").append(cal ? String.valueOf(s.ac) : "UNCALIBRATED");
-        if(cal){
-            x.append("  mask=0x")
-             .append(String.format(Locale.US,"%02X",p.getInt("ac_mask",0)));
-        }
-
         x.append("\nAIR MODE: HOLD");
         x.append("\nLast update age: ").append(age<0?"-":age+" ms");
 

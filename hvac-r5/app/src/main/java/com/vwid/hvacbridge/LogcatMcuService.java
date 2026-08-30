@@ -2,14 +2,15 @@ package com.vwid.hvacbridge;
 
 import android.app.*;
 import android.content.*;
-import android.os.*;
+import android.os.Build;
+import android.os.IBinder;
 import java.io.*;
 import java.util.regex.*;
 
 public class LogcatMcuService extends Service {
     volatile boolean run;
     Thread th;
-    Process proc;
+    java.lang.Process proc;
     static final int ID=2105;
     static final Pattern P=Pattern.compile("(?i)(?:RX:\\s*)?(2e\\s+21\\s+05(?:\\s+[0-9a-f]{2}){6})");
 

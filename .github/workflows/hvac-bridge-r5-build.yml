@@ -43,3 +43,5 @@ jobs:
           name: VWID_HVAC_BRIDGE_R5_APK
           path: VWID_HVAC_BRIDGE_R5.apk
           if-no-files-found: error
+
+# rebuild after Process type fix

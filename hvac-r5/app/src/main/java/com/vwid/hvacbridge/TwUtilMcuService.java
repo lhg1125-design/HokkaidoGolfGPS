@@ -35,10 +35,10 @@ public class TwUtilMcuService extends Service {
     private boolean widgetDirty = false;
 
     private void initWorkers() {
-        mcuThread = new HandlerThread("VWID-HVAC-MCU", Process.THREAD_PRIORITY_DISPLAY);
+        mcuThread = new HandlerThread("VWID-HVAC-MCU", android.os.Process.THREAD_PRIORITY_DISPLAY);
         mcuThread.start();
 
-        widgetThread = new HandlerThread("VWID-HVAC-WIDGET", Process.THREAD_PRIORITY_BACKGROUND);
+        widgetThread = new HandlerThread("VWID-HVAC-WIDGET", android.os.Process.THREAD_PRIORITY_BACKGROUND);
         widgetThread.start();
 
         widgetHandler = new Handler(widgetThread.getLooper());

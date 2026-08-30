@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">VWID HVAC Bridge R5</string>
+    <string name="widget_lb">VWID HVAC - Light Brown</string>
+    <string name="widget_red">VWID HVAC - Deep Red</string>
+    <string name="widget_lav">VWID HVAC - Dark Lavender</string>
+</resources>

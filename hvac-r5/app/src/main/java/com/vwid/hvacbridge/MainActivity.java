@@ -28,13 +28,13 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this);
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
-        title.setText("VWID HVAC Bridge R5.6 LIVE\nOwnice TWUtil realtime MCU");
+        title.setText("VWID HVAC Bridge R5.7 LIVE\nOwnice TWUtil realtime MCU");
         root.addView(title);
 
         TextView note=new TextView(this);
         note.setTextColor(Color.rgb(190,190,190));
         note.setTextSize(15);
-        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / A/C / DUAL / HEATED SEAT\nAIR MODE: HOLD\n");
+        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / DUAL / HEATED SEAT\nA/C BIT FIXED: D1 0x80\nAIR MODE: HOLD\n");
         root.addView(note);
 
         Button start=button("START LIVE MCU");
@@ -105,7 +105,7 @@ public class MainActivity extends Activity {
         x.append("\nDriver: ").append(HvacState.fmtTemp(s.tempL));
         x.append("   Passenger: ").append(HvacState.fmtTemp(s.tempR));
         x.append("\nFAN: ").append(s.fan);
-        x.append("\nAUTO: ").append(s.auto);
+        x.append("\nHVAC POWER: ").append(s.power);\n        x.append("\nAUTO: ").append(s.auto);
         x.append("   A/C: ").append(s.ac);
         x.append("   DUAL: ").append(s.dual);
         x.append("\nHEATED SEAT L/R: ").append(s.heatL).append("/").append(s.heatR);

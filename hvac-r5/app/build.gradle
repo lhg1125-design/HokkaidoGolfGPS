@@ -1,0 +1,13 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.vwid.hvacbridge'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.vwid.hvacbridge'
+        minSdk 23
+        targetSdk 28
+        versionCode 5
+        versionName 'R5.0'
+    }
+}

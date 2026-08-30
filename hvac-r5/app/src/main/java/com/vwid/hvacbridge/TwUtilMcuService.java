@@ -71,7 +71,7 @@ public class TwUtilMcuService extends Service {
             : new Notification.Builder(this);
         startForeground(NOTIFY_ID, b
             .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
-            .setContentTitle("VWID HVAC Bridge R5.5")
+            .setContentTitle("VWID HVAC Bridge R5.8")
             .setContentText("Ownice MCU live bridge")
             .build());
     }

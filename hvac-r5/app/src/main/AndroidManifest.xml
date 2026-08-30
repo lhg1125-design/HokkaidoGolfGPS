@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
     <application android:theme="@android:style/Theme.Material.NoActionBar"
-        android:label="VWID HVAC R5.3 DIAG"
+        android:label="VWID HVAC R5.4 EXTRACT"
         android:allowBackup="false"
         android:requestLegacyExternalStorage="true">
         <activity android:name=".MainActivity" android:exported="true">

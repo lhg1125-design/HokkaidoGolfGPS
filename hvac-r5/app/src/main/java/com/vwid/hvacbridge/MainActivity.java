@@ -37,13 +37,13 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this);
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
-        title.setText("VWID HVAC Bridge R5.9 LIVE\nOwnice TWUtil realtime MCU");
+        title.setText("VWID HVAC Bridge R5.11 LIVE\nOwnice TWUtil realtime MCU");
         root.addView(title);
 
         TextView note=new TextView(this);
         note.setTextColor(Color.rgb(190,190,190));
         note.setTextSize(14);
-        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / A/C / DUAL / HEATED SEAT\nA/C = D1 bit 0x40\nDUAL = D1 bit 0x04\nAIR: HOLD\n");
+        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / A/C / DUAL / HEATED SEAT\nA/C = D1 bit 0x40\nDUAL = D1 bit 0x04\nAIR: HOLD\nFAST TEMP RX: MCU worker + 70ms coalesced widget\n");
         root.addView(note);
 
         Button start=button("START LIVE MCU");
@@ -95,7 +95,7 @@ public class MainActivity extends Activity {
 
         StringBuilder x=new StringBuilder();
         x.append("\nBRIDGE: ").append(p.getString("live_status","IDLE"));
-        x.append("\nHVAC frames: ").append(p.getLong("live_hvac_count",0));
+        x.append("\nHVAC frames: ").append(p.getLong("live_hvac_count",0));\n        x.append("\nTEMP changes captured: ").append(p.getLong("temp_change_count",0));\n        x.append("\nTEMP raw L/R: 0x").append(String.format(Locale.US,"%02X",p.getInt("temp_raw_l",0))).append("/0x").append(String.format(Locale.US,"%02X",p.getInt("temp_raw_r",0)));
         x.append("\nLast HVAC: ").append(p.getString("live_last_hvac","-"));
         x.append("\nD1 status: 0x").append(String.format(Locale.US,"%02X",s.statusRaw));
 

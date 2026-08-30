@@ -2,7 +2,6 @@ package com.vwid.hvacbridge;
 
 import android.app.*;
 import android.content.*;
-import android.net.Uri;
 import android.os.*;
 import java.io.*;
 import java.nio.channels.FileChannel;
@@ -24,7 +23,7 @@ public class FileMcuService extends Service {
         }
         Notification.Builder nb=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,"hvac_file"):new Notification.Builder(this);
         startForeground(ID,nb.setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
-            .setContentTitle("VWID HVAC Bridge R5.1").setContentText("MCU debug file listener active").build());
+            .setContentTitle("VWID HVAC Bridge R5.2").setContentText("MCU debug listener active").build());
     }
 
     @Override public int onStartCommand(Intent i,int flags,int id){
@@ -35,28 +34,26 @@ public class FileMcuService extends Service {
     private void loop(){
         while(run){
             try{
-                String u=getSharedPreferences("hvac",0).getString("mcu_uri","");
-                if(!u.isEmpty()) scan(Uri.parse(u));
+                String path=getSharedPreferences("hvac",0).getString("mcu_path","");
+                if(!path.isEmpty()) scanFile(new File(path));
             }catch(Exception e){
                 android.util.Log.e("VWID-HVAC","file listener",e);
             }
-            try{Thread.sleep(600);}catch(InterruptedException ignored){}
+            try{Thread.sleep(500);}catch(InterruptedException ignored){}
         }
     }
 
-    private void scan(Uri uri) throws Exception {
-        ParcelFileDescriptor pfd=getContentResolver().openFileDescriptor(uri,"r");
-        if(pfd==null)return;
-        FileInputStream in=new FileInputStream(pfd.getFileDescriptor());
+    private void scanFile(File f) throws Exception {
+        if(!f.exists()||!f.canRead())return;
+        FileInputStream in=new FileInputStream(f);
         FileChannel ch=in.getChannel();
         long size=ch.size();
-        long start=Math.max(0,size-262144);
-        ch.position(start);
+        ch.position(Math.max(0,size-262144));
         ByteArrayOutputStream out=new ByteArrayOutputStream();
         byte[] buf=new byte[8192];
         int n;
         while((n=in.read(buf))>0) out.write(buf,0,n);
-        in.close(); pfd.close();
+        in.close();
 
         String txt=new String(out.toByteArray(),StandardCharsets.UTF_8);
         Matcher m=P.matcher(txt);

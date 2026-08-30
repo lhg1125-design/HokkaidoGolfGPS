@@ -24,8 +24,11 @@ public final class HvacState {
         int status=b[3], af=b[4], seat=b[7];
 
         // CONFIRMED on vehicle
-        s.power=(status&0x80)!=0;
-        s.ac=(status&0x40)!=0;
+        // Corrected from controlled vehicle log:
+        // 0x40 = HVAC system/power state
+        // 0x80 = A/C state
+        s.power=(status&0x40)!=0;
+        s.ac=(status&0x80)!=0;
         s.dual=(status&0x04)!=0;
         s.auto=(status&0x18)!=0;
         s.fan=Math.min(7,af&0x0f);

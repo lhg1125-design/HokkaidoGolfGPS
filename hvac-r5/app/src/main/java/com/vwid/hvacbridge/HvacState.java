@@ -50,7 +50,7 @@ public final class HvacState {
     }
 
     public void save(Context c) {
-        SharedPreferences p=c.getSharedPreferences("hvac",0);
+        SharedPreferences p=HvacStore.prefs(c);
         p.edit()
             .putFloat("tl",tempL)
             .putFloat("tr",tempR)
@@ -63,11 +63,13 @@ public final class HvacState {
             .putBoolean("ac",ac)
             .putBoolean("dual",dual)
             .putBoolean("power",power)
+            .putBoolean("snapshot_valid",true)
+            .putLong("snapshot_saved_ms",System.currentTimeMillis())
             .apply();
     }
 
     public static HvacState load(Context c){
-        SharedPreferences p=c.getSharedPreferences("hvac",0);
+        SharedPreferences p=HvacStore.prefs(c);
         HvacState s=new HvacState();
 
         s.tempL=p.getFloat("tl",22f);

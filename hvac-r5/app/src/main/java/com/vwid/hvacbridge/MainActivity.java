@@ -206,7 +206,7 @@ public class MainActivity extends Activity {
 
     private void execFiltered(StringBuilder r,String[] cmd){
         try{
-            Process p=Runtime.getRuntime().exec(cmd);
+            java.lang.Process p=Runtime.getRuntime().exec(cmd);
             BufferedReader br=new BufferedReader(new InputStreamReader(p.getInputStream()));
             String line; int hits=0, total=0;
             while((line=br.readLine())!=null && total++<8000){

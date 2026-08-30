@@ -22,7 +22,7 @@ public class MainActivity extends Activity {
         super.onCreate(b);
 
         // Remove obsolete R5.8 calibration leftovers.
-        getSharedPreferences("hvac",0).edit()
+        HvacStore.prefs(this).edit()
             .remove("ac_cal_valid")
             .remove("ac_mask")
             .remove("ac_on_status")
@@ -37,13 +37,13 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this);
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
-        title.setText("VWID HVAC Bridge R5.11 LIVE\nOwnice TWUtil realtime MCU");
+        title.setText("VWID HVAC Bridge R5.12 COLD SYNC\nOwnice TWUtil realtime MCU");
         root.addView(title);
 
         TextView note=new TextView(this);
         note.setTextColor(Color.rgb(190,190,190));
         note.setTextSize(14);
-        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / A/C / DUAL / HEATED SEAT\nA/C = D1 bit 0x40\nDUAL = D1 bit 0x04\nAIR: HOLD\nFAST TEMP RX: MCU worker + 70ms coalesced widget\n");
+        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / A/C / DUAL / HEATED SEAT\nA/C = D1 bit 0x40\nDUAL = D1 bit 0x04\nAIR: HOLD\nFAST TEMP RX: MCU worker + 70ms coalesced widget\nCOLD BOOT: cached snapshot + direct-boot early MCU sync\n");
         root.addView(note);
 
         Button start=button("START LIVE MCU");
@@ -61,17 +61,24 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams.MATCH_PARENT,0,1f));
 
         start.setOnClickListener(v -> {
-            getSharedPreferences("hvac",0).edit()
+            SharedPreferences hp=HvacStore.prefs(this);
+            hp.edit()
                 .putBoolean("live_autostart",true)
                 .putString("live_error","")
                 .apply();
+
+            if(hp.getBoolean("snapshot_valid",false)) {
+                hp.edit().putString("sync_source","CACHE_MANUAL_START").apply();
+                try { HvacWidgetBase.updateAll(this); } catch(Throwable ignored) {}
+            }
+
             Intent s=new Intent(this,TwUtilMcuService.class);
             if(Build.VERSION.SDK_INT>=26) startForegroundService(s);
             else startService(s);
         });
 
         stop.setOnClickListener(v -> {
-            getSharedPreferences("hvac",0).edit()
+            HvacStore.prefs(this).edit()
                 .putBoolean("live_autostart",false)
                 .apply();
             stopService(new Intent(this,TwUtilMcuService.class));
@@ -87,7 +94,7 @@ public class MainActivity extends Activity {
     }
 
     private void renderStatus(){
-        SharedPreferences p=getSharedPreferences("hvac",0);
+        SharedPreferences p=HvacStore.prefs(this);
         HvacState s=HvacState.load(this);
 
         long t=p.getLong("live_last_update_ms",0);
@@ -95,6 +102,12 @@ public class MainActivity extends Activity {
 
         StringBuilder x=new StringBuilder();
         x.append("\nBRIDGE: ").append(p.getString("live_status","IDLE"));
+        x.append("\nSYNC: ").append(p.getString("sync_source","-"));
+        x.append("\nBOOT event: ").append(p.getString("boot_event","-"));
+        x.append("\nFirst LIVE delay: ").append(p.contains("first_live_delay_ms")
+            ? p.getLong("first_live_delay_ms",-1)+" ms" : "-");
+        x.append("\nSnapshot age: ").append(p.contains("snapshot_saved_ms")
+            ? (System.currentTimeMillis()-p.getLong("snapshot_saved_ms",0))+" ms" : "-");
         x.append("\nHVAC frames: ").append(p.getLong("live_hvac_count",0));
         x.append("\nTEMP changes captured: ").append(p.getLong("temp_change_count",0));
         x.append("\nTEMP raw L/R: 0x").append(String.format(Locale.US,"%02X",p.getInt("temp_raw_l",0)))

@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application android:theme="@android:style/Theme.Material.NoActionBar"
-        android:label="VWID HVAC Bridge R5.5 LIVE"
+        android:label="VWID HVAC Bridge R5.6 LIVE"
         android:allowBackup="false">
 
         <activity android:name=".MainActivity" android:exported="true">

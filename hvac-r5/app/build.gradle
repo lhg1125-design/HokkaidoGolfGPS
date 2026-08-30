@@ -7,7 +7,7 @@ android {
         applicationId 'com.vwid.hvacbridge'
         minSdk 23
         targetSdk 28
-        versionCode 7
-        versionName 'R5.2'
+        versionCode 8
+        versionName 'R5.3-DIAG'
     }
 }

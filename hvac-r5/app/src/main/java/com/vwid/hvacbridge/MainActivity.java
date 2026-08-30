@@ -1,14 +1,17 @@
 package com.vwid.hvacbridge;
 
+import android.Manifest;
 import android.app.*;
 import android.os.*;
 import android.content.*;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.net.Uri;
 import android.widget.*;
+import java.io.File;
+import java.util.*;
 
 public class MainActivity extends Activity {
-    static final int PICK_MCU=501;
+    static final int REQ_STORAGE=702;
     TextView st;
     LinearLayout root;
 
@@ -22,26 +25,20 @@ public class MainActivity extends Activity {
         st=new TextView(this);
         st.setTextColor(Color.WHITE);
         st.setTextSize(18);
-        st.setText("VWID HVAC Bridge R5.1\n\nNO CABLE / NO ADB\n1) Select live _MCUdebug log file\n2) Add theme-matched widget");
+        st.setText("VWID HVAC Bridge R5.2\n\nNO CABLE / NO ADB / NO FILE PICKER\n1) AUTO FIND MCUDEBUG + START\n2) Add VWID HVAC widget");
         root.addView(st);
 
-        Button pick=btn("SELECT MCUDEBUG LOG + START");
-        Button stop=btn("STOP FILE LISTENER");
+        Button auto=btn("AUTO FIND MCUDEBUG + START");
+        Button stop=btn("STOP LISTENER");
         Button qa=btn("QA: 22° / 24° / FAN 6 / VENT 3-2");
-        root.addView(pick); root.addView(stop); root.addView(qa);
+        root.addView(auto); root.addView(stop); root.addView(qa);
 
-        pick.setOnClickListener(v->{
-            Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            i.addCategory(Intent.CATEGORY_OPENABLE);
-            i.setType("text/*");
-            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-            startActivityForResult(i,PICK_MCU);
-        });
+        auto.setOnClickListener(v->ensurePermissionAndFind());
 
         stop.setOnClickListener(v->{
             getSharedPreferences("hvac",0).edit().putBoolean("file_autostart",false).apply();
             stopService(new Intent(this,FileMcuService.class));
-            st.append("\nFile listener stopped");
+            st.append("\nListener stopped");
         });
 
         qa.setOnClickListener(v->{
@@ -53,19 +50,78 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
 
-    @Override protected void onActivityResult(int req,int result,Intent data){
-        super.onActivityResult(req,result,data);
-        if(req==PICK_MCU && result==RESULT_OK && data!=null && data.getData()!=null){
-            Uri u=data.getData();
-            try{
-                final int flags=data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                getContentResolver().takePersistableUriPermission(u,flags & Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            }catch(Exception ignored){}
-            getSharedPreferences("hvac",0).edit().putString("mcu_uri",u.toString()).putBoolean("file_autostart",true).apply();
-            Intent s=new Intent(this,FileMcuService.class);
-            if(Build.VERSION.SDK_INT>=26)startForegroundService(s); else startService(s);
-            st.append("\nMCU file selected + listener started");
+    private void ensurePermissionAndFind(){
+        if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED){
+            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},REQ_STORAGE);
+        } else findAndStart();
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==REQ_STORAGE && grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED) findAndStart();
+        else if(requestCode==REQ_STORAGE) st.append("\nStorage permission denied");
+    }
+
+    private void findAndStart(){
+        st.append("\nSearching...");
+        new Thread(()->{
+            File best=findBestMcuLog();
+            runOnUiThread(()->{
+                if(best==null){
+                    st.append("\nNO MCUdebug file found. Start MCUdebug logging once, then tap again.");
+                } else {
+                    getSharedPreferences("hvac",0).edit()
+                        .putString("mcu_path",best.getAbsolutePath())
+                        .putBoolean("file_autostart",true).apply();
+                    Intent s=new Intent(this,FileMcuService.class);
+                    if(Build.VERSION.SDK_INT>=26)startForegroundService(s); else startService(s);
+                    st.append("\nFOUND + STARTED:\n"+best.getAbsolutePath());
+                }
+            });
+        },"McuFinder").start();
+    }
+
+    private File findBestMcuLog(){
+        ArrayList<File> roots=new ArrayList<>();
+        File ext=android.os.Environment.getExternalStorageDirectory();
+        if(ext!=null) roots.add(ext);
+        roots.add(new File("/sdcard"));
+        roots.add(new File("/storage/emulated/0"));
+        roots.add(new File("/storage"));
+        HashSet<String> seen=new HashSet<>();
+        File best=null;
+        long bestTime=-1;
+        int[] count={0};
+        for(File r:roots){
+            File f=scan(r,0,seen,count);
+            if(f!=null && f.lastModified()>bestTime){best=f;bestTime=f.lastModified();}
+            if(count[0]>6000)break;
         }
+        return best;
+    }
+
+    private File scan(File f,int depth,HashSet<String> seen,int[] count){
+        if(f==null || !f.exists() || depth>5 || count[0]>6000)return null;
+        try{
+            String cp=f.getCanonicalPath();
+            if(!seen.add(cp))return null;
+        }catch(Exception ignored){}
+        count[0]++;
+        if(f.isFile()){
+            String n=f.getName().toLowerCase(Locale.US);
+            if(n.contains("mcu") && n.contains("debug") && (n.endsWith(".txt")||n.endsWith(".log")) && f.canRead()) return f;
+            return null;
+        }
+        File[] kids;
+        try{ kids=f.listFiles(); }catch(Exception e){ return null; }
+        if(kids==null)return null;
+        File best=null; long bt=-1;
+        for(File k:kids){
+            File hit=scan(k,depth+1,seen,count);
+            if(hit!=null && hit.lastModified()>bt){best=hit;bt=hit.lastModified();}
+            if(count[0]>6000)break;
+        }
+        return best;
     }
 
     Button btn(String s){ Button b=new Button(this); b.setText(s); return b; }

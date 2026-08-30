@@ -19,28 +19,28 @@ public final class HvacRenderer {
         Canvas c=new Canvas(b);
         c.drawColor(Color.TRANSPARENT,PorterDuff.Mode.CLEAR);
 
-        Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-        p.setTypeface(Typeface.create("sans",Typeface.NORMAL));
-        p.setTextAlign(Paint.Align.CENTER);
-        p.setTextSize(20f);
-        p.setColor(Color.rgb(238,238,238));
+        Paint text=new Paint(Paint.ANTI_ALIAS_FLAG);
+        text.setTypeface(Typeface.create("sans",Typeface.NORMAL));
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setTextSize(20f);
+        text.setColor(Color.rgb(238,238,238));
 
-        // LOCKED positions
-        drawText(c,HvacState.fmtTemp(s.tempL),129,48,p);
-        drawText(c,HvacState.fmtTemp(s.tempR),1089,48,p);
+        // LOCKED temperature positions.
+        drawText(c,HvacState.fmtTemp(s.tempL),129,48,text);
+        drawText(c,HvacState.fmtTemp(s.tempR),1089,48,text);
 
-        // Confirmed D5 = heated seat L/R 0..3
-        drawHeatSeat(c,129,68,s.heatL);
-        drawHeatSeat(c,1089,68,s.heatR);
+        // Heated-seat indicators live BESIDE temperatures, never below them.
+        // OFF = draw absolutely nothing.
+        drawHeatWaves(c,82,48,s.heatL,false);
+        drawHeatWaves(c,1137,48,s.heatR,true);
 
         drawFan(c,529,49,s.fan,accent(t));
         drawCar(c,669,48);
 
-        Paint a=new Paint(Paint.ANTI_ALIAS_FLAG);
-        a.setColor(accent(t));
-        if(s.auto)c.drawRoundRect(214,75,264,78,1,1,a);
-        if(s.ac)c.drawRoundRect(788,75,838,78,1,1,a);
-        if(s.dual)c.drawRoundRect(934,75,984,78,1,1,a);
+        // Status underline: immediate first-frame response, no debounce.
+        drawStatusUnderline(c,214,264,s.auto,accent(t));
+        drawStatusUnderline(c,788,838,s.ac,accent(t));
+        drawStatusUnderline(c,934,984,s.dual,accent(t));
 
         return b;
     }
@@ -50,47 +50,39 @@ public final class HvacRenderer {
         c.drawText(txt,x,y-(fm.ascent+fm.descent)/2f,p);
     }
 
-    private static void drawHeatSeat(Canvas c,int x,int y,int level){
+    private static void drawStatusUnderline(Canvas c,float x1,float x2,boolean on,int color){
+        if(!on) return;
+        Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(color);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeWidth(3.0f);
+        c.drawLine(x1,76,x2,76,p);
+    }
+
+    private static void drawHeatWaves(Canvas c,int x,int y,int level,boolean mirror){
+        if(level<=0) return;
+
+        Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
+        glow.setStyle(Paint.Style.STROKE);
+        glow.setStrokeCap(Paint.Cap.ROUND);
+        glow.setStrokeWidth(6f);
+        glow.setColor(Color.argb(38,255,92,54));
+
         Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeCap(Paint.Cap.ROUND);
-        p.setStrokeJoin(Paint.Join.ROUND);
+        p.setStrokeWidth(2.5f);
+        p.setColor(Color.rgb(245,82,54));
 
-        // compact seat outline, same temperature-side slot as previous indicator
-        p.setStrokeWidth(1.35f);
-        p.setColor(Color.argb(95,170,170,170));
-        Path seat=new Path();
-        seat.moveTo(x-10,y+6);
-        seat.lineTo(x-10,y-1);
-        seat.quadTo(x-10,y-6,x-6,y-7);
-        seat.lineTo(x-2,y-7);
-        seat.quadTo(x+2,y-7,x+2,y-3);
-        seat.lineTo(x+2,y+1);
-        seat.lineTo(x+9,y+5);
-        seat.lineTo(x+9,y+8);
-        c.drawPath(seat,p);
-
-        // three heating waves: 1/2/3 light progressively
-        for(int i=0;i<3;i++){
-            boolean on=i<level;
-            p.setStrokeWidth(on?2.0f:1.25f);
-            p.setColor(on ? Color.rgb(238,92,62) : Color.argb(42,90,90,90));
-
-            float wx=x+13+i*5;
+        int dir=mirror?-1:1;
+        for(int i=0;i<level;i++){
+            float wx=x + dir*(i*7);
             Path w=new Path();
-            w.moveTo(wx,y+5);
-            w.cubicTo(wx-2,y+2,wx+2,y-1,wx,y-4);
-            w.cubicTo(wx-2,y-7,wx+2,y-10,wx,y-13);
+            w.moveTo(wx,y+11);
+            w.cubicTo(wx-2,y+7,wx+2,y+3,wx,y-1);
+            w.cubicTo(wx-2,y-5,wx+2,y-9,wx,y-13);
+            c.drawPath(w,glow);
             c.drawPath(w,p);
-
-            if(on){
-                Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
-                glow.setStyle(Paint.Style.STROKE);
-                glow.setStrokeWidth(4.2f);
-                glow.setStrokeCap(Paint.Cap.ROUND);
-                glow.setColor(Color.argb(34,255,110,72));
-                c.drawPath(w,glow);
-            }
         }
     }
 

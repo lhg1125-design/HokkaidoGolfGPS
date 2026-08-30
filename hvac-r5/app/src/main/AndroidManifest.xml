@@ -1,18 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
     <application android:theme="@android:style/Theme.Material.NoActionBar"
-        android:label="VWID HVAC R5.4 EXTRACT"
-        android:allowBackup="false"
-        android:requestLegacyExternalStorage="true">
+        android:label="VWID HVAC Bridge R5.5 LIVE"
+        android:allowBackup="false">
+
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <service android:name=".TwUtilMcuService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"/>
+
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
 
         <receiver android:name=".HvacWidgetLightBrown" android:exported="true" android:label="VWID HVAC - Light Brown">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
@@ -26,6 +36,7 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_lav"/>
         </receiver>
+
         <receiver android:name=".McuFrameReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="com.vwid.hvacbridge.RAW_FRAME"/>

@@ -1,0 +1,45 @@
+name: Build VWID HVAC Bridge R5 APK
+
+on:
+  push:
+    branches: [ hvac-bridge-r5-build ]
+    paths:
+      - 'hvac-r5/**'
+      - '.github/workflows/hvac-bridge-r5-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-hvac-r5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build APK
+        working-directory: hvac-r5
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Rename APK
+        run: cp hvac-r5/app/build/outputs/apk/debug/app-debug.apk VWID_HVAC_BRIDGE_R5.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VWID_HVAC_BRIDGE_R5_APK
+          path: VWID_HVAC_BRIDGE_R5.apk
+          if-no-files-found: error

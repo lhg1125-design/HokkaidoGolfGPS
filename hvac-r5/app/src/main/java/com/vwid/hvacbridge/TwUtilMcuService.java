@@ -20,6 +20,11 @@ public class TwUtilMcuService extends Service {
     private final byte[] stream = new byte[8192];
     private int streamLen = 0;
 
+    private int heatLatchL = 0, heatLatchR = 0;
+    private int lastStatus = -1, lastModeFan = -1, lastTempL = -1, lastTempR = -1;
+    private int lastSeatRaw = -1;
+    private boolean lastCoreValid = false;
+
     private final Handler mcuHandler = new Handler(Looper.getMainLooper()) {
         @Override public void handleMessage(Message msg) {
             msgCount++;
@@ -51,6 +56,18 @@ public class TwUtilMcuService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
+
+        SharedPreferences p = prefs();
+        long last = p.getLong("live_last_update_ms", 0L);
+        long age = last == 0L ? Long.MAX_VALUE : (System.currentTimeMillis() - last);
+        if (age >= 0 && age < 600000L) {
+            heatLatchL = p.getInt("heat_latch_l", p.getInt("hl", 0));
+            heatLatchR = p.getInt("heat_latch_r", p.getInt("hr", 0));
+        } else {
+            heatLatchL = 0;
+            heatLatchR = 0;
+        }
+
         createNotification();
         setStatus("STARTING");
         connectTwUtil();
@@ -71,7 +88,7 @@ public class TwUtilMcuService extends Service {
             : new Notification.Builder(this);
         startForeground(NOTIFY_ID, b
             .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
-            .setContentTitle("VWID HVAC Bridge R5.9")
+            .setContentTitle("VWID HVAC Bridge R5.10")
             .setContentText("Ownice MCU live bridge")
             .build());
     }
@@ -182,6 +199,45 @@ public class TwUtilMcuService extends Service {
                 String f = hex(stream, 0, total);
                 try {
                     HvacState s = HvacState.fromFrame(f);
+
+                    int status = stream[3] & 0xFF;
+                    int modeFan = stream[4] & 0xFF;
+                    int tempL = stream[5] & 0xFF;
+                    int tempR = stream[6] & 0xFF;
+                    int seatRaw = stream[7] & 0xFF;
+                    int rawL = (seatRaw >> 4) & 0x0F;
+                    int rawR = seatRaw & 0x0F;
+
+                    boolean coreSame = lastCoreValid
+                        && status == lastStatus
+                        && modeFan == lastModeFan
+                        && tempL == lastTempL
+                        && tempR == lastTempR;
+
+                    int prevRawL = lastSeatRaw < 0 ? -1 : ((lastSeatRaw >> 4) & 0x0F);
+                    int prevRawR = lastSeatRaw < 0 ? -1 : (lastSeatRaw & 0x0F);
+
+                    String reasonL = "hold";
+                    String reasonR = "hold";
+
+                    if (rawL >= 1 && rawL <= 3) {
+                        heatLatchL = rawL;
+                        reasonL = "level";
+                    } else if (rawL == 0 && coreSame && prevRawL >= 1 && prevRawL <= 3) {
+                        heatLatchL = 0;
+                        reasonL = "explicit-off";
+                    }
+
+                    if (rawR >= 1 && rawR <= 3) {
+                        heatLatchR = rawR;
+                        reasonR = "level";
+                    } else if (rawR == 0 && coreSame && prevRawR >= 1 && prevRawR <= 3) {
+                        heatLatchR = 0;
+                        reasonR = "explicit-off";
+                    }
+
+                    s.heatL = heatLatchL;
+                    s.heatR = heatLatchR;
                     s.save(this);
                     HvacWidgetBase.updateAll(this);
 
@@ -190,7 +246,20 @@ public class TwUtilMcuService extends Service {
                         .putLong("live_hvac_count", hvacCount)
                         .putString("live_last_hvac", f)
                         .putLong("live_last_update_ms", System.currentTimeMillis())
+                        .putInt("heat_raw_d5", seatRaw)
+                        .putInt("heat_latch_l", heatLatchL)
+                        .putInt("heat_latch_r", heatLatchR)
+                        .putString("heat_latch_reason_l", reasonL)
+                        .putString("heat_latch_reason_r", reasonR)
                         .apply();
+
+                    lastStatus = status;
+                    lastModeFan = modeFan;
+                    lastTempL = tempL;
+                    lastTempR = tempR;
+                    lastSeatRaw = seatRaw;
+                    lastCoreValid = true;
+
                     setStatus("LIVE HVAC DATA OK");
                 } catch (Throwable e) {
                     prefs().edit().putString("live_parse_error", e.toString()).apply();

@@ -16,7 +16,7 @@ public class TwUtilMcuService extends Service {
     private Method mWrite3, mRemoveHandler, mStop, mClose;
     private boolean active;
 
-    private long msgCount, rxDebugCount, hvacCount;
+    private long msgCount, rxDebugCount, hvacCount, tempChangeCount;
     private final byte[] stream = new byte[8192];
     private int streamLen = 0;
 
@@ -25,37 +25,86 @@ public class TwUtilMcuService extends Service {
     private int lastSeatRaw = -1;
     private boolean lastCoreValid = false;
 
-    private final Handler mcuHandler = new Handler(Looper.getMainLooper()) {
-        @Override public void handleMessage(Message msg) {
-            msgCount++;
-            prefs().edit()
-                .putLong("live_msg_count", msgCount)
-                .putInt("live_last_what", msg.what)
-                .apply();
+    private HandlerThread mcuThread;
+    private HandlerThread widgetThread;
+    private Handler mcuHandler;
+    private Handler widgetHandler;
 
-            if (msg.what != 0x50D || !(msg.obj instanceof byte[])) return;
+    private final Object widgetLock = new Object();
+    private boolean widgetUpdatePending = false;
+    private boolean widgetDirty = false;
 
-            byte[] raw = (byte[]) msg.obj;
-            if (raw.length < 2) return;
+    private void initWorkers() {
+        mcuThread = new HandlerThread("VWID-HVAC-MCU", Process.THREAD_PRIORITY_DISPLAY);
+        mcuThread.start();
 
-            int kind = raw[0] & 0xFF;
-            prefs().edit()
-                .putInt("live_debug_kind", kind)
-                .putString("live_last_debug", hex(raw, 0, Math.min(raw.length, 160)))
-                .apply();
+        widgetThread = new HandlerThread("VWID-HVAC-WIDGET", Process.THREAD_PRIORITY_BACKGROUND);
+        widgetThread.start();
 
-            // Factory MCUdebug mapping:
-            // kind=1 RX, kind=2 TX, kind=3 String.
-            if (kind == 1) {
-                rxDebugCount++;
-                prefs().edit().putLong("live_rx_count", rxDebugCount).apply();
-                feed(raw, 1, raw.length - 1);
+        widgetHandler = new Handler(widgetThread.getLooper());
+
+        mcuHandler = new Handler(mcuThread.getLooper()) {
+            @Override public void handleMessage(Message msg) {
+                msgCount++;
+                prefs().edit()
+                    .putLong("live_msg_count", msgCount)
+                    .putInt("live_last_what", msg.what)
+                    .apply();
+
+                if (msg.what != 0x50D || !(msg.obj instanceof byte[])) return;
+
+                byte[] raw = (byte[]) msg.obj;
+                if (raw.length < 2) return;
+
+                int kind = raw[0] & 0xFF;
+                prefs().edit()
+                    .putInt("live_debug_kind", kind)
+                    .putString("live_last_debug", hex(raw, 0, Math.min(raw.length, 160)))
+                    .apply();
+
+                if (kind == 1) {
+                    rxDebugCount++;
+                    prefs().edit().putLong("live_rx_count", rxDebugCount).apply();
+                    feed(raw, 1, raw.length - 1);
+                }
+            }
+        };
+    }
+
+    private void scheduleWidgetUpdate() {
+        synchronized (widgetLock) {
+            widgetDirty = true;
+            if (widgetUpdatePending || widgetHandler == null) return;
+            widgetUpdatePending = true;
+            widgetHandler.postDelayed(widgetUpdateRunnable, 70L);
+        }
+    }
+
+    private final Runnable widgetUpdateRunnable = new Runnable() {
+        @Override public void run() {
+            synchronized (widgetLock) {
+                widgetDirty = false;
+            }
+
+            try {
+                HvacWidgetBase.updateAll(TwUtilMcuService.this);
+            } catch (Throwable e) {
+                prefs().edit().putString("widget_update_error", e.toString()).apply();
+            }
+
+            synchronized (widgetLock) {
+                if (widgetDirty && widgetHandler != null) {
+                    widgetHandler.postDelayed(this, 70L);
+                } else {
+                    widgetUpdatePending = false;
+                }
             }
         }
     };
 
     @Override public void onCreate() {
         super.onCreate();
+        initWorkers();
 
         SharedPreferences p = prefs();
         long last = p.getLong("live_last_update_ms", 0L);
@@ -88,7 +137,7 @@ public class TwUtilMcuService extends Service {
             : new Notification.Builder(this);
         startForeground(NOTIFY_ID, b
             .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
-            .setContentTitle("VWID HVAC Bridge R5.10")
+            .setContentTitle("VWID HVAC Bridge R5.11")
             .setContentText("Ownice MCU live bridge")
             .build());
     }
@@ -238,12 +287,21 @@ public class TwUtilMcuService extends Service {
 
                     s.heatL = heatLatchL;
                     s.heatR = heatLatchR;
+
+                    if (lastCoreValid && (tempL != lastTempL || tempR != lastTempR)) {
+                        tempChangeCount++;
+                    }
+
+                    // Save every valid frame immediately. Rendering is decoupled/throttled.
                     s.save(this);
-                    HvacWidgetBase.updateAll(this);
+                    scheduleWidgetUpdate();
 
                     hvacCount++;
                     prefs().edit()
                         .putLong("live_hvac_count", hvacCount)
+                        .putLong("temp_change_count", tempChangeCount)
+                        .putInt("temp_raw_l", tempL)
+                        .putInt("temp_raw_r", tempR)
                         .putString("live_last_hvac", f)
                         .putLong("live_last_update_ms", System.currentTimeMillis())
                         .putInt("heat_raw_d5", seatRaw)
@@ -325,6 +383,24 @@ public class TwUtilMcuService extends Service {
 
         active = false;
         setStatus("STOPPED");
+
+        synchronized (widgetLock) {
+            widgetUpdatePending = false;
+            widgetDirty = false;
+        }
+
+        if (widgetHandler != null) widgetHandler.removeCallbacksAndMessages(null);
+        if (mcuHandler != null) mcuHandler.removeCallbacksAndMessages(null);
+
+        if (widgetThread != null) {
+            if (Build.VERSION.SDK_INT >= 18) widgetThread.quitSafely();
+            else widgetThread.quit();
+        }
+        if (mcuThread != null) {
+            if (Build.VERSION.SDK_INT >= 18) mcuThread.quitSafely();
+            else mcuThread.quit();
+        }
+
         super.onDestroy();
     }
 

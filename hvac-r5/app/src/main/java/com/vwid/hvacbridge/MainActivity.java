@@ -1,150 +1,132 @@
 package com.vwid.hvacbridge;
 
-import android.Manifest;
 import android.app.*;
 import android.os.*;
 import android.content.*;
-import android.content.pm.*;
 import android.graphics.Color;
 import android.widget.*;
-import java.io.*;
-import java.util.zip.*;
 
 public class MainActivity extends Activity {
-    static final int REQ_STORAGE=904;
-    TextView out;
-    final String[] targets = new String[]{
-        "com.tw.carchoose",
-        "com.tw.service",
-        "com.tw.core",
-        "com.tw.jar1",
-        "com.tw.service.xt"
+    TextView status;
+    Handler ui = new Handler(Looper.getMainLooper());
+
+    final Runnable refresh = new Runnable() {
+        @Override public void run() {
+            renderStatus();
+            ui.postDelayed(this, 500);
+        }
     };
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
+
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(24,20,24,20);
+        root.setPadding(26,22,26,22);
         root.setBackgroundColor(Color.rgb(12,12,13));
 
         TextView title=new TextView(this);
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
-        title.setText("VWID HVAC R5.4 EXTRACT\nMCU/CAN SYSTEM APK EXPORTER");
+        title.setText("VWID HVAC Bridge R5.5 LIVE\nOwnice TWUtil realtime MCU");
         root.addView(title);
 
-        Button go=new Button(this);
-        go.setText("EXPORT MCU SYSTEM APKs TO ONE ZIP");
-        root.addView(go);
+        TextView note=new TextView(this);
+        note.setTextColor(Color.rgb(190,190,190));
+        note.setTextSize(15);
+        note.setText("\nFactory MCUdebug screen should be CLOSED.\nNo ADB / No saved log file.\n");
+        root.addView(note);
 
-        out=new TextView(this);
-        out.setTextColor(Color.rgb(225,225,225));
-        out.setTextSize(15);
-        out.setText("Exports:\ncom.tw.carchoose\ncom.tw.service\ncom.tw.core\ncom.tw.jar1\ncom.tw.service.xt\n\nOutput: Download/VWID_HVAC_SYSTEM_APKS_R5_4.zip");
+        Button start=button("START LIVE MCU");
+        Button stop=button("STOP LIVE MCU");
+        Button qa=button("QA WIDGET: 22° / 24° / FAN 6 / VENT 3-2");
+        root.addView(start);
+        root.addView(stop);
+        root.addView(qa);
+
         ScrollView sv=new ScrollView(this);
-        sv.addView(out);
+        status=new TextView(this);
+        status.setTextColor(Color.WHITE);
+        status.setTextSize(16);
+        status.setTextIsSelectable(true);
+        sv.addView(status);
         root.addView(sv,new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,0,1f));
 
-        go.setOnClickListener(v->ensureAndExport());
+        start.setOnClickListener(v -> {
+            getSharedPreferences("hvac",0).edit()
+                .putBoolean("live_autostart",true)
+                .putString("live_error","")
+                .apply();
+            Intent s=new Intent(this,TwUtilMcuService.class);
+            if(Build.VERSION.SDK_INT>=26) startForegroundService(s);
+            else startService(s);
+        });
+
+        stop.setOnClickListener(v -> {
+            getSharedPreferences("hvac",0).edit()
+                .putBoolean("live_autostart",false).apply();
+            stopService(new Intent(this,TwUtilMcuService.class));
+        });
+
+        qa.setOnClickListener(v -> {
+            HvacState s=HvacState.fromFrame("2e 21 05 c4 16 09 0d 32 b7");
+            s.save(this);
+            HvacWidgetBase.updateAll(this);
+            Toast.makeText(this,"QA widget state sent",Toast.LENGTH_SHORT).show();
+        });
+
         setContentView(root);
     }
 
-    private void ensureAndExport(){
-        if(Build.VERSION.SDK_INT>=23 &&
-           checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED){
-            requestPermissions(new String[]{
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            },REQ_STORAGE);
-        } else exportNow();
+    private Button button(String s){
+        Button b=new Button(this);
+        b.setText(s);
+        return b;
     }
 
-    @Override public void onRequestPermissionsResult(int req,String[] p,int[] g){
-        super.onRequestPermissionsResult(req,p,g);
-        if(req==REQ_STORAGE) exportNow();
+    private void renderStatus(){
+        SharedPreferences p=getSharedPreferences("hvac",0);
+        HvacState s=HvacState.load(this);
+
+        long t=p.getLong("live_last_update_ms",0);
+        long age=t==0?-1:(System.currentTimeMillis()-t);
+
+        StringBuilder x=new StringBuilder();
+        x.append("\nBRIDGE: ").append(p.getString("live_status","IDLE"));
+        x.append("\nTWUtil open rc: ").append(p.getInt("live_open_rc",-999));
+        x.append("\nRX enable rc: ").append(p.getString("live_rx_enable_rc","-"));
+        x.append("\nTW messages: ").append(p.getLong("live_msg_count",0));
+        x.append("\nRX debug packets: ").append(p.getLong("live_rx_count",0));
+        x.append("\nHVAC 2E 21 05 frames: ").append(p.getLong("live_hvac_count",0));
+        x.append("\nLast WHAT: 0x").append(Integer.toHexString(p.getInt("live_last_what",0)));
+        x.append("\nLast HVAC: ").append(p.getString("live_last_hvac","-"));
+
+        x.append("\n\nPARSED");
+        x.append("\nDriver: ").append(HvacState.fmtTemp(s.tempL));
+        x.append("   Passenger: ").append(HvacState.fmtTemp(s.tempR));
+        x.append("\nFAN: ").append(s.fan);
+        x.append("   AIR: 0x").append(Integer.toHexString(s.airMode));
+        x.append("\nAUTO: ").append(s.auto);
+        x.append("   A/C: ").append(s.ac);
+        x.append("   DUAL: ").append(s.dual);
+        x.append("\nVENT L/R: ").append(s.ventL).append("/").append(s.ventR);
+        x.append("\nLast update age: ").append(age<0?"-":age+" ms");
+
+        String err=p.getString("live_error","");
+        if(!err.isEmpty()) x.append("\n\nERROR:\n").append(err);
+
+        status.setText(x.toString());
     }
 
-    private void exportNow(){
-        out.setText("Exporting...\n");
-        new Thread(()->{
-            String result=doExport();
-            runOnUiThread(()->out.setText(result));
-        },"HVAC-APK-EXPORT").start();
+    @Override protected void onResume(){
+        super.onResume();
+        ui.removeCallbacks(refresh);
+        ui.post(refresh);
     }
 
-    private String doExport(){
-        StringBuilder log=new StringBuilder();
-        File dir=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        if(!dir.exists()) dir.mkdirs();
-        File zipFile=new File(dir,"VWID_HVAC_SYSTEM_APKS_R5_4.zip");
-
-        try{
-            ZipOutputStream zos=new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(zipFile,false)));
-            PackageManager pm=getPackageManager();
-
-            for(String pkg:targets){
-                log.append("\n[").append(pkg).append("]\n");
-                try{
-                    PackageInfo pi=pm.getPackageInfo(pkg,0);
-                    ApplicationInfo ai=pi.applicationInfo;
-                    log.append("version=").append(pi.versionName).append("\n");
-                    log.append("source=").append(ai.sourceDir).append("\n");
-
-                    addFile(zos,new File(ai.sourceDir),pkg+"/base.apk",log);
-
-                    if(ai.splitSourceDirs!=null){
-                        for(int i=0;i<ai.splitSourceDirs.length;i++){
-                            String p=ai.splitSourceDirs[i];
-                            addFile(zos,new File(p),pkg+"/split_"+i+".apk",log);
-                        }
-                    }
-                }catch(Exception e){
-                    log.append("ERROR ").append(e).append("\n");
-                }
-            }
-
-            ZipEntry info=new ZipEntry("VWID_HVAC_R5_4_MANIFEST.txt");
-            zos.putNextEntry(info);
-            byte[] meta=log.toString().getBytes("UTF-8");
-            zos.write(meta);
-            zos.closeEntry();
-            zos.finish();
-            zos.close();
-
-            log.append("\nDONE\n")
-               .append(zipFile.getAbsolutePath())
-               .append("\nSIZE=").append(zipFile.length()).append(" bytes");
-        }catch(Exception e){
-            log.append("\nEXPORT FAILED: ").append(e);
-        }
-        return log.toString();
-    }
-
-    private void addFile(ZipOutputStream zos,File src,String entryName,StringBuilder log) throws Exception{
-        if(!src.exists()){
-            log.append("MISSING ").append(src.getAbsolutePath()).append("\n");
-            return;
-        }
-        if(!src.canRead()){
-            log.append("NOT READABLE ").append(src.getAbsolutePath()).append("\n");
-            return;
-        }
-
-        ZipEntry e=new ZipEntry(entryName);
-        e.setTime(src.lastModified());
-        zos.putNextEntry(e);
-        FileInputStream in=new FileInputStream(src);
-        byte[] buf=new byte[65536];
-        int n;
-        long total=0;
-        while((n=in.read(buf))>0){
-            zos.write(buf,0,n);
-            total+=n;
-        }
-        in.close();
-        zos.closeEntry();
-        log.append("OK ").append(entryName).append(" ").append(total).append(" bytes\n");
+    @Override protected void onPause(){
+        ui.removeCallbacks(refresh);
+        super.onPause();
     }
 }

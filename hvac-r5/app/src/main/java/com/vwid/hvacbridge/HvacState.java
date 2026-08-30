@@ -27,42 +27,30 @@ public final class HvacState {
         int status=b[3], af=b[4], seat=b[7];
         s.statusRaw=status;
 
-        // CONFIRMED
+        // Vehicle-confirmed mappings
+        s.power=(status&0x80)!=0;
+        s.ac=(status&0x40)!=0;
         s.dual=(status&0x04)!=0;
         s.auto=(status&0x18)!=0;
+
         s.fan=Math.min(7,af&0x0f);
         s.tempL=(b[5]+35)/2f;
         s.tempR=(b[6]+35)/2f;
 
-        // HVAC active indication only; not used for A/C.
-        s.power = (s.fan>0) || status!=0;
-
-        // AIR semantic mapping remains intentionally hidden.
+        // AIR semantic mapping remains hidden until confirmed.
         s.airMode=af&0xf0;
 
-        // CONFIRMED: D5 high/low nibble = heated-seat L/R 0..3.
+        // Confirmed: D5 high/low nibble = heated-seat L/R 0..3.
         int l=(seat>>4)&0x0f;
         int r=seat&0x0f;
         s.heatL=l<=3?l:0;
         s.heatR=r<=3?r:0;
 
-        // A/C is deliberately NOT guessed from D1.
-        // save(Context) applies the vehicle-calibrated mapping.
-        s.ac=false;
         return s;
     }
 
     public void save(Context c) {
         SharedPreferences p=c.getSharedPreferences("hvac",0);
-
-        if(p.getBoolean("ac_cal_valid",false)) {
-            int mask=p.getInt("ac_mask",0)&0xff;
-            int on=p.getInt("ac_on_status",0)&0xff;
-            ac = mask!=0 && ((statusRaw & mask) == (on & mask));
-        } else {
-            ac=false;
-        }
-
         p.edit()
             .putFloat("tl",tempL)
             .putFloat("tr",tempR)

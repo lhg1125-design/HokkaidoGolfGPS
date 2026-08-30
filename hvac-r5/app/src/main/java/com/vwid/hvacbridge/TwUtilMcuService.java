@@ -15,6 +15,9 @@ public class TwUtilMcuService extends Service {
     private Class<?> twClass;
     private Method mWrite3, mRemoveHandler, mStop, mClose;
     private boolean active;
+    private int connectAttempt=0;
+    private long serviceStartMs=0L;
+    private boolean firstLiveSeen=false;
 
     private long msgCount, rxDebugCount, hvacCount, tempChangeCount;
     private final byte[] stream = new byte[8192];
@@ -105,8 +108,18 @@ public class TwUtilMcuService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         initWorkers();
+        serviceStartMs=System.currentTimeMillis();
 
         SharedPreferences p = prefs();
+        p.edit()
+            .putLong("service_start_ms",serviceStartMs)
+            .putString("sync_source",p.getBoolean("snapshot_valid",false)?"CACHE_PRELOAD":"WAITING_LIVE")
+            .apply();
+
+        if(p.getBoolean("snapshot_valid",false)) {
+            scheduleWidgetUpdate();
+        }
+
         long last = p.getLong("live_last_update_ms", 0L);
         long age = last == 0L ? Long.MAX_VALUE : (System.currentTimeMillis() - last);
         if (age >= 0 && age < 600000L) {
@@ -118,8 +131,8 @@ public class TwUtilMcuService extends Service {
         }
 
         createNotification();
-        setStatus("STARTING");
-        connectTwUtil();
+        setStatus("STARTING EARLY MCU SYNC");
+        mcuHandler.post(this::connectTwUtil);
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -137,7 +150,7 @@ public class TwUtilMcuService extends Service {
             : new Notification.Builder(this);
         startForeground(NOTIFY_ID, b
             .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
-            .setContentTitle("VWID HVAC Bridge R5.11")
+            .setContentTitle("VWID HVAC Bridge R5.12")
             .setContentText("Ownice MCU live bridge")
             .build());
     }
@@ -187,7 +200,18 @@ public class TwUtilMcuService extends Service {
 
             // Exact factory MCUdebug command: RX debug ON.
             Object wr = mWrite3.invoke(tw, 0x050D, 1, 1);
-            prefs().edit().putString("live_rx_enable_rc", String.valueOf(wr)).apply();
+            prefs().edit()
+                .putString("live_rx_enable_rc", String.valueOf(wr))
+                .putInt("connect_attempt",connectAttempt)
+                .putLong("tw_connected_ms",System.currentTimeMillis())
+                .apply();
+
+            // Early boot: vendor MCU route can become ready slightly after TWUtil.open().
+            // Re-assert RX debug subscription only; this is read-only and does not control HVAC.
+            if(mcuHandler!=null) {
+                mcuHandler.postDelayed(() -> reassertRx(),400L);
+                mcuHandler.postDelayed(() -> reassertRx(),1200L);
+            }
 
             // Harmless MCU version query used by the factory debug service.
             try {
@@ -196,10 +220,24 @@ public class TwUtilMcuService extends Service {
             } catch (Throwable ignored) {}
 
             active = true;
-            setStatus("LIVE ACTIVE - WAITING MCU RX");
+            setStatus(prefs().getBoolean("snapshot_valid",false)
+                ? "CACHE SHOWN - WAITING LIVE MCU"
+                : "LIVE ACTIVE - WAITING MCU RX");
         } catch (Throwable e) {
             active = false;
-            setError(e);
+            connectAttempt++;
+            prefs().edit()
+                .putInt("connect_attempt",connectAttempt)
+                .putString("live_status","WAITING TWUtil RETRY")
+                .putString("live_error",e.getClass().getName()+": "+String.valueOf(e.getMessage()))
+                .apply();
+
+            if(connectAttempt < 20 && mcuHandler != null) {
+                long delay=Math.min(2000L,250L*connectAttempt);
+                mcuHandler.postDelayed(this::connectTwUtil,delay);
+            } else {
+                setError(e);
+            }
         }
     }
 
@@ -294,6 +332,17 @@ public class TwUtilMcuService extends Service {
 
                     // Save every valid frame immediately. Rendering is decoupled/throttled.
                     s.save(this);
+
+                    if(!firstLiveSeen) {
+                        firstLiveSeen=true;
+                        long now=System.currentTimeMillis();
+                        prefs().edit()
+                            .putString("sync_source","LIVE_MCU")
+                            .putLong("first_live_ms",now)
+                            .putLong("first_live_delay_ms",Math.max(0L,now-serviceStartMs))
+                            .apply();
+                    }
+
                     scheduleWidgetUpdate();
 
                     hvacCount++;
@@ -338,7 +387,22 @@ public class TwUtilMcuService extends Service {
     }
 
     private SharedPreferences prefs() {
-        return getSharedPreferences("hvac", 0);
+        return HvacStore.prefs(this);
+    }
+
+    private void reassertRx() {
+        try {
+            if(active && tw!=null && mWrite3!=null) {
+                Object rc=mWrite3.invoke(tw,0x050D,1,1);
+                int n=prefs().getInt("startup_rx_reassert",0)+1;
+                prefs().edit()
+                    .putInt("startup_rx_reassert",n)
+                    .putString("startup_rx_reassert_rc",String.valueOf(rc))
+                    .apply();
+            }
+        } catch(Throwable e) {
+            prefs().edit().putString("startup_rx_reassert_error",e.toString()).apply();
+        }
     }
 
     private void setStatus(String s) {

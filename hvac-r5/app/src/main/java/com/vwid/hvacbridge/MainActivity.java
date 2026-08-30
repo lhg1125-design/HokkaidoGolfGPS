@@ -199,7 +199,6 @@ public class MainActivity extends Activity {
             if(n++>250){ r.append(tag).append(" ...TRUNCATED\n"); break; }
             r.append(tag).append(" ").append(c.name)
              .append(" exported=").append(c.exported);
-            if(c.permission!=null) r.append(" perm=").append(c.permission);
             r.append("\n");
         }
     }

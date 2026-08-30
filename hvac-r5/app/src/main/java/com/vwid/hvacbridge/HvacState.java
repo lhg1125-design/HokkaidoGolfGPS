@@ -6,7 +6,7 @@ import java.util.Locale;
 
 public final class HvacState {
     public float tempL=22f, tempR=24f;
-    public int fan=0, ventL=0, ventR=0, airMode=0;
+    public int fan=0, heatL=0, heatR=0, airMode=0;
     public boolean auto=false, ac=false, dual=false, power=false;
 
     public static HvacState fromFrame(String raw) {
@@ -23,21 +23,24 @@ public final class HvacState {
         HvacState s=new HvacState();
         int status=b[3], af=b[4], seat=b[7];
 
+        // CONFIRMED on vehicle
         s.power=(status&0x80)!=0;
         s.ac=(status&0x40)!=0;
         s.dual=(status&0x04)!=0;
         s.auto=(status&0x18)!=0;
-
         s.fan=Math.min(7,af&0x0f);
-        s.airMode=af&0xf0;
-
         s.tempL=(b[5]+35)/2f;
         s.tempR=(b[6]+35)/2f;
 
+        // HOLD: high nibble of D2 is an airflow/mode field,
+        // but semantic mapping is intentionally not exposed yet.
+        s.airMode=af&0xf0;
+
+        // CONFIRMED on vehicle: D5 nibbles match HEATED SEAT levels.
         int l=(seat>>4)&0x0f;
         int r=seat&0x0f;
-        s.ventL=l<=3?l:0;
-        s.ventR=r<=3?r:0;
+        s.heatL=l<=3?l:0;
+        s.heatR=r<=3?r:0;
         return s;
     }
 
@@ -45,7 +48,8 @@ public final class HvacState {
         SharedPreferences p=c.getSharedPreferences("hvac",0);
         p.edit()
             .putFloat("tl",tempL).putFloat("tr",tempR)
-            .putInt("fan",fan).putInt("vl",ventL).putInt("vr",ventR)
+            .putInt("fan",fan)
+            .putInt("hl",heatL).putInt("hr",heatR)
             .putInt("air",airMode)
             .putBoolean("auto",auto).putBoolean("ac",ac)
             .putBoolean("dual",dual).putBoolean("power",power)
@@ -58,8 +62,11 @@ public final class HvacState {
         s.tempL=p.getFloat("tl",22f);
         s.tempR=p.getFloat("tr",24f);
         s.fan=p.getInt("fan",0);
-        s.ventL=p.getInt("vl",0);
-        s.ventR=p.getInt("vr",0);
+
+        // migration from R5.5 vent naming
+        s.heatL=p.contains("hl") ? p.getInt("hl",0) : p.getInt("vl",0);
+        s.heatR=p.contains("hr") ? p.getInt("hr",0) : p.getInt("vr",0);
+
         s.airMode=p.getInt("air",0);
         s.auto=p.getBoolean("auto",false);
         s.ac=p.getBoolean("ac",false);

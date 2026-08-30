@@ -28,18 +28,18 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this);
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
-        title.setText("VWID HVAC Bridge R5.5 LIVE\nOwnice TWUtil realtime MCU");
+        title.setText("VWID HVAC Bridge R5.6 LIVE\nOwnice TWUtil realtime MCU");
         root.addView(title);
 
         TextView note=new TextView(this);
         note.setTextColor(Color.rgb(190,190,190));
         note.setTextSize(15);
-        note.setText("\nFactory MCUdebug screen should be CLOSED.\nNo ADB / No saved log file.\n");
+        note.setText("\nCONFIRMED: TEMP / FAN / AUTO / A/C / DUAL / HEATED SEAT\nAIR MODE: HOLD\n");
         root.addView(note);
 
         Button start=button("START LIVE MCU");
         Button stop=button("STOP LIVE MCU");
-        Button qa=button("QA WIDGET: 22° / 24° / FAN 6 / VENT 3-2");
+        Button qa=button("QA WIDGET: 22° / 24° / FAN 6 / HEAT 3-2");
         root.addView(start);
         root.addView(stop);
         root.addView(qa);
@@ -99,18 +99,17 @@ public class MainActivity extends Activity {
         x.append("\nTW messages: ").append(p.getLong("live_msg_count",0));
         x.append("\nRX debug packets: ").append(p.getLong("live_rx_count",0));
         x.append("\nHVAC 2E 21 05 frames: ").append(p.getLong("live_hvac_count",0));
-        x.append("\nLast WHAT: 0x").append(Integer.toHexString(p.getInt("live_last_what",0)));
         x.append("\nLast HVAC: ").append(p.getString("live_last_hvac","-"));
 
-        x.append("\n\nPARSED");
+        x.append("\n\nCONFIRMED PARSED");
         x.append("\nDriver: ").append(HvacState.fmtTemp(s.tempL));
         x.append("   Passenger: ").append(HvacState.fmtTemp(s.tempR));
         x.append("\nFAN: ").append(s.fan);
-        x.append("   AIR: 0x").append(Integer.toHexString(s.airMode));
         x.append("\nAUTO: ").append(s.auto);
         x.append("   A/C: ").append(s.ac);
         x.append("   DUAL: ").append(s.dual);
-        x.append("\nVENT L/R: ").append(s.ventL).append("/").append(s.ventR);
+        x.append("\nHEATED SEAT L/R: ").append(s.heatL).append("/").append(s.heatR);
+        x.append("\nAIR MODE: HOLD");
         x.append("\nLast update age: ").append(age<0?"-":age+" ms");
 
         String err=p.getString("live_error","");

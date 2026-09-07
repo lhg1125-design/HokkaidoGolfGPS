@@ -20,9 +20,9 @@ public final class HvacRenderer {
         c.drawColor(Color.TRANSPARENT,PorterDuff.Mode.CLEAR);
 
         Paint text=new Paint(Paint.ANTI_ALIAS_FLAG);
-        text.setTypeface(Typeface.create("sans",Typeface.NORMAL));
+        text.setTypeface(Typeface.create("sans",Typeface.BOLD));
         text.setTextAlign(Paint.Align.CENTER);
-        text.setTextSize(20f);
+        text.setTextSize(22f);
         text.setColor(Color.rgb(238,238,238));
 
         // LOCKED temperature positions.

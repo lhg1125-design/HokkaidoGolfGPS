@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this);
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
-        title.setText("VWID HVAC Bridge R5.12 COLD SYNC\nOwnice TWUtil realtime MCU");
+        title.setText("VWID HVAC Bridge R5.12.1 UI\nOwnice TWUtil realtime MCU");
         root.addView(title);
 
         TextView note=new TextView(this);

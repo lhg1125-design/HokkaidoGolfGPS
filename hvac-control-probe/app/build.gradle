@@ -7,8 +7,8 @@ android {
         applicationId 'com.vwid.hvaccontrolprobe'
         minSdk 23
         targetSdk 28
-        versionCode 3
-        versionName '0.3-CONFIG-TRACE'
+        versionCode 4
+        versionName '0.4-CANBOX-VERSION-TRACE'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

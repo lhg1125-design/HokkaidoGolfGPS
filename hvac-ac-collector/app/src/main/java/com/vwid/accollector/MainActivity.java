@@ -8,7 +8,6 @@ import android.provider.MediaStore;
 import android.graphics.Color;
 import android.view.View;
 import android.widget.*;
-import org.json.JSONObject;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -31,18 +30,18 @@ public final class MainActivity extends Activity {
         root.setPadding(dp(20), dp(18), dp(20), dp(18));
         root.setBackgroundColor(Color.rgb(16, 17, 19));
         TextView title = new TextView(this);
-        title.setText("VWID AC Collector");
+        title.setText("VWID AC Collector 1.1");
         title.setTextSize(22);
         title.setTextColor(Color.WHITE);
         root.addView(title);
         TextView note = new TextView(this);
-        note.setText("차량에서 공조 APK를 읽어 ZIP으로 저장합니다. PC·ADB·루트 불필요. MCU 송신/공조 조작 없음.\n기존 HVAC Bridge와 런처는 변경하지 않습니다.");
+        note.setText("차량 내부에서 공조 제어 구현 APK를 심층 검색합니다. PC·ADB·루트 불필요.\nDEX 문자열을 읽기만 하며 MCU 송신/CAN 쓰기/공조 조작은 하지 않습니다.");
         note.setTextSize(14);
         note.setTextColor(Color.rgb(205, 205, 205));
         note.setPadding(0, dp(12), 0, dp(12));
         root.addView(note);
-        scanButton = button(root, "공조 APK 다시 찾기", v -> runScan());
-        saveButton = button(root, "ZIP 생성 · 다운로드 저장", v -> saveToDownloads());
+        scanButton = button(root, "공조 구현 APK 심층 검색", v -> runScan());
+        saveButton = button(root, "결과 ZIP 생성 · 다운로드 저장", v -> saveToDownloads());
         alternateButton = button(root, "다른 위치에 저장", v -> chooseDestination());
         shareButton = button(root, "저장한 ZIP 공유", v -> shareArchive());
         ScrollView scroll = new ScrollView(this);
@@ -54,7 +53,7 @@ public final class MainActivity extends Activity {
         scroll.addView(status);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
-        show("설치된 공조 패키지 확인 중…");
+        show("설치 APK와 DEX 공조 흔적 검색 중…");
         refreshButtons();
         runScan();
     }
@@ -82,7 +81,7 @@ public final class MainActivity extends Activity {
     private void runScan() {
         if (busy) return;
         setBusy(true);
-        show("설치된 공조 패키지 확인 중…");
+        show("설치 APK와 DEX 공조 흔적 검색 중… 잠시 기다리세요.");
         Context app = getApplicationContext();
         worker.execute(() -> {
             try {
@@ -90,14 +89,21 @@ public final class MainActivity extends Activity {
                 ui.post(() -> {
                     scan = result;
                     setBusy(false);
-                    StringBuilder text = new StringBuilder("수집 대상\n");
-                    for (String s : result.found) text.append("✓ ").append(s).append('\n');
-                    for (String s : result.missing) text.append("미설치/조회 불가: ").append(s).append('\n');
-                    if (!result.candidates.isEmpty()) {
-                        text.append("\n추가 공조 패키지 후보 (이름만 기록)\n");
-                        for (String s : result.candidates) text.append(s).append('\n');
+                    StringBuilder text = new StringBuilder();
+                    text.append("검색 완료 · 설치 패키지 ").append(result.installedPackagesScanned).append("개 확인\n\n");
+                    for (String s : result.found) text.append("정확한 대상 ✓ ").append(s).append('\n');
+                    for (String s : result.missing) text.append("정확한 대상 없음: ").append(s).append('\n');
+                    text.append("\nVendor/DEX 후보\n");
+                    int selected = 0;
+                    for (PackageCollector.Candidate c : result.candidates) {
+                        if (!c.copyApk) continue;
+                        selected++;
+                        text.append("✓ ").append(c.packageName);
+                        if (!c.markerHits.isEmpty()) text.append("\n   DEX: ").append(join(c.markerHits));
+                        text.append("\n   근거: ").append(c.reason).append('\n');
                     }
-                    text.append("\nZIP을 저장한 뒤 공유하세요. 대상이 없어도 진단 report.json을 저장할 수 있습니다.");
+                    if (selected == 0) text.append("뚜렷한 구현 APK 없음\n");
+                    text.append("\n결과 ZIP을 저장해 이 대화에 올려주세요.\n이번 버전은 후보 APK 자체도 함께 담습니다.");
                     show(text.toString());
                 });
             } catch (Throwable e) {
@@ -106,15 +112,22 @@ public final class MainActivity extends Activity {
         });
     }
 
+    private String join(Collection<String> values) {
+        StringBuilder s = new StringBuilder();
+        boolean first = true;
+        for (String v : values) { if (!first) s.append(", "); first=false; s.append(v); }
+        return s.toString();
+    }
+
     private String archiveName() {
-        return "VWID_AC_SOURCE_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".zip";
+        return "VWID_AC_DEEP_SOURCE_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".zip";
     }
     private void saveToDownloads() {
         if (busy || scan == null) return;
         if (Build.VERSION.SDK_INT < 29) { chooseDestination(); return; }
         PackageCollector.Scan selected = scan;
         setBusy(true);
-        show("Downloads/VWID_HVAC에 저장 중…");
+        show("Downloads/VWID_HVAC에 결과 ZIP 저장 중…");
         Context app = getApplicationContext();
         worker.execute(() -> {
             Uri uri = null;
@@ -130,10 +143,10 @@ public final class MainActivity extends Activity {
                 ContentValues done = new ContentValues();
                 done.put(MediaStore.MediaColumns.IS_PENDING, 0);
                 app.getContentResolver().update(uri, done, null, null);
-                success(uri, "저장 완료\nDownloads/VWID_HVAC\n\n공유 버튼으로 ZIP을 전달하세요.");
+                success(uri, "저장 완료\nDownloads/VWID_HVAC\n\n'저장한 ZIP 공유'로 이 대화에 전달하세요.");
             } catch (Throwable e) {
                 if (uri != null) try { app.getContentResolver().delete(uri, null, null); } catch (Throwable ignored) {}
-                failure("Downloads 저장 실패: " + e + "\n\n'다른 위치에 저장'으로 USB나 문서 폴더를 선택할 수 있습니다.");
+                failure("Downloads 저장 실패: " + e + "\n\n'다른 위치에 저장'을 사용하세요.");
             }
         });
     }
@@ -178,7 +191,7 @@ public final class MainActivity extends Activity {
         send.setType("application/zip");
         send.putExtra(Intent.EXTRA_STREAM, lastArchive);
         send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try { startActivity(Intent.createChooser(send, "공조 진단 ZIP 공유")); }
+        try { startActivity(Intent.createChooser(send, "공조 심층 진단 ZIP 공유")); }
         catch (Exception e) { show("공유 앱을 열 수 없습니다: " + e); }
     }
 }

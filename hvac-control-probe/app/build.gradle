@@ -1,0 +1,17 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.vwid.hvaccontrolprobe'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.vwid.hvaccontrolprobe'
+        minSdk 23
+        targetSdk 28
+        versionCode 1
+        versionName '0.1-VW-PROBE'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

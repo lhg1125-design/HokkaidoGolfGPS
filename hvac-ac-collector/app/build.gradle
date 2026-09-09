@@ -7,8 +7,8 @@ android {
         applicationId 'com.vwid.accollector'
         minSdk 23
         targetSdk 28
-        versionCode 3
-        versionName '1.2-HIDDEN-READONLY'
+        versionCode 4
+        versionName '1.3-CALLER-READONLY'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

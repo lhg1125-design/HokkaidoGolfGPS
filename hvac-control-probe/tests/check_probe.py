@@ -16,14 +16,16 @@ for forbidden in [
 ]:
     assert forbidden not in src, forbidden
 
-# Only factory read-only QueryCarActivity onResume queries + MCUdebug subscription are allowed.
-assert 'writeRead(0x010A)' in src
-assert 'writeRead(0x0112)' in src
-assert 'write2.invoke(tw,what,0x00FF)' in src
+# Read-only factory queries only. The 3-arg 0x010A query is copied from factory
+# BNR/RZC/XP/BXF/JFT CanBox update activities, which issue it on screen open.
+assert 'write2Read(0x010A)' in src
+assert 'write2Read(0x0112)' in src
+assert 'write3.invoke(tw,0x010A,0x00FF,1)' in src
 assert 'write3.invoke(tw,0x050D,1,1)' in src
 assert 'write3.invoke(tw,0x050D,1,0)' in src
 assert 'short[] events={(short)0x010A,(short)0x0112,(short)0x0501,(short)0x050D}' in src
-assert 'CONFIG RESPONSE' in src
+assert 'CANBOX RESPONSE' in src
+assert 'msg.arg1==1?Event.CANBOX:Event.MCU' in src
 assert 'LIVE HVAC RX' in src
-print('PASS: config trace has no HVAC control commands or boot/background control')
-print('PASS: factory 0x010A + 0x0112 read-only queries and MCUdebug capture are present')
+print('PASS: CanBox trace contains no HVAC control or boot/background control')
+print('PASS: exact factory read-only CanBox version query + MCU/config/HVAC capture present')

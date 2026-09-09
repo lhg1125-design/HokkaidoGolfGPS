@@ -1,0 +1,42 @@
+name: Build VWID HVAC Control Probe
+
+on:
+  push:
+    branches: [ hvac-bridge-r5-build ]
+    paths:
+      - 'hvac-control-probe/**'
+      - '.github/workflows/hvac-control-probe-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Guarded probe QA
+        run: python3 hvac-control-probe/tests/check_probe.py
+      - name: Build APK
+        working-directory: hvac-control-probe
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Rename APK
+        run: cp hvac-control-probe/app/build/outputs/apk/debug/app-debug.apk VWID_HVAC_CONTROL_PROBE_0_1.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VWID_HVAC_CONTROL_PROBE_0_1
+          path: VWID_HVAC_CONTROL_PROBE_0_1.apk
+          if-no-files-found: error

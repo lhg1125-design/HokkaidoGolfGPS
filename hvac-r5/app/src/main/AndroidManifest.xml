@@ -5,7 +5,7 @@
 
     <application
         android:theme="@android:style/Theme.Material.NoActionBar"
-        android:label="VWID HVAC Bridge R5.12.1 UI"
+        android:label="VWID HVAC Bridge R5.12.2 BOOT"
         android:allowBackup="false"
         android:directBootAware="true">
 
@@ -35,6 +35,9 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.vwid.hvacbridge.START_RETRY"/>
             </intent-filter>
         </receiver>
 

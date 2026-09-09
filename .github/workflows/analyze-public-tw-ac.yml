@@ -1,0 +1,98 @@
+name: Analyze Public TW AC APK
+
+on:
+  push:
+    branches: [ hvac-bridge-r5-build ]
+    paths:
+      - '.github/workflows/analyze-public-tw-ac.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Download public legacy TW AC APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          URL='https://raw.githubusercontent.com/erfanoabdi/allwinner_t3-p3_dump/5a3c66d042940f169fc9174edcfacba066ce2a82/system/etc/apk/com.tw.ac_c8e8.apk'
+          curl -fL --retry 3 --connect-timeout 20 "$URL" -o tw_ac_c8e8.apk
+          test "$(stat -c%s tw_ac_c8e8.apk)" -gt 10000
+          unzip -t tw_ac_c8e8.apk
+          sha256sum tw_ac_c8e8.apk | tee tw_ac_sha256.txt
+          unzip -l tw_ac_c8e8.apk | tee tw_ac_zip_list.txt
+
+      - name: Download JADX
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 3 https://github.com/skylot/jadx/releases/download/v1.5.3/jadx-1.5.3.zip -o jadx.zip
+          mkdir jadx
+          unzip -q jadx.zip -d jadx
+          chmod +x jadx/bin/jadx
+          jadx/bin/jadx --version
+
+      - name: Decompile legacy AC APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p tw_ac_decompiled
+          jadx/bin/jadx --show-bad-code --deobf -d tw_ac_decompiled tw_ac_c8e8.apk || true
+          test -d tw_ac_decompiled/sources
+
+      - name: Build command-evidence report
+        shell: bash
+        run: |
+          set -euxo pipefail
+          {
+            echo '# Legacy com.tw.ac_c8e8 static HVAC control evidence'
+            echo
+            echo 'Source: erfanoabdi/allwinner_t3-p3_dump, commit 5a3c66d042940f169fc9174edcfacba066ce2a82'
+            echo
+            echo '## APK SHA256'
+            cat tw_ac_sha256.txt
+            echo
+            echo '## TWUtil / write / extendedInterface references'
+            grep -RniE 'TWUtil|\.write\(|extendedInterface|AirService|IAirConditionController' tw_ac_decompiled/sources | head -n 1000 || true
+            echo
+            echo '## HVAC semantic references'
+            grep -RniE 'fan|wind|temperature|temp|dual|auto|a/c|ac_|aircondition|heat|seat|defrost|cool|warm|left|right' tw_ac_decompiled/sources | head -n 2500 || true
+            echo
+            echo '## Numeric event candidates'
+            grep -RniE '0x[0-9a-fA-F]{3,5}|1297|34074|2074|2075|0x0511|0x851A' tw_ac_decompiled/sources | head -n 2000 || true
+          } > TW_AC_LEGACY_ANALYSIS.md
+
+          grep -RliE 'TWUtil|extendedInterface|AirService|IAirConditionController|fan|temperature|dual|defrost' tw_ac_decompiled/sources \
+            | sort -u > interesting_files.txt || true
+
+      - name: Package analysis
+        shell: bash
+        run: |
+          set -euxo pipefail
+          zip -q -r TW_AC_LEGACY_DECOMPILED.zip tw_ac_decompiled TW_AC_LEGACY_ANALYSIS.md interesting_files.txt tw_ac_sha256.txt tw_ac_zip_list.txt
+
+      - name: Upload analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: TW_AC_LEGACY_DECOMPILED
+          path: |
+            TW_AC_LEGACY_ANALYSIS.md
+            interesting_files.txt
+            tw_ac_sha256.txt
+            tw_ac_zip_list.txt
+            TW_AC_LEGACY_DECOMPILED.zip
+            tw_ac_c8e8.apk
+          if-no-files-found: error

@@ -31,11 +31,12 @@ final class CombinedCollector {
 
             JSONObject hidden = HiddenAcCollector.collect(out, progress);
             putText(out, "hidden_ac_report.json", hidden.toString(2));
+            CallerCollector.collect(context, out, progress);
             putText(out, "README_KO.txt",
-                "VWID AC Collector 1.2 - HIDDEN HVAC READ ONLY\n\n" +
-                "Factory CarChoose code references /system/etc/apkx and com.tw.ac_c8e8. " +
-                "This build therefore scans those read-only system locations and copies only files with HVAC name/DEX evidence.\n" +
-                "No root, install, package unhide, MCU command, CAN write, service start, or vehicle control is performed.\n");
+                "VWID AC Collector 1.3 - CALLER TRACE READ ONLY\n\n" +
+                "This build combines three read-only searches: installed HVAC implementation evidence, hidden system APK locations, and installed DEX callers of the exported HVAC command bridge.\n" +
+                "caller_scan_report.json and caller_dex/ are intended to reveal the meaning of project=air data0/data1 without sending any vehicle command.\n" +
+                "No root, install, package unhide, MCU/CAN command, service start, broadcast, or network upload is performed.\n");
             out.finish();
             out.flush();
         } finally {

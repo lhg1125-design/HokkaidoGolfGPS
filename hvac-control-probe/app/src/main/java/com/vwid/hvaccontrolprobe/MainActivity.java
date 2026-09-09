@@ -10,7 +10,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public final class MainActivity extends Activity {
-    private TextView stateText, modelText, logText;
+    private TextView stateText, modelText, configText, logText;
     private Button connectButton, queryButton;
     private TwBridge bridge;
     private HvacState state = new HvacState();
@@ -29,13 +29,13 @@ public final class MainActivity extends Activity {
         root.setBackgroundColor(Color.rgb(15,16,18));
 
         TextView title = new TextView(this);
-        title.setText("VWID HVAC MODEL TRACE 0.2");
+        title.setText("VWID HVAC CONFIG TRACE 0.3");
         title.setTextSize(21);
         title.setTextColor(Color.WHITE);
         root.addView(title);
 
         TextView note = new TextView(this);
-        note.setText("차량 제어 명령은 보내지 않습니다. 현재 Ownice/CanBox 모델 응답과 HVAC RX만 수집합니다.\n물리 FAN 버튼은 차량→CAN→헤드유닛 RX이므로 Android TX 프레임이 보이지 않는 것이 정상일 수 있습니다.");
+        note.setText("차량 제어 명령은 보내지 않습니다. 순정 QueryCarActivity가 onResume에서 사용하는 0x010A/0x0112 읽기 요청과 HVAC RX만 수집합니다.\nCONFIG(0x0112) 값으로 실제 차량/CanBox 설정을 좁힙니다.");
         note.setTextSize(13);
         note.setTextColor(Color.rgb(205,205,205));
         note.setPadding(0,dp(5),0,dp(7));
@@ -43,16 +43,23 @@ public final class MainActivity extends Activity {
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        connectButton = button(row,"1. CONNECT + MODEL QUERY",v -> connect());
-        queryButton = button(row,"2. QUERY AGAIN",v -> queryModel());
+        connectButton = button(row,"1. CONNECT + READ CONFIG",v -> connect());
+        queryButton = button(row,"2. QUERY AGAIN",v -> queryAll());
         root.addView(row);
 
         modelText = new TextView(this);
-        modelText.setText("MODEL: waiting");
-        modelText.setTextSize(18);
+        modelText.setText("MCU MODEL: waiting");
+        modelText.setTextSize(17);
         modelText.setTextColor(Color.rgb(255,190,115));
-        modelText.setPadding(0,dp(6),0,dp(3));
+        modelText.setPadding(0,dp(6),0,dp(2));
         root.addView(modelText);
+
+        configText = new TextView(this);
+        configText.setText("CAR CONFIG: waiting for 0x0112");
+        configText.setTextSize(20);
+        configText.setTextColor(Color.rgb(255,220,150));
+        configText.setPadding(0,dp(2),0,dp(3));
+        root.addView(configText);
 
         stateText = new TextView(this);
         stateText.setText("STATE: waiting live HVAC RX");
@@ -91,10 +98,12 @@ public final class MainActivity extends Activity {
         bridge.connect();
     }
 
-    private void queryModel() {
+    private void queryAll() {
         if(bridge==null || !bridge.isConnected()) return;
-        int rc=bridge.queryModel();
-        append("MODEL QUERY · TWUtil.write(0x010A,0x00FF) · rc="+rc);
+        int rc1=bridge.queryModel();
+        int rc2=bridge.queryConfig();
+        append("QUERY MCU MODEL · TWUtil.write(0x010A,0x00FF) · rc="+rc1);
+        append("QUERY CAR CONFIG · TWUtil.write(0x0112,0x00FF) · rc="+rc2);
     }
 
     private void onBridgeEvent(TwBridge.Event e) {
@@ -103,12 +112,15 @@ public final class MainActivity extends Activity {
                 case TwBridge.Event.CONNECTED:
                     append("CONNECTED · open rc="+e.rc+" · RX-debug rc="+e.extra);
                     refreshButtons();
-                    int rc=bridge.queryModel();
-                    append("AUTO MODEL QUERY · TWUtil.write(0x010A,0x00FF) · rc="+rc);
+                    queryAll();
                     break;
                 case TwBridge.Event.MODEL:
-                    modelText.setText("MODEL: "+e.text);
+                    modelText.setText("MCU MODEL: "+e.text);
                     append("MODEL RESPONSE · "+e.text);
+                    break;
+                case TwBridge.Event.CONFIG:
+                    configText.setText("CAR CONFIG: "+e.text);
+                    append("CONFIG RESPONSE · "+e.text);
                     break;
                 case TwBridge.Event.RX_STATE:
                     HvacState parsed=HvacState.fromPayload(e.payload);
@@ -165,7 +177,7 @@ public final class MainActivity extends Activity {
     static final class TwBridge {
         interface Listener { void event(Event e); }
         static final class Event {
-            static final int CONNECTED=1, ERROR=2, MODEL=3, RX_STATE=4, RAW_EVENT=5;
+            static final int CONNECTED=1, ERROR=2, MODEL=3, CONFIG=4, RX_STATE=5, RAW_EVENT=6;
             final int kind,rc,extra; final String text; final byte[] payload;
             Event(int kind,String text,int rc,int extra,byte[] payload){this.kind=kind;this.text=text;this.rc=rc;this.extra=extra;this.payload=payload;}
             static Event text(int kind,String text){return new Event(kind,text,0,0,null);}
@@ -186,7 +198,7 @@ public final class MainActivity extends Activity {
 
         void connect() {
             if(thread!=null) return;
-            thread=new HandlerThread("VWID-HVAC-MODEL-TRACE",android.os.Process.THREAD_PRIORITY_DISPLAY);
+            thread=new HandlerThread("VWID-HVAC-CONFIG-TRACE",android.os.Process.THREAD_PRIORITY_DISPLAY);
             thread.start();
             handler=new Handler(thread.getLooper()) {
                 @Override public void handleMessage(Message msg){onMessage(msg);}
@@ -202,12 +214,12 @@ public final class MainActivity extends Activity {
                 } catch(NoSuchMethodException e) {
                     Constructor<?> c=cls.getDeclaredConstructor(int.class); c.setAccessible(true); tw=c.newInstance(0x11);
                 }
-                short[] events={(short)0x010A,(short)0x0501,(short)0x050D};
+                short[] events={(short)0x010A,(short)0x0112,(short)0x0501,(short)0x050D};
                 Object orc=cls.getMethod("open",short[].class).invoke(tw,(Object)events);
                 int openRc=orc instanceof Number?((Number)orc).intValue():0;
                 if(openRc!=0) throw new IllegalStateException("TWUtil.open rc="+openRc);
                 cls.getMethod("start").invoke(tw);
-                cls.getMethod("addHandler",String.class,Handler.class).invoke(tw,"VWIDHVACMODELTRACE",handler);
+                cls.getMethod("addHandler",String.class,Handler.class).invoke(tw,"VWIDHVACCONFIGTRACE",handler);
                 write2=cls.getMethod("write",int.class,int.class);
                 write3=cls.getMethod("write",int.class,int.class,int.class);
                 removeHandler=cls.getMethod("removeHandler",String.class);
@@ -223,13 +235,15 @@ public final class MainActivity extends Activity {
             }
         }
 
-        int queryModel() {
+        int queryModel() { return writeRead(0x010A); }
+        int queryConfig() { return writeRead(0x0112); }
+        private int writeRead(int what) {
             if(!connected || tw==null || write2==null) return -999;
             try {
-                Object r=write2.invoke(tw,0x010A,0x00FF);
+                Object r=write2.invoke(tw,what,0x00FF);
                 return r instanceof Number?((Number)r).intValue():0;
             } catch(Throwable e) {
-                listener.event(Event.text(Event.ERROR,"model query failed: "+rootMessage(e)));
+                listener.event(Event.text(Event.ERROR,String.format(Locale.US,"read 0x%04X failed: %s",what,rootMessage(e))));
                 return -998;
             }
         }
@@ -240,6 +254,12 @@ public final class MainActivity extends Activity {
                     String obj=describeObj(msg.obj);
                     String text=String.format(Locale.US,"what=010A arg1=%d(0x%X) arg2=%d(0x%X) obj=%s",msg.arg1,msg.arg1,msg.arg2,msg.arg2,obj);
                     listener.event(Event.text(Event.MODEL,text));
+                    return;
+                }
+                if(msg.what==0x0112) {
+                    String obj=describeObj(msg.obj);
+                    String text=String.format(Locale.US,"mConfig=%d (0x%X) · arg2=%d (0x%X) · obj=%s",msg.arg1,msg.arg1,msg.arg2,msg.arg2,obj);
+                    listener.event(Event.text(Event.CONFIG,text));
                     return;
                 }
                 if(msg.what==0x0501) {
@@ -300,7 +320,7 @@ public final class MainActivity extends Activity {
         void close() {
             connected=false;
             try{if(tw!=null&&write3!=null)write3.invoke(tw,0x050D,1,0);}catch(Throwable ignored){}
-            try{if(tw!=null&&removeHandler!=null)removeHandler.invoke(tw,"VWIDHVACMODELTRACE");}catch(Throwable ignored){}
+            try{if(tw!=null&&removeHandler!=null)removeHandler.invoke(tw,"VWIDHVACCONFIGTRACE");}catch(Throwable ignored){}
             try{if(tw!=null&&stop!=null)stop.invoke(tw);}catch(Throwable ignored){}
             try{if(tw!=null&&close!=null)close.invoke(tw);}catch(Throwable ignored){}
             if(thread!=null){thread.quitSafely();thread=null;}

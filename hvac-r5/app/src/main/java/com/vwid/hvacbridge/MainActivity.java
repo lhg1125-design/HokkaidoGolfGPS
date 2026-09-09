@@ -21,7 +21,6 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
 
-        // Remove obsolete R5.8 calibration leftovers.
         HvacStore.prefs(this).edit()
             .remove("ac_cal_valid")
             .remove("ac_mask")
@@ -37,7 +36,7 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this);
         title.setTextColor(Color.WHITE);
         title.setTextSize(20);
-        title.setText("VWID HVAC Bridge R5.12.1 UI\nOwnice TWUtil realtime MCU");
+        title.setText("VWID HVAC Bridge R5.12.2 BOOT\nOwnice TWUtil realtime MCU");
         root.addView(title);
 
         TextView note=new TextView(this);
@@ -61,20 +60,11 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams.MATCH_PARENT,0,1f));
 
         start.setOnClickListener(v -> {
-            SharedPreferences hp=HvacStore.prefs(this);
-            hp.edit()
+            HvacStore.prefs(this).edit()
                 .putBoolean("live_autostart",true)
                 .putString("live_error","")
                 .apply();
-
-            if(hp.getBoolean("snapshot_valid",false)) {
-                hp.edit().putString("sync_source","CACHE_MANUAL_START").apply();
-                try { HvacWidgetBase.updateAll(this); } catch(Throwable ignored) {}
-            }
-
-            Intent s=new Intent(this,TwUtilMcuService.class);
-            if(Build.VERSION.SDK_INT>=26) startForegroundService(s);
-            else startService(s);
+            BootReceiver.startIfEnabled(this,"MANUAL_START");
         });
 
         stop.setOnClickListener(v -> {
@@ -85,6 +75,9 @@ public class MainActivity extends Activity {
         });
 
         setContentView(root);
+        // Default-on boot preference; an explicit STOP remains an opt-out.
+        // Reopening the app no longer requires pressing START.
+        BootReceiver.startIfEnabled(this,"APP_OPEN");
     }
 
     private Button button(String s){
@@ -102,8 +95,12 @@ public class MainActivity extends Activity {
 
         StringBuilder x=new StringBuilder();
         x.append("\nBRIDGE: ").append(p.getString("live_status","IDLE"));
-        x.append("\nSYNC: ").append(p.getString("sync_source","-"));
+        x.append("\nAUTO START: ").append(p.getBoolean("live_autostart",true));
         x.append("\nBOOT event: ").append(p.getString("boot_event","-"));
+        x.append("\nBOOT start: ").append(p.getString("boot_start_result","-"));
+        String bootError=p.getString("boot_start_error","");
+        if(!bootError.isEmpty()) x.append("\nBOOT error: ").append(bootError);
+        x.append("\nSYNC: ").append(p.getString("sync_source","-"));
         x.append("\nFirst LIVE delay: ").append(p.contains("first_live_delay_ms")
             ? p.getLong("first_live_delay_ms",-1)+" ms" : "-");
         x.append("\nSnapshot age: ").append(p.contains("snapshot_saved_ms")

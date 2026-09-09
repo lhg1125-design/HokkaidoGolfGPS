@@ -6,12 +6,13 @@
         <package android:name="com.zht.car.accontroller" />
         <package android:name="com.tw.service.xt" />
     </queries>
-    <application android:allowBackup="false" android:label="VWID AC Collector" android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="false">
-        <activity android:name=".MainActivity" android:exported="true">
+    <application android:allowBackup="false" android:label="VWID AC Collector 1.2" android:theme="@android:style/Theme.Material.NoActionBar" android:usesCleartextTraffic="false">
+        <activity android:name=".HiddenCollectorActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".MainActivity" android:exported="false" />
     </application>
 </manifest>

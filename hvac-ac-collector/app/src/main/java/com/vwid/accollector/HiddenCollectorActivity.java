@@ -29,19 +29,19 @@ public final class HiddenCollectorActivity extends Activity {
         root.setBackgroundColor(Color.rgb(16,17,19));
 
         TextView title = new TextView(this);
-        title.setText("VWID AC Collector 1.2");
+        title.setText("VWID AC Collector 1.3 CALLER");
         title.setTextSize(23);
         title.setTextColor(Color.WHITE);
         root.addView(title);
 
         TextView note = new TextView(this);
-        note.setText("차량 자체에서 숨겨진 공조 APK까지 읽습니다.\n공장 CarChoose 코드에서 확인된 /system/etc/apkx 및 com.tw.ac_c8e8 경로를 우선 검색합니다.\n\n읽기 전용: MCU/CAN 송신, 패키지 설치·해제·unhide, 공조 조작 없음.");
+        note.setText("차량 자체에서 공조 제어 명령을 호출하는 APK/DEX까지 찾습니다.\n설치 공조 후보 + 숨은 시스템 경로 + project=air / data0 / data1 호출 흔적을 한 번에 수집합니다.\n\n읽기 전용: 실제 공조 명령 송신, 서비스 실행, CAN 조작 없음.");
         note.setTextSize(14);
         note.setTextColor(Color.rgb(210,210,210));
         note.setPadding(0,dp(12),0,dp(14));
         root.addView(note);
 
-        collectButton = button(root,"숨은 공조 APK 수집 ZIP 생성",v -> collect());
+        collectButton = button(root,"공조 CALLER 추적 ZIP 생성",v -> collect());
         shareButton = button(root,"생성한 ZIP 공유",v -> share());
         shareButton.setEnabled(false);
 
@@ -54,7 +54,7 @@ public final class HiddenCollectorActivity extends Activity {
         scroll.addView(status);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         setContentView(root);
-        show("준비 완료. 첫 버튼을 누르면 차량 내부에서만 수집합니다.");
+        show("준비 완료. 첫 버튼을 누르면 차량 내부 APK/DEX를 읽기만 합니다.");
     }
 
     private Button button(LinearLayout parent,String text,View.OnClickListener l) {
@@ -64,12 +64,12 @@ public final class HiddenCollectorActivity extends Activity {
     private int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+0.5f);}
     private void show(String s){status.setText(s);}
     private void post(String s){ui.post(() -> { if(!isFinishing()&&!isDestroyed()) show(s); });}
-    private String archiveName(){return "VWID_AC_HIDDEN_SOURCE_"+new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(new Date())+".zip";}
+    private String archiveName(){return "VWID_AC_CALLER_SOURCE_"+new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(new Date())+".zip";}
 
     private void collect() {
         if(busy) return;
         busy=true; collectButton.setEnabled(false); shareButton.setEnabled(false);
-        show("설치 APK + /system/etc/apkx 숨은 공조 APK 검색 중…");
+        show("설치 APK + 숨은 경로 + 공조 CALLER DEX 검색 중…\n앱 수에 따라 조금 걸릴 수 있습니다.");
         Context app=getApplicationContext();
         worker.execute(() -> {
             Uri uri=null;
@@ -91,7 +91,7 @@ public final class HiddenCollectorActivity extends Activity {
                 final Uri saved=uri;
                 ui.post(() -> {
                     lastArchive=saved; busy=false; collectButton.setEnabled(true); shareButton.setEnabled(true);
-                    show("수집 완료\nDownloads/VWID_HVAC\n\n'생성한 ZIP 공유'로 이 대화에 올려주세요.");
+                    show("CALLER 추적 완료\nDownloads/VWID_HVAC\n\n'생성한 ZIP 공유'로 이 대화에 올려주세요.");
                 });
             } catch(Throwable e) {
                 if(uri!=null) try{app.getContentResolver().delete(uri,null,null);}catch(Throwable ignored){}
@@ -107,7 +107,7 @@ public final class HiddenCollectorActivity extends Activity {
         send.setType("application/zip");
         send.putExtra(Intent.EXTRA_STREAM,lastArchive);
         send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try{startActivity(Intent.createChooser(send,"숨은 공조 APK ZIP 공유"));}
+        try{startActivity(Intent.createChooser(send,"공조 CALLER 추적 ZIP 공유"));}
         catch(Throwable e){show("공유 화면 실패: "+e);}
     }
 }
